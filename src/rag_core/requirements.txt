@@ -1,0 +1,10 @@
+sentence-transformers==5.1.1
+rank-bm25==0.2.2
+langchain==0.3.27
+langchain-core==0.3.78
+langchain-community==0.3.30
+chromadb==1.1.1
+pydantic==2.11.10
+pypdf==6.1.1
+uvicorn==0.37.0
+fastapi==0.118.0
