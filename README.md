@@ -58,7 +58,7 @@ data/
 
 Use the provided Makefile commands to set up the environment, process documents, and start the chat application.
 
-1. **Build Environment (Install Dependencies):**
+1. **Build Docker Project:**
 
 ```bash
 make
