@@ -96,7 +96,7 @@ def get_ensemble_retriever() -> Optional[EnsembleRetriever]:
 		_EMSEMBLE_RETRIEVER = initialize_retrievers()
 	return _EMSEMBLE_RETRIEVER
 
-def build_prompt_with_context(query: str, context: List[str], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, str]]]:
+def build_prompt_with_context(query: str, context: List[str], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
 	"""
 	Build the final prompt to send to the LLM, including RAG context and history.
 
@@ -127,7 +127,7 @@ def build_prompt_with_context(query: str, context: List[str], history: List[Dict
 	messages.append({"role": "user", "content": query})
 	return system_instruction, messages
 
-async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
+async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
 	"""
 	Execute the whole RAG flow: Retrieval, Context Building and LLm call.
 	

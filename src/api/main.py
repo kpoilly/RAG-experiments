@@ -74,7 +74,7 @@ def run_chatbot_cli():
 			data = response.json()
 			rag_reponse = data.get("response", "Error: No response from LLM.")
 
-			print(f"\n[ASSISTANT] {rag_reponse}\n")
+			print(f"\nMichel: {rag_reponse}\n")
 			chat_history.append({"role": "assistant", "content": rag_reponse})
 
 		except requests.exceptions.RequestException as e:

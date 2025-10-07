@@ -2,7 +2,7 @@ import os
 import logging
 import asyncio
 
-from typing import List, Dict
+from typing import List, Dict, Any
 from pydantic import BaseModel
 
 from fastapi import FastAPI, HTTPException
@@ -16,17 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 # --- Pydantic models ---
-class Message(BaseModel):
-	role: str
-	content: str
-
 class GenerationRequest(BaseModel):
 	query: str
 	history: List[Dict[str, str]]
 
 class GenerationResponse(BaseModel):
 	response: str
-	source_chunks: List[str]
+	source_chunks: List[Dict[str, Any]]
 	status: str
 
 class IngestionResponse(BaseModel):
