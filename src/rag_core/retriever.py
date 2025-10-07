@@ -117,12 +117,12 @@ def build_prompt_with_context(query: str, context: List[str], history: List[Dict
 	else:
 		strict_rule = ("If the answer is not found in the CONTEXT, you must answer using your own knowledge but by basing yourself on and favoring the answers found in the CONTEXT.")
 	system_instruction = (
-		"You are an expert RAG (Retrieval-Augmented Generation) assistant, specializing in document analysis. Your objective is to provide factual, accurate, and concise answers based on the reference documents provided below.\n\n"
+		"You are an expert RAG (Retrieval-Augmented Generation) assistant, specializing in document analysis. Your objective is to provide factual, accurate, and concise answers mainly based on the reference documents provided below.\n\n"
 		"--- REFERENCE CONTEXT ---\n"
 		f"{context_text}\n"
 		"--- END OF REFERENCE CONTEXT ---\n"
 		"Rules:\n"
-		"1. If the answer is fully contained within the CONTEXT, answer comprehensively ONLY using the CONTEXT.\n"
+		"1. If the answer is fully contained within the CONTEXT, answer comprehensively using the CONTEXT.\n"
 		f"2. {strict_rule}\n"
 	)
 	messages = [
