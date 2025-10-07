@@ -35,16 +35,28 @@ The core of the system is enhancing information retrieval for the LLM.
 
 ### 1. Environment Configuration
 
-Define your API key and parameters in a **`.env`** file at the project root:
+# RAG Assistant (Retrieval-Augmented Generation)
 
-```
-GROQ_API_KEY (Mandatory)
-LLM_MODEL (Optional, default is "llama-3.1-8b-instant")
-EMBEDDING_MODEL (Optional, default is "intfloat/multilingual-e5-large")
-MAX_CONTEXT_TOKEN (Optional, default is 4000)
-CHUNK_SIZE (Optional, default is 1000)
-CHUNK_OVERLAP (Optional, default is 200)
-```
+This service implements a hybrid RAG flow using the RRF (Reciprocal Rank Fusion) algorithm to combine results from a dense search engine (vector-based, using embeddings) and a sparse search engine (keyword-based, BM25).
+
+The service is designed to interact with a vector database (ChromaDB) and an LLM gateway (`llm-gateway`) to generate responses anchored in reference documents.
+
+---
+
+## Environment Variables Configuration
+
+The service's behavior is controlled by the following environment variables. They must be defined in your `.env` file or when launching the application.
+
+| Variable | Default Value | Description | Usage |
+| :--- | :--- | :--- | :--- |
+| **GROQ_API_KEY** | (None) | API key required for accessing the **Groq platform**, which hosts the selected LLM model for high-speed inference. | Authentication and authorization for LLM calls via the gateway. |
+| **LLM_MODEL** | `llama-3.1-8b-instant` | Name of the LLM model to call via the gateway. Ensure this model is available in your `llm-gateway`. | Defines the model used for final response generation. |
+| **EMBEDDING_MODEL** | `intfloat/multilingual-e5-large` | Name of the model used to generate vector embeddings for indexing and querying documents. | Defines the embedding function used by the vector database (ChromaDB) for dense search. |
+| **MAX_CONTEXT_TOKENS** | `4000` | Maximum context size (in tokens) that the LLM can accept. **Important**: This value is used to determine the maximum number of document chunks (`CHUNK_SIZE`) to include in the prompt. | Limits the amount of document content sent to the LLM to prevent context overflow. |
+| **CHUNK_SIZE** | `1000` | Estimated size (in tokens) of an indexed document chunk. | Used to calculate the number of chunks to select: `MAX_CONTEXT_TOKENS / CHUNK_SIZE`. |
+| **LLM_STRICT_RAG** | `True` | Determines whether the model can use its internal knowledge. If **`True`**, the system instruction **forces** the model to respond ONLY with the provided context. If it cannot find the answer, it must explicitly state so (Strict RAG mode). If **`False`** (Relaxed RAG mode), the model is allowed to use its general knowledge when the context is insufficient. **WARNING**: Setting this to `False` may lead to answers that are not 100% faithful to the document and potentially increase the risk of **hallucinations**. |
+
+Define your API key and parameters in a **`.env`** file at the **project root**.
 
 ### 2. Adding Source Documents
 
