@@ -1,11 +1,13 @@
 import os
+import json
 import logging
 
-from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
-from groq import Groq
 from typing import List
+
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from groq import Groq
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -54,14 +56,38 @@ async def chat(request: LLMRequest):
 	Receive final prompt (context + rag + prompt) and call the llm.
 	"""
 
+	# messages = [msg.model_dump() for msg in request.messages]
+	# try:
+	# 	chat_completion = client.chat.completions.create(
+	# 		messages=messages,
+	# 		model=request.model,
+	# 		temperature=0.0)
+	# 	response = chat_completion.choices[0].message.content
+	# 	logger.info(f"LLM call done. Total Time: {chat_completion.usage.total_time} Total Tokens: {chat_completion.usage.total_tokens}.")
+	# 	return LLMResponse(response=response, model=request.model, status='success')
+	# except Exception as e:
+	# 	raise HTTPException(status_code=500, detail=str(e))
+
+	def groq_streaming_generator(messages, model):
+		try:
+			chat_completion = client.chat.completions.create(
+				messages=messages,
+				model=model,
+				temperature=0.0,
+				stream=True
+			)
+
+			for chunk in chat_completion:
+				content = chunk.choices[0].delta.content
+				if content:
+					data = {"text": content, "model": model, "status": "streaming"}
+					yield json.dumps(data) + "\n"
+		except Exception as e:
+			logger.error(f"Error during Groq streaming: {e}")
+			yield json.dumps({"text": f"error: {str(e)}", "model": model, "status": "error"}) + "\n"
+		
 	messages = [msg.model_dump() for msg in request.messages]
-	try:
-		chat_completion = client.chat.completions.create(
-			messages=messages,
-			model=request.model,
-			temperature=0.0)
-		response = chat_completion.choices[0].message.content
-		logger.info(f"LLM call done. Total Time: {chat_completion.usage.total_time} Total Tokens: {chat_completion.usage.total_tokens}.")
-		return LLMResponse(response=response, model=request.model, status='success')
-	except Exception as e:
-		raise HTTPException(status_code=500, detail=str(e))
+	return StreamingResponse(
+		content=groq_streaming_generator(messages, request.model),
+		media_type="application/x-ndjson"
+	)

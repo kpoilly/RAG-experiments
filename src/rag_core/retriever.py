@@ -174,6 +174,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 			unique_metadatas.append(metadata)
 
 	system_instruction, messages = build_prompt_with_context(query, context_texts, history)
+	full_response = ""
 	try:
 		request_data = LLMRequest(
 			messages=messages,
@@ -189,10 +190,10 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 		async with httpx.AsyncClient(timeout=120.0) as client:
 			async with client.stream("POST", LLM_GATEWAY_URL, json=request_data.model_dump()) as response:
 				response.raise_for_status()
-				async for line in response.aiter_lines():
-					if line:
+				async for chunk in response.aiter_lines():
+					if chunk:
 						try:
-							data = json.load(line)
+							data = json.loads(chunk)
 							text_chunk = data.get("text", "")
 							if text_chunk:
 								full_response += text_chunk

@@ -79,7 +79,7 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
 @app.post("/chat")
 async def generate(request: GenerationRequest):
 	try:
-		response_generator = await orchestrate_rag_flow(request.query, request.history)
+		response_generator = orchestrate_rag_flow(request.query, request.history)
 		return StreamingResponse(
 			content=response_generator,
 			media_type="application/jsonlines"
