@@ -41,7 +41,7 @@ The service's behavior is controlled by the following environment variables. The
 | :--- | :--- | :--- | :--- |
 | **GROQ_API_KEY** | (None) | API key required for accessing the **Groq platform**, which hosts the selected LLM model for high-speed inference. | Authentication and authorization for LLM calls via the gateway. |
 | **LLM_MODEL** | `llama-3.1-8b-instant` | Name of the LLM model to call via the gateway. Ensure this model is available in your `llm-gateway`. | Defines the model used for final response generation. |
-| **EMBEDDING_MODEL** | `intfloat/multilingual-e5-large` | Name of the model used to generate vector embeddings for indexing and querying documents. | Defines the embedding function used by the vector database (ChromaDB) for dense search. |
+| **EMBEDDING_MODEL** | `intfloat/multilingual-e5-small` | Name of the model used to generate vector embeddings for indexing and querying documents. | Defines the embedding function used by the vector database (ChromaDB) for dense search. |
 | **MAX_CONTEXT_TOKENS** | `4000` | Maximum context size (in tokens) that the LLM can accept. **Important**: This value is used to determine the maximum number of document chunks (`CHUNK_SIZE`) to include in the prompt. | Limits the amount of document content sent to the LLM to prevent context overflow. |
 | **CHUNK_SIZE** | `1000` | Estimated size (in tokens) of an indexed document chunk. | Used to calculate the number of chunks to select: `MAX_CONTEXT_TOKENS / CHUNK_SIZE`. |
 | **CHUNK_OVERLAP** | `200` | Number of tokens that will overlap between sequential document chunks during the initial splitting and indexing process. | Ensures context is preserved when splitting documents, improving retrieval quality. |
