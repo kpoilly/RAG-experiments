@@ -1,4 +1,6 @@
+from ast import mod
 import os
+import torch
 import glob
 import logging
 
@@ -20,7 +22,7 @@ CHROMA_HOST = os.environ.get("CHROMA_HOST", "chromadb")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
 
 COLLECTION_NAME = "rag_documents_collection"
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-large")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", 200))
 
@@ -51,7 +53,9 @@ def get_embeddings():
 	"""
 	Load the embeddings model.
 	"""
-	return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+	device = "cuda" if torch.cuda.is_available() else "cpu"
+	logger.info(f"Using device: {device}")
+	return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={"device": device})
 
 def process_and_index_documents(data_dir: str = "app/src/data") -> int:
 	"""
