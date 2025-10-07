@@ -1,4 +1,4 @@
-import os
+import json
 import time
 import logging
 
@@ -69,13 +69,31 @@ def run_chatbot_cli():
 				"query": user_input,
 				"history": chat_history
 			}
-			response = requests.post(RAG_CORE_URL, json=request_payload, timeout=60)
-			response.raise_for_status()
-			data = response.json()
-			rag_reponse = data.get("response", "Error: No response from LLM.")
+			with requests.post(RAG_CORE_URL, json=request_payload, stream=True, timeout=120) as response:
+				response.raise_for_status()
 
-			print(f"\nMichel: {rag_reponse}\n")
-			chat_history.append({"role": "assistant", "content": rag_reponse})
+				full_response = ""
+				print("\nMichel: ", end="", flush=True)
+				for line in response.iter_lines():
+					if line:
+						try:
+							chunk = json.loads(line.decode('utf-8'))
+							print(chunk["content"], end="", flush=True)
+							full_response += chunk["content"]
+						except json.JSONDecodeError:
+							logger.warning(f"Failed to decode JSON chunk: {line.decode('utf-8')}")
+							continue
+				print("\n")
+				if full_response:
+					chat_history.append({"role": "assistant", "content": full_response})
+
+			# response = requests.post(RAG_CORE_URL, json=request_payload, timeout=60)
+			# response.raise_for_status()
+			# data = response.json()
+			# rag_reponse = data.get("response", "Error: No response from LLM.")
+
+			# print(f"\nMichel: {rag_reponse}\n")
+			# chat_history.append({"role": "assistant", "content": rag_reponse})
 
 		except requests.exceptions.RequestException as e:
 			logger.error(f"Request failed: {e}")
