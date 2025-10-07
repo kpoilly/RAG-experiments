@@ -22,7 +22,7 @@ class GenerationRequest(BaseModel):
 
 class GenerationResponse(BaseModel):
 	response: str
-	source_chunks: List[Dict[str, Any]]
+	source_chunks: List[str]
 	status: str
 
 class IngestionResponse(BaseModel):
@@ -73,3 +73,4 @@ async def generate(request: GenerationRequest):
 	except Exception as e:
 		logger.error(f"An unexpected error occurred: {e}")
 		raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+	

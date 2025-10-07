@@ -160,9 +160,8 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Lis
 	
 	for doc in retrieved_docs:
 		if len(context_texts) < max_chunks:
-			source_metadatas.append(doc.metadata)
-			context_texts.append(doc.page_content)
-			source_metadatas.append(doc.metadata)
+			source_metadatas.append(doc.metadata.get("source", "N/A"))
+			context_texts.append(doc.page_content.replace('\xa0\udcc3', ' ').strip())
 		else:
 			break
 	if not context_texts:
