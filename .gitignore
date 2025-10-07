@@ -1,2 +1,2 @@
 .env
-./src/rag_core/data/*.pdf
+data/*.pdf
