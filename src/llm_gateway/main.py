@@ -1,10 +1,15 @@
 import os
+import logging
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from groq import Groq
-from typing import List, Dict
+from typing import List
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 # --- Pydantic models ---
@@ -56,6 +61,7 @@ async def chat(request: LLMRequest):
 			model=request.model,
 			temperature=0.0)
 		response = chat_completion.choices[0].message.content
+		logger.info(f"LLM call done. Total Time: {chat_completion.usage.total_time} Total Tokens: {chat_completion.usage.total_tokens}.")
 		return LLMResponse(response=response, model=request.model, status='success')
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=str(e))

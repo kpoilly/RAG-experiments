@@ -1,3 +1,4 @@
+from email.policy import strict
 import os
 import httpx
 import logging
@@ -21,6 +22,7 @@ LLM_MODEL=os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
 LLM_GATEWAY_URL = os.environ.get("LLM_GATEWAY_URL", "http://llm-gateway:8002/chat")
 MAX_CONTEXT_TOKENS = int(os.environ.get("MAX_CONTEXT_TOKENS", 4000))
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
+LLM_STRICT_RAG = bool(os.environ.get("LLM_STRICT_RAG", True))
 
 
 # --- Pydantic models ---
@@ -110,14 +112,18 @@ def build_prompt_with_context(query: str, context: List[str], history: List[Dict
 	"""
 
 	context_text = "\n\n".join(context)
+	if LLM_STRICT_RAG:
+		strict_rule = ("If the answer is not found in the CONTEXT, you must explicitly state: 'Sorry, I cannot answer this question as the information is not available in my reference documents.'")
+	else:
+		strict_rule = ("If the answer is not found in the CONTEXT, you must answer using your own knowledge but by basing yourself on and favoring the answers found in the CONTEXT.")
 	system_instruction = (
-		"You are an expert RAG (Retrieval-Augmented Generation) assistant, specializing in document analysis. Your objective is to provide factual, accurate, and concise answers based ONLY on the reference documents provided below.\n\n"
+		"You are an expert RAG (Retrieval-Augmented Generation) assistant, specializing in document analysis. Your objective is to provide factual, accurate, and concise answers based on the reference documents provided below.\n\n"
 		"--- REFERENCE CONTEXT ---\n"
 		f"{context_text}\n"
 		"--- END OF REFERENCE CONTEXT ---\n"
 		"Rules:\n"
-		"1. If the answer is fully contained within the CONTEXT, answer comprehensively.\n"
-		"2. If the answer is not found in the CONTEXT, you must explicitly state: 'Sorry, I cannot answer this question as the information is not available in my reference documents.'\n"
+		"1. If the answer is fully contained within the CONTEXT, answer comprehensively ONLY using the CONTEXT.\n"
+		f"2. {strict_rule}\n"
 	)
 	messages = [
 		{"role": "system", "content": system_instruction},	
