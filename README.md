@@ -33,17 +33,7 @@ The core of the system is enhancing information retrieval for the LLM.
 
 ## 🚀 Quick Start
 
-### 1. Environment Configuration
-
-# RAG Assistant (Retrieval-Augmented Generation)
-
-This service implements a hybrid RAG flow using the RRF (Reciprocal Rank Fusion) algorithm to combine results from a dense search engine (vector-based, using embeddings) and a sparse search engine (keyword-based, BM25).
-
-The service is designed to interact with a vector database (ChromaDB) and an LLM gateway (`llm-gateway`) to generate responses anchored in reference documents.
-
----
-
-## Environment Variables Configuration
+### 1. Environment Variables Configuration
 
 The service's behavior is controlled by the following environment variables. They must be defined in your `.env` file or when launching the application.
 
