@@ -49,17 +49,17 @@ def run_chatbot_cli():
 
 	run_ingestion()
 	
-	print("\n" + "="*50)
-	print("🤖 Chatbot RAG 🤖")
-	print("Write 'exit' to quit.")
-	print("="*50 + "\n")
+	print("\n" + "\033[33m=\033[0m"*50)
+	print("🤖 \033[33mChatbot RAG\033[0m 🤖")
+	print("\033[33mWrite '\033[31mexit\033[33m' to quit.\033[0m")
+	print("\033[33m=\033[0m"*50 + "\n")
 
 	while True:
 		try:
-			user_input = input("You: ")
+			user_input = input("\033[32mYou\033[0m: ")
 
 			if user_input.lower() == "exit":
-				print("Goodbye!")
+				print("\033[33mGoodbye!\033[0m")
 				break
 			if not user_input.strip():
 				continue
@@ -73,7 +73,7 @@ def run_chatbot_cli():
 				response.raise_for_status()
 
 				full_response = ""
-				print("\nMichel: ", end="", flush=True)
+				print("\n\033[31mMichel\033[0m: ", end="", flush=True)
 				for line in response.iter_lines():
 					if line:
 						try:
@@ -100,7 +100,7 @@ def run_chatbot_cli():
 			if chat_history and chat_history[-1]["role"] == "user":
 				chat_history.pop()
 		except KeyboardInterrupt:
-			print("\nGoodbye!")
+			print("\033[33mGoodbye!\033[0m")
 			break
 		except Exception as e:
 			logger.error(f"An unexpected error occurred: {e}")
