@@ -25,7 +25,6 @@ CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
 
 
-
 # --- Pydantic models ---
 class Message(BaseModel):
 	role: str
@@ -99,7 +98,7 @@ def get_ensemble_retriever() -> Optional[EnsembleRetriever]:
 		_EMSEMBLE_RETRIEVER = initialize_retrievers()
 	return _EMSEMBLE_RETRIEVER
 
-def build_prompt_with_context(query: str, context: List[str], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
+def build_prompt_with_context(query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
 	"""
 	Build the final prompt to send to the LLM, including RAG context and history.
 
@@ -112,19 +111,26 @@ def build_prompt_with_context(query: str, context: List[str], history: List[Dict
 		A Tuple with the system instruction and the list of final messages.
 	"""
 
-	context_text = "\n\n".join(context)
+	context_map = []
+	for i, (text_chunk) in enumerate(context):
+		metadata = metadatas[i] if i < len(metadatas) else {"source": "N/A", "page": "N/A"}
+		context_map.append(f"Content: {text_chunk} (Source: {metadata['source']} [Page {metadata['page']}])")
+	context = "\n\n".join(context_map)
+
 	if LLM_STRICT_RAG:
 		strict_rule = ("If the answer is not found in the CONTEXT, you must explicitly state: 'Sorry, I cannot answer this question as the information is not available in my reference documents.'")
 	else:
 		strict_rule = ("If the answer is not found in the CONTEXT, you must answer using your own knowledge but by basing yourself on and favoring the answers found in the CONTEXT.")
+	
 	system_instruction = (
 		"You are Michel, an expert RAG (Retrieval-Augmented Generation) assistant, specializing in document analysis. Your objective is to provide factual, accurate, and concise answers mainly based on the reference documents provided below.\n\n"
 		"--- REFERENCE CONTEXT ---\n"
-		f"{context_text}\n"
+		f"{context}\n"
 		"--- END OF REFERENCE CONTEXT ---\n"
 		"Rules:\n"
 		"1. If the answer is fully contained within the CONTEXT, answer comprehensively using the CONTEXT.\n"
-		f"2. {strict_rule}\n"
+		"2. When referencing a fact, insert the citation EXACTLY as follows: (Source: FILENAME [Page NUMBER]) immediately after the sentence or paragraph.\n"
+		f"3. {strict_rule}\n"
 	)
 	messages = [
 		{"role": "system", "content": system_instruction},	
@@ -150,7 +156,6 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	retriever = get_ensemble_retriever()
 	if retriever is None:
 		logger.error("Cannot retrieve retriever.")
-		# return {"response": "System Error: Error connecting to ChromaDB.", "source_chunks": []}
 		yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + '\n'
 	
 	retrieved_docs: List[Document] = retriever.get_relevant_documents(query)
@@ -162,7 +167,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	
 	for doc in retrieved_docs:
 		if len(context_texts) < max_chunks:
-			source_metadatas.append(doc.metadata.get("source", "N/A"))
+			source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
 			context_texts.append(doc.page_content.replace('\udcc3', ' ').replace('\xa0', ' ').strip())
 		else:
 			break
@@ -173,20 +178,13 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 		if metadata not in unique_metadatas:
 			unique_metadatas.append(metadata)
 
-	system_instruction, messages = build_prompt_with_context(query, context_texts, history)
+	system_instruction, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
 	full_response = ""
 	try:
 		request_data = LLMRequest(
 			messages=messages,
 			model=LLM_MODEL
 		)
-		# async with httpx.AsyncClient(timeout=60.0) as client:
-		# 	response = await client.post(LLM_GATEWAY_URL, json=request_data.model_dump())
-		# 	response.raise_for_status()
-		# 	llm_response = response.json()
-		# 	final_response = llm_response.get("response", "Error: No response from LLM.")
-		# 	logger.info("RAG flow completed.")
-		# 	return {"response": final_response, "source_chunks": unique_metadatas}
 		async with httpx.AsyncClient(timeout=120.0) as client:
 			async with client.stream("POST", LLM_GATEWAY_URL, json=request_data.model_dump()) as response:
 				response.raise_for_status()
@@ -206,8 +204,6 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	except httpx.RequestError as e:
 		logger.error(f"Request failed: {e}")
 		yield json.dumps({"type": "error", "content": str(e)}) + '\n'
-		# return {"response": "Error: Request failed.", "source_chunks": []}
 	except Exception as e:
 		logger.error(f"An unexpected error occurred: {e}")
 		yield json.dumps({"type": "error", "content": str(e)}) + '\n'
-		# return {"response": "Error: An unexpected error occurred.", "source_chunks": []}

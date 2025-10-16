@@ -16,6 +16,9 @@ all: build
 	docker compose $(COMPOSE_FILES) up -d
 
 build:
+	@echo "========================================================"
+	@echo "Building $(GPU_STATUS) version"
+	@echo "================================================"
 	docker compose $(COMPOSE_FILES) build
 
 stop:
@@ -23,3 +26,4 @@ stop:
 
 start-chat:
 	docker compose exec -it api python main.py
+	
