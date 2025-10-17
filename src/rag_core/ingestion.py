@@ -17,14 +17,16 @@ from chromadb.api.models.Collection import Collection
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 # --- Config ---
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "chromadb")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
-
 COLLECTION_NAME = "rag_documents_collection"
+
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", 200))
+
 
 # --- Chroma set up ---
 _chroma_client: Optional[HttpClient] = None
@@ -97,6 +99,8 @@ def create_chunk_id(doc_hash: str, chunk_index: int) -> str:
 	"""Create a stable ID for a chunk."""
 	return f"{doc_hash}_{chunk_index}"
 
+
+# --- Ingestion ---
 def process_and_index_documents(data_dir: str = "app/src/data") -> int:
 	"""
 	Loads PDF documents, chunks and index them in ChromaDB

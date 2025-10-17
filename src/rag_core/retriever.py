@@ -4,23 +4,21 @@ import httpx
 import asyncio
 import logging
 
-from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 from pydantic import BaseModel
+from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 
 from langchain_community.vectorstores import Chroma
-from langchain.retrievers import EnsembleRetriever, ContextualCompressionRetriever
+from langchain.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
-
-from langchain.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-
 
 from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 
 # --- Config ---
 LLM_MODEL=os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
@@ -30,7 +28,7 @@ LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
 
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.6))
+RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.5))
 
 MAX_RETRIES = 3
 
@@ -45,7 +43,8 @@ class LLMRequest(BaseModel):
 	model: str
 
 
-def initialize_retrievers() -> Optional[ContextualCompressionRetriever]:
+# --- Init ---
+def initialize_retrievers():
 	"""
 	Initialize the retrievers (Dense and Sparse) and combine them with RRF.
 	"""
@@ -99,32 +98,26 @@ def initialize_retrievers() -> Optional[ContextualCompressionRetriever]:
 			model_name=RERANKER_MODEL,
 			model_kwargs={'device': get_embeddings().model_kwargs.get('device', 'cpu')}
 			)
-		compressor = CrossEncoderReranker(
-			model=reranker,
-			top_n=10
-		)
-		compression_retriever = ContextualCompressionRetriever(
-			base_compressor=compressor,
-			base_retriever=ensemble_retriever
-		)
-		
-		logger.info(f"Hybrid RRF wrapped with Cross-Encoder Reranker ({RERANKER_MODEL}).")
-		return compression_retriever
+		logger.info(f"Cross-Encoder Reranker model ({RERANKER_MODEL}) initialized.")
+		return ensemble_retriever, reranker
 	
 	except Exception as e:
 		logger.error(f"Error initializing retrievers: {e}")
 		return None
 	
 _EMSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
+_RERANKER: Optional[HuggingFaceCrossEncoder] = None
 def get_ensemble_retriever() -> Optional[EnsembleRetriever]:
 	"""
 	Get the ensemble retriever.
 	"""
-	global _EMSEMBLE_RETRIEVER
+	global _EMSEMBLE_RETRIEVER, _RERANKER
 	if _EMSEMBLE_RETRIEVER is None:
-		_EMSEMBLE_RETRIEVER = initialize_retrievers()
-	return _EMSEMBLE_RETRIEVER
+		_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
+	return _EMSEMBLE_RETRIEVER, _RERANKER
 
+
+# --- RAG flow ---
 def build_prompt_with_context(query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
 	"""
 	Build the final prompt to send to the LLM, including RAG context and history.
@@ -156,7 +149,7 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 		"--- END OF REFERENCE CONTEXT ---\n"
 		"Rules:\n"
 		"1. If the answer is fully contained within the CONTEXT, answer comprehensively using the CONTEXT.\n"
-		"2. When referencing a fact, insert the citation EXACTLY as follows: (Source: FILENAME [Page NUMBER]) immediately after the sentence or paragraph.\n"
+		"2. When referencing a fact, insert the citation EXACTLY as follows: (\"FILENAME\" [Page NUMBER]) immediately after the sentence or paragraph.\n"
 		f"3. {strict_rule}\n"
 	)
 	messages = [
@@ -229,19 +222,27 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	"""
 	logger.info(f"Starting RAG flow for query: {query[:50]}...")
 
-	retriever = get_ensemble_retriever()
+	retriever, reranker = get_ensemble_retriever()
 	if retriever is None:
 		logger.error("Cannot retrieve retriever.")
 		yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + '\n'
 	
 	retrieved_docs: List[Document] = retriever.invoke(query)
 	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
-	# filtered_docs = []
-	# for doc in retrieved_docs:
-	# 	if doc.metadata.get('relevance_score') >= RERANKER_THRESHOLD:
-	# 		filtered_docs.append(doc)
-	# logger.info(f"Filtered docs: {len(filtered_docs)} / {len(retrieved_docs)} remaining after thresholding.")
-	# retrieved_docs = filtered_docs
+	if reranker is not None:
+		if retrieved_docs:
+			pairs = [(query, doc.page_content) for doc in retrieved_docs]
+			scores = reranker.score(pairs)
+			filtered_docs = []
+			for doc, score in zip(retrieved_docs, scores):
+				if score > RERANKER_THRESHOLD:
+					doc.metadata["relevance_score"] = score
+					filtered_docs.append(doc)
+			retrieved_docs = sorted(
+					filtered_docs, 
+					key=lambda x: x.metadata['relevance_score'], 
+					reverse=True)
+			logger.info(f"Filtered docs: {len(filtered_docs)} / {len(retrieved_docs)} remaining after thresholding ({RERANKER_THRESHOLD}).")
 
 	max_chunks = MAX_CONTEXT_TOKENS // CHUNK_SIZE
 	context_texts = []

@@ -10,6 +10,7 @@ from typing import List, Dict
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 # --- Config ---
 RAG_CORE_URL="http://rag-core:8001/chat"
 INGESTION_URL="http://rag-core:8001/ingest"
