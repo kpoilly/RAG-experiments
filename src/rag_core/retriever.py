@@ -1,7 +1,5 @@
 import os
 import json
-from webbrowser import get
-from xml.etree.ElementInclude import include
 import httpx
 import asyncio
 import logging
@@ -17,7 +15,8 @@ from langchain_core.documents import Document
 from langchain.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
-from ingestion import EMBEDDING_MODEL, get_chroma_client, get_embeddings, COLLECTION_NAME
+
+from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -46,7 +45,7 @@ class LLMRequest(BaseModel):
 	model: str
 
 
-def initialize_retrievers() -> Optional[EnsembleRetriever]:
+def initialize_retrievers() -> Optional[ContextualCompressionRetriever]:
 	"""
 	Initialize the retrievers (Dense and Sparse) and combine them with RRF.
 	"""
@@ -235,8 +234,14 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 		logger.error("Cannot retrieve retriever.")
 		yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + '\n'
 	
-	retrieved_docs: List[Document] = retriever.get_relevant_documents(query)
+	retrieved_docs: List[Document] = retriever.invoke(query)
 	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
+	# filtered_docs = []
+	# for doc in retrieved_docs:
+	# 	if doc.metadata.get('relevance_score') >= RERANKER_THRESHOLD:
+	# 		filtered_docs.append(doc)
+	# logger.info(f"Filtered docs: {len(filtered_docs)} / {len(retrieved_docs)} remaining after thresholding.")
+	# retrieved_docs = filtered_docs
 
 	max_chunks = MAX_CONTEXT_TOKENS // CHUNK_SIZE
 	context_texts = []

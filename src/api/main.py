@@ -87,14 +87,6 @@ def run_chatbot_cli():
 				if full_response:
 					chat_history.append({"role": "assistant", "content": full_response})
 
-			# response = requests.post(RAG_CORE_URL, json=request_payload, timeout=60)
-			# response.raise_for_status()
-			# data = response.json()
-			# rag_reponse = data.get("response", "Error: No response from LLM.")
-
-			# print(f"\nMichel: {rag_reponse}\n")
-			# chat_history.append({"role": "assistant", "content": rag_reponse})
-
 		except requests.exceptions.RequestException as e:
 			logger.error(f"Request failed: {e}")
 			if chat_history and chat_history[-1]["role"] == "user":
