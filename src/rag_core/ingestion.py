@@ -101,7 +101,7 @@ def create_chunk_id(doc_hash: str, chunk_index: int) -> str:
 
 
 # --- Ingestion ---
-def process_and_index_documents(data_dir: str = "app/src/data") -> int:
+def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 	"""
 	Loads PDF documents, chunks and index them in ChromaDB
 
@@ -146,7 +146,7 @@ def process_and_index_documents(data_dir: str = "app/src/data") -> int:
 			if meta.get('document_hash') in hashes_to_rm:
 				ids_to_rm.append(collection.get(include=[])['ids"'][i])
 		for hash in hashes_to_rm:
-			collection.delete(where={'doucment_hash': hash})
+			collection.delete(where={'document_hash': hash})
 			logger.info(f"Deleted document chunk with hash {hash} from ChromaDB.")
 	
 	new_chunks_count = 0

@@ -1,15 +1,17 @@
 import os
+import re
 import json
 import logging
 import asyncio
 
 from typing import List, Dict
+from webbrowser import get
 from pydantic import BaseModel
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
-from retriever import orchestrate_rag_flow, get_ensemble_retriever
+from retriever import orchestrate_rag_flow, get_ensemble_retriever, refresh_ensemble_retriever
 from ingestion import process_and_index_documents
 
 
@@ -35,6 +37,23 @@ class IngestionResponse(BaseModel):
 # --- init ---
 app = FastAPI(title="RAG Core Service")
 
+app.state.rad_ready = False
+app.state.startup_error = None
+
+@app.on_event("startup")
+async def startup_event():
+	"""
+	On startup, run ingestion and initialize the retrieval components.
+	"""
+	logger.info("Application starting up...")
+	try:
+		data_path = os.getenv("DATA_PATH", "/app/src/data")
+		await asyncio.to_thread(process_and_index_documents, data_path)
+		await asyncio.to_thread(get_ensemble_retriever)
+		logger.info("Application startup complete. Ready to serve requests.")
+	except Exception as e:
+		logger.error(f"FATAL: RAG initialization failed during startup: {e}", exc_info=True)
+
 # --- Endpoints ---
 @app.get("/health")
 async def health():
@@ -49,18 +68,20 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
 	Start the ingestion process (Loading, Chunking and Indexing documents).
 	"""
 	logger.info(f"Starting ingestion for path: {data_path}")
-
 	indexed_count = await asyncio.to_thread(process_and_index_documents, data_path)
-	_, __ = get_ensemble_retriever()
+	await asyncio.to_thread(refresh_ensemble_retriever)
 	if indexed_count > 0:
+		logger.info("Ingestion completed successfully.")
 		return IngestionResponse(indexed_chunks=indexed_count, status="success")
 	else:
 		raise HTTPException(status_code=500, detail="Error during ingestion.")
 
+
 @app.post("/chat")
 async def generate(request: GenerationRequest):
 	try:
-		response_generator = orchestrate_rag_flow(request.query, request.history)
+		formated_query = re.sub(r"(\b[ldjstnmc]|qu)'", r"\1 ", request.query.lower())
+		response_generator = orchestrate_rag_flow(formated_query, request.history)
 		return StreamingResponse(
 			content=response_generator,
 			media_type="application/jsonlines"

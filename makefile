@@ -7,9 +7,11 @@ else
 	GPU_STATUS := "GPU"
 endif
 
-.PHONY: all build stop start-chat
+.PHONY: all up build ingest stop clean start-chat
 
-all: build
+all: build up start-chat
+
+up:
 	@echo "========================================================"
 	@echo "Starting with: $(GPU_STATUS)"
 	@echo "========================================================"
@@ -21,8 +23,15 @@ build:
 	@echo "================================================"
 	docker compose $(COMPOSE_FILES) build
 
+ingest:
+	@echo "Ingesting new documents..."
+	curl -X POST http://localhost:8001/ingest 
+
 stop:
 	docker compose down
+
+clean:
+	docker compose down -v
 
 start-chat:
 	docker compose exec -it api python main.py
