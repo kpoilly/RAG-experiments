@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import logging
 
@@ -12,43 +13,43 @@ logger = logging.getLogger(__name__)
 
 
 # --- Config ---
-RAG_CORE_URL="http://rag-core:8001/chat"
-INGESTION_URL="http://rag-core:8001/ingest"
+RAG_CORE_URL="http://rag-core:8001/"
+CHAT_URL = f"{RAG_CORE_URL}/chat"
+STARTUP_TIMEOUT = 180
 
 chat_history: List[Dict[str, str]] = []
 
 
-def run_ingestion():
-	"""
-	Run the ingestion process.
-	"""
-	logger.info("Running ingestion...")
-
-	for attempt in range(5):
+# --- CLI ---
+def wait_rag():
+	start_time = time.time()
+	while time.time() - start_time < STARTUP_TIMEOUT:
 		try:
-			response = requests.post(INGESTION_URL)
-			response.raise_for_status()
-			logger.info("Ingestion successful.")
-			return
-		
+			response = requests.get(RAG_CORE_URL + "/health")
+			if response.status_code == 200:
+				logger.info("RAG is ready.")
+				return True
+			else:
+				status_detail = response.json().get('detail', {})
+				logger.info(f"Service not ready yet (Status: {status_detail.get('status')}). Retrying...")
 		except requests.exceptions.ConnectionError:
-			logger.error(f"Connection to RAG Core failed. (Try {attempt+1}/5)")
-			time.sleep(3)
-		except requests.exceptions.HTTPError as e:
-			logger.error(f"Ingestion failed (HTTP {e.response.status_code}): {e.response.text}")
-			return
-		except Exception as e:
-			logger.error(f"Ingestion failed: {e}")
-			return
+			logger.info("RAG Service not ready yet. Retrying...")
+		except requests.exceptions.RequestException as e:
+			logger.error(f"Request failed: {e}")
+		time.sleep(15)
+	logger.error("Timeout reached. RAG Core service did not start up in time.")
+	return False	
 		
 def run_chatbot_cli():
 	"""
 	Run the chatbot CLI.
 	"""
+	if not wait_rag():
+		print("\n\033[31mCould not connect to the RAG service after multiple attempts. Please check the service logs and try again.\033[0m")
+		return
+
 	logger.info("Running chatbot CLI...")
 	global chat_history
-
-	run_ingestion()
 	
 	print("\n" + "\033[33m=\033[0m"*50)
 	print("🤖 \033[33mChatbot RAG\033[0m 🤖")
@@ -70,7 +71,7 @@ def run_chatbot_cli():
 				"query": user_input,
 				"history": chat_history
 			}
-			with requests.post(RAG_CORE_URL, json=request_payload, stream=True, timeout=120) as response:
+			with requests.post(CHAT_URL, json=request_payload, stream=True, timeout=120) as response:
 				response.raise_for_status()
 
 				full_response = ""

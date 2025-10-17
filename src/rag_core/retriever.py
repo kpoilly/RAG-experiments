@@ -1,8 +1,10 @@
 import os
 import json
+import re
 import httpx
 import asyncio
 import logging
+import tiktoken
 
 from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
@@ -44,7 +46,7 @@ class LLMRequest(BaseModel):
 
 
 # --- Init ---
-def initialize_retrievers():
+def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[HuggingFaceCrossEncoder]]:
 	"""
 	Initialize the retrievers (Dense and Sparse) and combine them with RRF.
 	"""
@@ -116,6 +118,16 @@ def get_ensemble_retriever() -> Optional[EnsembleRetriever]:
 		_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
 	return _EMSEMBLE_RETRIEVER, _RERANKER
 
+def refresh_ensemble_retriever():
+	"""
+	Refresh the ensemble retriever.
+	"""
+	global _EMSEMBLE_RETRIEVER, _RERANKER
+	logger.info("Refreshing ensemble retriever...")
+	global _EMSEMBLE_RETRIEVER, _RERANKER
+	_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
+	logger.info("Ensemble retriever refreshed.")
+
 
 # --- RAG flow ---
 def build_prompt_with_context(query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
@@ -138,7 +150,7 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 	context = "\n\n".join(context_map)
 
 	if LLM_STRICT_RAG:
-		strict_rule = ("If the answer is not found in the CONTEXT, you must explicitly state: 'Sorry, I cannot answer this question as the information is not available in my reference documents.'")
+		strict_rule = ("If the answer is not found in the CONTEXT, you must explicitly state that you cannot answer this question as the information is not available in your reference documents in the user's language. NEVER USE YOUR OWN KNOWLEDGE.")
 	else:
 		strict_rule = ("If the answer is not found in the CONTEXT, you must answer using your own knowledge but by basing yourself on and favoring the answers found in the CONTEXT.")
 	
@@ -229,30 +241,44 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	
 	retrieved_docs: List[Document] = retriever.invoke(query)
 	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
-	if reranker is not None:
-		if retrieved_docs:
-			pairs = [(query, doc.page_content) for doc in retrieved_docs]
-			scores = reranker.score(pairs)
-			filtered_docs = []
-			for doc, score in zip(retrieved_docs, scores):
-				if score > RERANKER_THRESHOLD:
-					doc.metadata["relevance_score"] = score
-					filtered_docs.append(doc)
-			retrieved_docs = sorted(
-					filtered_docs, 
-					key=lambda x: x.metadata['relevance_score'], 
-					reverse=True)
-			logger.info(f"Filtered docs: {len(filtered_docs)} / {len(retrieved_docs)} remaining after thresholding ({RERANKER_THRESHOLD}).")
+	if reranker is not None and retrieved_docs:
+		pairs = [(query, doc.page_content) for doc in retrieved_docs]
+		scores = reranker.score(pairs)
+		for doc, score in zip(retrieved_docs, scores):
+			doc.metadata["relevance_score"] = score
 
-	max_chunks = MAX_CONTEXT_TOKENS // CHUNK_SIZE
+		reranked_docs = sorted(
+			retrieved_docs,
+			key=lambda x: x.metadata.get('relevance_score', '0.0'),
+			reverse=True
+		)
+		filtered_docs = [doc for doc in reranked_docs if doc.metadata['relevance_score'] > RERANKER_THRESHOLD]
+		final_docs = []
+
+		if filtered_docs:
+			final_docs = filtered_docs
+			logger.info(f"{len(final_docs)} documents remaining after reranking and thresholding.")
+		elif reranked_docs:
+			final_docs = [reranked_docs[0]]
+			logger.warning(
+				f"No documents met the threshold of {RERANKER_THRESHOLD}. "
+				f"Falling back to the single best document with score {reranked_docs[0].metadata['relevance_score']:.4f}."
+        	)
+	retrieved_docs = final_docs
+
+	tokenizer = tiktoken.get_encoding("cl100k_base")
 	context_texts = []
 	source_metadatas = []
+	current_tokens = 0
 	
 	for doc in retrieved_docs:
-		if len(context_texts) < max_chunks:
+		doc_tokens = len(tokenizer.encode(doc.page_content))
+		if current_tokens + doc_tokens <= MAX_CONTEXT_TOKENS:
+			current_tokens += doc_tokens
 			source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
 			context_texts.append(doc.page_content.replace('\udcc3', ' ').replace('\xa0', ' ').strip())
 		else:
+			logger.info("Reached max context tokens. Stopping context assembly.")
 			break
 	if not context_texts:
 		logger.warning("No relevant documents found.")

@@ -9,3 +9,4 @@ pypdf==6.1.1
 uvicorn==0.37.0
 fastapi==0.118.0
 torch==2.8.0
+tiktoken==0.12.0
