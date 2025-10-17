@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
-from retriever import orchestrate_rag_flow
+from retriever import orchestrate_rag_flow, get_ensemble_retriever
 from ingestion import process_and_index_documents
 
 
@@ -51,30 +51,11 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
 	logger.info(f"Starting ingestion for path: {data_path}")
 
 	indexed_count = await asyncio.to_thread(process_and_index_documents, data_path)
+	_, __ = get_ensemble_retriever()
 	if indexed_count > 0:
 		return IngestionResponse(indexed_chunks=indexed_count, status="success")
 	else:
 		raise HTTPException(status_code=500, detail="Error during ingestion.")
-	
-# @app.post("/chat", response_model=GenerationResponse)
-# async def generate(request: GenerationRequest):
-# 	"""
-# 	Run the whole RAG flow: Retrieval, Context Building and LLm call to generate a response augmented with RAG context.
-# 	"""
-# 	try:
-# 		result = await orchestrate_rag_flow(request.query, request.history)
-# 		if not result["response"]:
-# 			raise HTTPException(status_code=500, detail="Error during RAG flow.")
-# 		return GenerationResponse(
-# 			response=result["response"],
-# 			source_chunks=result.get("source_chunks", []),
-# 			status="success"
-# 		)
-# 	except HTTPException:
-# 		raise
-# 	except Exception as e:
-# 		logger.error(f"An unexpected error occurred: {e}")
-# 		raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 @app.post("/chat")
 async def generate(request: GenerationRequest):

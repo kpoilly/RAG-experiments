@@ -1,15 +1,17 @@
 import os
 import json
 import httpx
+import asyncio
 import logging
 
-from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 from pydantic import BaseModel
+from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 
 from langchain_community.vectorstores import Chroma
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
 from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
 
@@ -17,12 +19,18 @@ from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 # --- Config ---
 LLM_MODEL=os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
 LLM_GATEWAY_URL = os.environ.get("LLM_GATEWAY_URL", "http://llm-gateway:8002/chat")
 MAX_CONTEXT_TOKENS = int(os.environ.get("MAX_CONTEXT_TOKENS", 4000))
-CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
+
+CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
+RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.5))
+
+MAX_RETRIES = 3
 
 
 # --- Pydantic models ---
@@ -35,7 +43,8 @@ class LLMRequest(BaseModel):
 	model: str
 
 
-def initialize_retrievers() -> Optional[EnsembleRetriever]:
+# --- Init ---
+def initialize_retrievers():
 	"""
 	Initialize the retrievers (Dense and Sparse) and combine them with RRF.
 	"""
@@ -46,10 +55,15 @@ def initialize_retrievers() -> Optional[EnsembleRetriever]:
 	
 	logger.info("Initializing retrievers...")
 	try:
+		embedding_function = get_embeddings()
+		if not embedding_function:
+			logger.error("Error loading embeddings model")
+			return None
+		
 		vectorstore = Chroma(
 			collection_name=COLLECTION_NAME,
 			client=client,
-			embedding_function=get_embeddings()
+			embedding_function=embedding_function
 		)
 
 		dense_retriever = vectorstore.as_retriever(
@@ -65,10 +79,7 @@ def initialize_retrievers() -> Optional[EnsembleRetriever]:
 				c=100
 			)
 
-		all_documents = vectorstore._collection.get(
-			ids=vectorstore._collection.get()['ids'],
-			include=["documents", "metadatas"]
-		)
+		all_documents = client.get_collection(COLLECTION_NAME).get(include=['documents', 'metadatas'])
 		docs = [Document(page_content=doc, metadata=meta) for doc, meta in zip(all_documents["documents"], all_documents["metadatas"])]
 
 		sparse_retriever = BM25Retriever.from_documents(
@@ -82,22 +93,31 @@ def initialize_retrievers() -> Optional[EnsembleRetriever]:
 			c=100
 		)
 		logger.info("Hybrid RRF EnsembleRetriever initialized.")
-		return ensemble_retriever
+
+		reranker = HuggingFaceCrossEncoder(
+			model_name=RERANKER_MODEL,
+			model_kwargs={'device': get_embeddings().model_kwargs.get('device', 'cpu')}
+			)
+		logger.info(f"Cross-Encoder Reranker model ({RERANKER_MODEL}) initialized.")
+		return ensemble_retriever, reranker
 	
 	except Exception as e:
 		logger.error(f"Error initializing retrievers: {e}")
 		return None
 	
 _EMSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
+_RERANKER: Optional[HuggingFaceCrossEncoder] = None
 def get_ensemble_retriever() -> Optional[EnsembleRetriever]:
 	"""
 	Get the ensemble retriever.
 	"""
-	global _EMSEMBLE_RETRIEVER
+	global _EMSEMBLE_RETRIEVER, _RERANKER
 	if _EMSEMBLE_RETRIEVER is None:
-		_EMSEMBLE_RETRIEVER = initialize_retrievers()
-	return _EMSEMBLE_RETRIEVER
+		_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
+	return _EMSEMBLE_RETRIEVER, _RERANKER
 
+
+# --- RAG flow ---
 def build_prompt_with_context(query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
 	"""
 	Build the final prompt to send to the LLM, including RAG context and history.
@@ -129,7 +149,7 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 		"--- END OF REFERENCE CONTEXT ---\n"
 		"Rules:\n"
 		"1. If the answer is fully contained within the CONTEXT, answer comprehensively using the CONTEXT.\n"
-		"2. When referencing a fact, insert the citation EXACTLY as follows: (Source: FILENAME [Page NUMBER]) immediately after the sentence or paragraph.\n"
+		"2. When referencing a fact, insert the citation EXACTLY as follows: (\"FILENAME\" [Page NUMBER]) immediately after the sentence or paragraph.\n"
 		f"3. {strict_rule}\n"
 	)
 	messages = [
@@ -139,6 +159,55 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 		messages.append(message)
 	messages.append({"role": "user", "content": query})
 	return system_instruction, messages
+
+async def async_retry_post(
+		url: str,
+		payload: Dict[str, Any],
+		max_retries: int = MAX_RETRIES
+) -> httpx.Response:
+	"""
+	Try to send and HTTP POST Request with Retry and Exponential Backoff.
+	
+	Args:
+		url: URL from the service to call.
+		payload: content of the JSON request to send.
+		max_retries: Maximal number of tries.
+
+	Returns:
+		httpx.Response if request is successful.
+	
+	Raises:
+		httpx.HTTPStatusError: if every try fails or if fatal error.
+	"""
+
+	async with httpx.AsyncClient(timeout=120.0) as client:
+		for attempt in range(max_retries):
+			try:
+				response = await client.post(url, json=payload)
+				response.raise_for_status()
+				return response
+			
+			except httpx.RequestError as e:
+				if 400 <= e.response.status_code < 500:
+					logger.error(f"Fatal client error (Status {e.response.status_code})")
+					raise e
+				delay = 0.5 * (2 ** attempt)
+				logger.warning(
+					f"HTTP request failed (Status {e.response.status_code} or Timeout). "
+                    f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
+				)
+				await asyncio.sleep(delay)
+		
+			except httpx.RequestError as e:
+				delay = 0.5 * (2 ** attempt)
+				logger.warning(
+					f"HTTP request failed (Status {e.response.status_code} or Timeout). "
+                    f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
+				)
+				await asyncio.sleep(delay)
+			
+		logger.error(f"HTTP request permanently failed after {max_retries} attempts.")
+		raise httpx.RequestError("Failed to communicate with LLM Gateway after multiple retries.")
 
 async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
 	"""
@@ -153,13 +222,27 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	"""
 	logger.info(f"Starting RAG flow for query: {query[:50]}...")
 
-	retriever = get_ensemble_retriever()
+	retriever, reranker = get_ensemble_retriever()
 	if retriever is None:
 		logger.error("Cannot retrieve retriever.")
 		yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + '\n'
 	
-	retrieved_docs: List[Document] = retriever.get_relevant_documents(query)
-	logger.info(f"Retrieved {len(retrieved_docs)} documents.")
+	retrieved_docs: List[Document] = retriever.invoke(query)
+	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
+	if reranker is not None:
+		if retrieved_docs:
+			pairs = [(query, doc.page_content) for doc in retrieved_docs]
+			scores = reranker.score(pairs)
+			filtered_docs = []
+			for doc, score in zip(retrieved_docs, scores):
+				if score > RERANKER_THRESHOLD:
+					doc.metadata["relevance_score"] = score
+					filtered_docs.append(doc)
+			retrieved_docs = sorted(
+					filtered_docs, 
+					key=lambda x: x.metadata['relevance_score'], 
+					reverse=True)
+			logger.info(f"Filtered docs: {len(filtered_docs)} / {len(retrieved_docs)} remaining after thresholding ({RERANKER_THRESHOLD}).")
 
 	max_chunks = MAX_CONTEXT_TOKENS // CHUNK_SIZE
 	context_texts = []
@@ -186,19 +269,18 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 			model=LLM_MODEL
 		)
 		async with httpx.AsyncClient(timeout=120.0) as client:
-			async with client.stream("POST", LLM_GATEWAY_URL, json=request_data.model_dump()) as response:
-				response.raise_for_status()
-				async for chunk in response.aiter_lines():
-					if chunk:
-						try:
-							data = json.loads(chunk)
-							text_chunk = data.get("text", "")
-							if text_chunk:
-								full_response += text_chunk
-								text_chunk_data = json.dumps({"type": "text", "content": text_chunk}) + "\n"
-								yield text_chunk_data
-						except json.JSONDecodeError:
-							continue
+			response = await async_retry_post(LLM_GATEWAY_URL, request_data.model_dump())
+			async for chunk in response.aiter_lines():
+				if chunk:
+					try:
+						data = json.loads(chunk)
+						text_chunk = data.get("text", "")
+						if text_chunk:
+							full_response += text_chunk
+							text_chunk_data = json.dumps({"type": "text", "content": text_chunk}) + "\n"
+							yield text_chunk_data
+					except json.JSONDecodeError:
+						continue
 		logger.info("RAG flow completed.")
 
 	except httpx.RequestError as e:

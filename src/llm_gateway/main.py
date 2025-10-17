@@ -55,19 +55,6 @@ async def chat(request: LLMRequest):
 	"""
 	Receive final prompt (context + rag + prompt) and call the llm.
 	"""
-
-	# messages = [msg.model_dump() for msg in request.messages]
-	# try:
-	# 	chat_completion = client.chat.completions.create(
-	# 		messages=messages,
-	# 		model=request.model,
-	# 		temperature=0.0)
-	# 	response = chat_completion.choices[0].message.content
-	# 	logger.info(f"LLM call done. Total Time: {chat_completion.usage.total_time} Total Tokens: {chat_completion.usage.total_tokens}.")
-	# 	return LLMResponse(response=response, model=request.model, status='success')
-	# except Exception as e:
-	# 	raise HTTPException(status_code=500, detail=str(e))
-
 	def groq_streaming_generator(messages, model):
 		try:
 			chat_completion = client.chat.completions.create(

@@ -10,6 +10,7 @@ from typing import List, Dict
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 # --- Config ---
 RAG_CORE_URL="http://rag-core:8001/chat"
 INGESTION_URL="http://rag-core:8001/ingest"
@@ -86,14 +87,6 @@ def run_chatbot_cli():
 				print("\n")
 				if full_response:
 					chat_history.append({"role": "assistant", "content": full_response})
-
-			# response = requests.post(RAG_CORE_URL, json=request_payload, timeout=60)
-			# response.raise_for_status()
-			# data = response.json()
-			# rag_reponse = data.get("response", "Error: No response from LLM.")
-
-			# print(f"\nMichel: {rag_reponse}\n")
-			# chat_history.append({"role": "assistant", "content": rag_reponse})
 
 		except requests.exceptions.RequestException as e:
 			logger.error(f"Request failed: {e}")
