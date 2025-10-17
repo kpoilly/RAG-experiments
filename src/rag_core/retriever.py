@@ -1,5 +1,7 @@
 import os
 import json
+from webbrowser import get
+from xml.etree.ElementInclude import include
 import httpx
 import asyncio
 import logging
@@ -8,11 +10,14 @@ from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 from pydantic import BaseModel
 
 from langchain_community.vectorstores import Chroma
-from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers import EnsembleRetriever, ContextualCompressionRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 
-from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
+from langchain.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+
+from ingestion import EMBEDDING_MODEL, get_chroma_client, get_embeddings, COLLECTION_NAME
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -22,8 +27,12 @@ logger = logging.getLogger(__name__)
 LLM_MODEL=os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
 LLM_GATEWAY_URL = os.environ.get("LLM_GATEWAY_URL", "http://llm-gateway:8002/chat")
 MAX_CONTEXT_TOKENS = int(os.environ.get("MAX_CONTEXT_TOKENS", 4000))
-CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
+
+CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
+RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.6))
+
 MAX_RETRIES = 3
 
 
@@ -48,10 +57,15 @@ def initialize_retrievers() -> Optional[EnsembleRetriever]:
 	
 	logger.info("Initializing retrievers...")
 	try:
+		embedding_function = get_embeddings()
+		if not embedding_function:
+			logger.error("Error loading embeddings model")
+			return None
+		
 		vectorstore = Chroma(
 			collection_name=COLLECTION_NAME,
 			client=client,
-			embedding_function=get_embeddings()
+			embedding_function=embedding_function
 		)
 
 		dense_retriever = vectorstore.as_retriever(
@@ -67,10 +81,7 @@ def initialize_retrievers() -> Optional[EnsembleRetriever]:
 				c=100
 			)
 
-		all_documents = vectorstore._collection.get(
-			ids=vectorstore._collection.get()['ids'],
-			include=["documents", "metadatas"]
-		)
+		all_documents = client.get_collection(COLLECTION_NAME).get(include=['documents', 'metadatas'])
 		docs = [Document(page_content=doc, metadata=meta) for doc, meta in zip(all_documents["documents"], all_documents["metadatas"])]
 
 		sparse_retriever = BM25Retriever.from_documents(
@@ -84,7 +95,22 @@ def initialize_retrievers() -> Optional[EnsembleRetriever]:
 			c=100
 		)
 		logger.info("Hybrid RRF EnsembleRetriever initialized.")
-		return ensemble_retriever
+
+		reranker = HuggingFaceCrossEncoder(
+			model_name=RERANKER_MODEL,
+			model_kwargs={'device': get_embeddings().model_kwargs.get('device', 'cpu')}
+			)
+		compressor = CrossEncoderReranker(
+			model=reranker,
+			top_n=10
+		)
+		compression_retriever = ContextualCompressionRetriever(
+			base_compressor=compressor,
+			base_retriever=ensemble_retriever
+		)
+		
+		logger.info(f"Hybrid RRF wrapped with Cross-Encoder Reranker ({RERANKER_MODEL}).")
+		return compression_retriever
 	
 	except Exception as e:
 		logger.error(f"Error initializing retrievers: {e}")
@@ -210,7 +236,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 		yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + '\n'
 	
 	retrieved_docs: List[Document] = retriever.get_relevant_documents(query)
-	logger.info(f"Retrieved {len(retrieved_docs)} documents.")
+	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
 	max_chunks = MAX_CONTEXT_TOKENS // CHUNK_SIZE
 	context_texts = []
