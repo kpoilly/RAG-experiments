@@ -27,7 +27,7 @@ ingest:
 	@echo "Ingesting new documents..."
 	curl -X POST http://localhost:8001/ingest 
 
-stop:
+down:
 	docker compose down
 
 clean:
