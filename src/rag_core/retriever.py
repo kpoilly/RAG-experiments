@@ -1,6 +1,7 @@
 import os
 import json
 import httpx
+import asyncio
 import logging
 
 from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
@@ -23,6 +24,7 @@ LLM_GATEWAY_URL = os.environ.get("LLM_GATEWAY_URL", "http://llm-gateway:8002/cha
 MAX_CONTEXT_TOKENS = int(os.environ.get("MAX_CONTEXT_TOKENS", 4000))
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
+MAX_RETRIES = 3
 
 
 # --- Pydantic models ---
@@ -140,6 +142,55 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 	messages.append({"role": "user", "content": query})
 	return system_instruction, messages
 
+async def async_retry_post(
+		url: str,
+		payload: Dict[str, Any],
+		max_retries: int = MAX_RETRIES
+) -> httpx.Response:
+	"""
+	Try to send and HTTP POST Request with Retry and Exponential Backoff.
+	
+	Args:
+		url: URL from the service to call.
+		payload: content of the JSON request to send.
+		max_retries: Maximal number of tries.
+
+	Returns:
+		httpx.Response if request is successful.
+	
+	Raises:
+		httpx.HTTPStatusError: if every try fails or if fatal error.
+	"""
+
+	async with httpx.AsyncClient(timeout=120.0) as client:
+		for attempt in range(max_retries):
+			try:
+				response = await client.post(url, json=payload)
+				response.raise_for_status()
+				return response
+			
+			except httpx.RequestError as e:
+				if 400 <= e.response.status_code < 500:
+					logger.error(f"Fatal client error (Status {e.response.status_code})")
+					raise e
+				delay = 0.5 * (2 ** attempt)
+				logger.warning(
+					f"HTTP request failed (Status {e.response.status_code} or Timeout). "
+                    f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
+				)
+				await asyncio.sleep(delay)
+		
+			except httpx.RequestError as e:
+				delay = 0.5 * (2 ** attempt)
+				logger.warning(
+					f"HTTP request failed (Status {e.response.status_code} or Timeout). "
+                    f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
+				)
+				await asyncio.sleep(delay)
+			
+		logger.error(f"HTTP request permanently failed after {max_retries} attempts.")
+		raise httpx.RequestError("Failed to communicate with LLM Gateway after multiple retries.")
+
 async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
 	"""
 	Execute the whole RAG flow: Retrieval, Context Building and LLm call.
@@ -186,19 +237,18 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 			model=LLM_MODEL
 		)
 		async with httpx.AsyncClient(timeout=120.0) as client:
-			async with client.stream("POST", LLM_GATEWAY_URL, json=request_data.model_dump()) as response:
-				response.raise_for_status()
-				async for chunk in response.aiter_lines():
-					if chunk:
-						try:
-							data = json.loads(chunk)
-							text_chunk = data.get("text", "")
-							if text_chunk:
-								full_response += text_chunk
-								text_chunk_data = json.dumps({"type": "text", "content": text_chunk}) + "\n"
-								yield text_chunk_data
-						except json.JSONDecodeError:
-							continue
+			response = await async_retry_post(LLM_GATEWAY_URL, request_data.model_dump())
+			async for chunk in response.aiter_lines():
+				if chunk:
+					try:
+						data = json.loads(chunk)
+						text_chunk = data.get("text", "")
+						if text_chunk:
+							full_response += text_chunk
+							text_chunk_data = json.dumps({"type": "text", "content": text_chunk}) + "\n"
+							yield text_chunk_data
+					except json.JSONDecodeError:
+						continue
 		logger.info("RAG flow completed.")
 
 	except httpx.RequestError as e:

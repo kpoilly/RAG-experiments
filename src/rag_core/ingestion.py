@@ -1,7 +1,7 @@
-from ast import mod
 import os
 import torch
 import glob
+import hashlib
 import logging
 
 from typing import Optional
@@ -12,6 +12,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from chromadb import HttpClient, Settings
+from chromadb.api.types import Collection
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -26,7 +27,7 @@ EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-sm
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", 200))
 
-
+# --- Chroma set up ---
 _chroma_client: Optional[HttpClient] = None
 def get_chroma_client() -> Optional[HttpClient]:
 	"""
@@ -56,6 +57,44 @@ def get_embeddings():
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	logger.info(f"Using device: {device}")
 	return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={"device": device})
+
+def get_or_create_collection(client: HttpClient, collection_name: str) -> Collection:
+	"""
+	Get or create a Chroma collection.
+	"""
+	try:
+		collection = client.get_collection(collection_name)
+		logger.info(f"Collection {collection_name} loaded successfully.")
+		return collection
+	except Exception:
+		logger.info(f"Collection {collection_name} does not exist. Creating...")
+		collection = client.create_collection(
+			name=collection_name,
+			metadata={"hnsw:space": "cosine"}
+		)
+		logger.info(f"Collection {collection_name} created successfully.")
+		return collection
+
+
+# --- Haching and files ID ---
+def calculate_file_hash(file_path: str) -> str:
+	"""
+	Calculate the hash of a file for stable ID.
+	"""
+	hasher = hashlib.sha256()
+	try:
+		with open(file_path, "rb") as file:
+			while True:
+				chunk = f.read(4096)
+				if not chunk:
+					break
+				hasher.update(chunk)
+		return hasher.hexdigest()
+	except Exception as e:
+		logger.error(f"Failed to hash file {file_path}: {e}")
+		return ""
+	
+
 
 def process_and_index_documents(data_dir: str = "app/src/data") -> int:
 	"""
