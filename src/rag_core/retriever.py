@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import httpx
 import logging
 import tiktoken
@@ -35,7 +36,7 @@ LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
 
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.5))
+RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.4))
 
 
 # --- Init ---
