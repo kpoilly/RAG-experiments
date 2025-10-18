@@ -7,7 +7,7 @@ import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
-from retriever import orchestrate_rag_flow, get_ensemble_retriever, refresh_ensemble_retriever, get_llm_query_gen
+from retriever import orchestrate_rag_flow, get_ensemble_retriever, get_llm_query_gen
 from ingestion import process_and_index_documents
 from models import GenerationRequest, IngestionResponse
 
@@ -53,7 +53,7 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
 	"""
 	logger.info(f"Starting ingestion for path: {data_path}")
 	indexed_count = await asyncio.to_thread(process_and_index_documents, data_path)
-	await asyncio.to_thread(refresh_ensemble_retriever)
+	await asyncio.to_thread(get_ensemble_retriever, refresh=True)
 	if indexed_count > 0:
 		logger.info("Ingestion completed successfully.")
 		return IngestionResponse(indexed_chunks=indexed_count, status="success")

@@ -5,9 +5,11 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY prompts/ /app/prompts/
 COPY ingestion.py /app/ingestion.py
 COPY retriever.py /app/retriever.py
 COPY models.py /app/models.py
+COPY utils.py /app/utils.py
 COPY main.py /app/main.py
 
 EXPOSE 8001

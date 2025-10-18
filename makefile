@@ -35,4 +35,10 @@ clean:
 
 start-chat:
 	docker compose exec -it api python main.py
+
+logs-rag:
+	docker compose logs rag-core -f
+
+logs-llm:
+	docker compose logs llm-gateway -f
 	

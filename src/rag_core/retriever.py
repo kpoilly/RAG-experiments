@@ -1,12 +1,12 @@
 import os
 import json
 import httpx
-import asyncio
 import logging
 import tiktoken
 
 from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 
+from sentence_transformers.util import cos_sim
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
@@ -19,6 +19,7 @@ from langchain_core.output_parsers import CommaSeparatedListOutputParser
 from langchain_openai import ChatOpenAI
 
 from models import LLMRequest
+from utils import async_retry_post
 from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
 
 
@@ -36,10 +37,13 @@ CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
 RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.5))
 
-MAX_RETRIES = 3
-
 
 # --- Init ---
+with open("/app/prompts/system.json", "r") as f:
+	SYSTEM_PROMPTS = json.load(f)
+with open("/app/prompts/multi_query.json", "r") as f:
+	MULTI_QUERY_PROMPTS = json.load(f)
+
 def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[HuggingFaceCrossEncoder]]:
 	"""
 	Initialize the retrievers (Dense and Sparse) and combine them with RRF.
@@ -89,10 +93,10 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
 			c=100
 		)
 		logger.info("Hybrid RRF EnsembleRetriever initialized.")
-
+		logger.info("Initializing cross-encoder reranker...")
 		reranker = HuggingFaceCrossEncoder(
 			model_name=RERANKER_MODEL,
-			model_kwargs={'device': get_embeddings().model_kwargs.get('device', 'cpu')}
+			model_kwargs={'device': embedding_function.model_kwargs.get('device', 'cpu')}
 			)
 		logger.info(f"Cross-Encoder Reranker model ({RERANKER_MODEL}) initialized.")
 		return ensemble_retriever, reranker
@@ -103,31 +107,23 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
 	
 _EMSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
 _RERANKER: Optional[HuggingFaceCrossEncoder] = None
-def get_ensemble_retriever() -> Optional[EnsembleRetriever]:
+def get_ensemble_retriever(refresh: bool = False) -> Optional[EnsembleRetriever]:
 	"""
 	Get the ensemble retriever.
 	"""
+	logger.info("Getting ensemble retriever...")
 	global _EMSEMBLE_RETRIEVER, _RERANKER
-	if _EMSEMBLE_RETRIEVER is None:
+	if _EMSEMBLE_RETRIEVER is None or refresh:
 		_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
+	logger.info("Ensemble retriever retrieved.")
 	return _EMSEMBLE_RETRIEVER, _RERANKER
-
-def refresh_ensemble_retriever():
-	"""
-	Refresh the ensemble retriever.
-	"""
-	global _EMSEMBLE_RETRIEVER, _RERANKER
-	logger.info("Refreshing ensemble retriever...")
-	global _EMSEMBLE_RETRIEVER, _RERANKER
-	_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
-	logger.info("Ensemble retriever refreshed.")
 
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
 	"""
 	Get the LLM query generator.
 	"""
-	global _LLM_QUERY_GEN, _QUERY_PROMPT
+	global _LLM_QUERY_GEN
 	if _LLM_QUERY_GEN is None:
 		logger.info("Initializing LLM query generator...")
 		llm = ChatOpenAI(
@@ -137,16 +133,11 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
 			temperature=0.0,
 			streaming=False
 		)
-		output_parser = CommaSeparatedListOutputParser()
 		query_prompt = PromptTemplate(
 			input_variables=["question"],
-			template=(
-				"You are an AI language model assistant. Your task is to generate 3 "
-				"different versions of the given user question to retrieve relevant documents from a vector database. "
-				"Provide these alternative questions separated by commas and NOTHING ELSE. "
-				"ONLY return the comma-separated list of questions.\n"
-				"Original question: {question}"
-			))
+			template=MULTI_QUERY_PROMPTS["instructions"]
+		)
+		output_parser = CommaSeparatedListOutputParser()
 		_LLM_QUERY_GEN = LLMChain(llm=llm, prompt=query_prompt, output_parser=output_parser)
 		logger.info("LLM query generator initialized.")
 	return _LLM_QUERY_GEN
@@ -172,77 +163,31 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 		context_map.append(f"Content: {text_chunk} (Source: {metadata['source']} [Page {metadata['page']}])")
 	context = "\n\n".join(context_map)
 
-	if LLM_STRICT_RAG:
-		strict_rule = ("If the answer is not found in the CONTEXT, you must explicitly state that you cannot answer this question as the information is not available in your reference documents in the user's language. NEVER USE YOUR OWN KNOWLEDGE.")
-	else:
-		strict_rule = ("If the answer is not found in the CONTEXT, you must answer using your own knowledge but by basing yourself on and favoring the answers found in the CONTEXT.")
-	
-	system_instruction = (
-		"You are Michel, an expert RAG (Retrieval-Augmented Generation) assistant, specializing in document analysis. Your objective is to provide factual, accurate, and concise answers mainly based on the reference documents provided below.\n\n"
-		"--- REFERENCE CONTEXT ---\n"
-		f"{context}\n"
-		"--- END OF REFERENCE CONTEXT ---\n"
-		"Rules:\n"
-		"1. If the answer is fully contained within the CONTEXT, answer comprehensively using the CONTEXT.\n"
-		"2. When referencing a fact, insert the citation EXACTLY as follows: (\"FILENAME\" [Page NUMBER]) immediately after the sentence or paragraph.\n"
-		f"3. {strict_rule}\n"
+	template = SYSTEM_PROMPTS["instructions"]
+	system_instruction = template.format(
+		context=context,
+		strict_rule=SYSTEM_PROMPTS["strict_rule_true"] if LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"]
 	)
 	messages = [
-		{"role": "system", "content": system_instruction},	
+		{"role": "system", "content": system_instruction}
 	]
 	for message in history:
 		messages.append(message)
 	messages.append({"role": "user", "content": query})
 	return system_instruction, messages
 
-async def async_retry_post(
-		url: str,
-		payload: Dict[str, Any],
-		max_retries: int = MAX_RETRIES
-) -> httpx.Response:
-	"""
-	Try to send and HTTP POST Request with Retry and Exponential Backoff.
-	
-	Args:
-		url: URL from the service to call.
-		payload: content of the JSON request to send.
-		max_retries: Maximal number of tries.
+def filter_docs_to_rerank(docs: List[Document], query: str, MAX_DOCS_TO_RERANK: int):
+	logger.info(f"Pre-ranking {len(docs)} documents with Bi-Encoder to select top {MAX_DOCS_TO_RERANK}...")
 
-	Returns:
-		httpx.Response if request is successful.
-	
-	Raises:
-		httpx.HTTPStatusError: if every try fails or if fatal error.
-	"""
+	embedder = get_embeddings()
+	query_embedding = embedder.embed_query(query)
+	doc_embeddings = embedder.embed_documents([doc.page_content for doc in docs])
+	similarities = cos_sim(query_embedding, doc_embeddings).flatten()
 
-	async with httpx.AsyncClient(timeout=120.0) as client:
-		for attempt in range(max_retries):
-			try:
-				response = await client.post(url, json=payload)
-				response.raise_for_status()
-				return response
-			
-			except httpx.RequestError as e:
-				if 400 <= e.response.status_code < 500:
-					logger.error(f"Fatal client error (Status {e.response.status_code})")
-					raise e
-				delay = 0.5 * (2 ** attempt)
-				logger.warning(
-					f"HTTP request failed (Status {e.response.status_code} or Timeout). "
-                    f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
-				)
-				await asyncio.sleep(delay)
-		
-			except httpx.RequestError as e:
-				delay = 0.5 * (2 ** attempt)
-				logger.warning(
-					f"HTTP request failed (Status {e.response.status_code} or Timeout). "
-                    f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
-				)
-				await asyncio.sleep(delay)
-			
-		logger.error(f"HTTP request permanently failed after {max_retries} attempts.")
-		raise httpx.RequestError("Failed to communicate with LLM Gateway after multiple retries.")
+	sorted_docs = sorted(list(zip(docs, similarities.tolist())), key=lambda x: x[1], reverse=True)
+	docs_to_rerank = [doc for doc, score in sorted_docs[:MAX_DOCS_TO_RERANK]]
+	logger.info(f"Top {len(docs_to_rerank)} documents selected for final re-ranking.")
+	return docs_to_rerank
 
 async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
 	"""
@@ -270,6 +215,10 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	retrieved_docs: List[Document] = multi_query_retriever.invoke(query)
 	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
+	MAX_DOCS_TO_RERANK = 15
+	if len(retrieved_docs) > MAX_DOCS_TO_RERANK:
+		retrieved_docs = filter_docs_to_rerank(retrieved_docs, query, MAX_DOCS_TO_RERANK)
+
 	if reranker is not None and retrieved_docs:
 		pairs = [(query, doc.page_content) for doc in retrieved_docs]
 		scores = reranker.score(pairs)
@@ -278,7 +227,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 
 		reranked_docs = sorted(
 			retrieved_docs,
-			key=lambda x: x.metadata.get('relevance_score', '0.0'),
+			key=lambda x: x.metadata.get('relevance_score', 0.0),
 			reverse=True
 		)
 		filtered_docs = [doc for doc in reranked_docs if doc.metadata['relevance_score'] > RERANKER_THRESHOLD]

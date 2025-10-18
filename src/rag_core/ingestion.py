@@ -51,13 +51,20 @@ def get_chroma_client() -> Optional[HttpClient]:
 		_chroma_client = None
 	return _chroma_client
 
+_EMBEDDER: Optional[HuggingFaceEmbeddings] = None
 def get_embeddings():
 	"""
 	Load the embeddings model.
 	"""
-	device = "cuda" if torch.cuda.is_available() else "cpu"
-	logger.info(f"Using device: {device}")
-	return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={"device": device})
+	logger.info("Loading embeddings model...")
+	global _EMBEDDER
+	if _EMBEDDER is None:
+		logger.info(f"Initializing embeddings model ({EMBEDDING_MODEL})...")
+		device = "cuda" if torch.cuda.is_available() else "cpu"
+		logger.info(f"Using device: {device}")
+		_EMBEDDER = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={"device": device})
+	logger.info("Embeddings model loaded.")
+	return _EMBEDDER
 
 def get_or_create_collection(client: HttpClient, collection_name: str, embedding_function: HuggingFaceEmbeddings) -> Collection:
 	"""

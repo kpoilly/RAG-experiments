@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # --- Config ---
 RAG_CORE_URL="http://rag-core:8001/"
 CHAT_URL = f"{RAG_CORE_URL}/chat"
-STARTUP_TIMEOUT = 90
+STARTUP_TIMEOUT = 180
 
 chat_history: List[Dict[str, str]] = []
 
