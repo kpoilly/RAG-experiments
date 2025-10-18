@@ -30,7 +30,7 @@ The core of the system is enhancing information retrieval for the LLM.
 | **RAG Framework** | LangChain | Orchestration of the complete RAG workflow. |
 | **Embeddings** | Multilingual models (e.g., E5) | Creation of vector representations (supports hybrid seaarch). |
 | **Reranking & Filtering**| BAAI/bge-reranker-v2-m3 (Cross-Encoder) | Refines search results by calculating a precise relevance score for each document. |
-| **Parsing** | PyMuPDF | Extraction of plain text and metadata from PDF files. |
+| **Parsing** | PyPDF | Extraction of plain text and metadata from PDF files. |
 
 ---
 
