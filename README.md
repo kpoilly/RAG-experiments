@@ -6,17 +6,18 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 
 ## 💡 Overview of Functioning (Advanced RAG)
 
-***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically every time the chat is started** (`make start-chat`). This intelligent system synchronizes the vector database with the contents of the `data/` folder: it only processes and embeds newly added files, and removes references to files that are no longer present. This ensures the knowledge base is always up-to-date without needing to manually rebuild the project, avoiding redundant processing.*
+***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically when the RAG service starts**. It can also be triggered at any time via an API endpoint (`/ingest`). This allows you to update your reference documents (in the `data/` folder) while the service is running. The assistant will benefit from the new knowledge in real-time, without any interruption or restart needed.*
 
 The core of the system is enhancing information retrieval for the LLM.
 
 1.  **Indexing:** Documents are split into chunks and converted into **embeddings** (vectors).
-2.  **Advanced Contextual Retrieval:** The search uses **Hybrid Embedding**, which combines:
+2.  **Query Transformation (Multi-Query):** Before searching, the user's original question is sent to an LLM to generate several alternative versions. This technique helps overcome the limitations of keyword or semantic search by exploring different formulations of the same intent, thus casting a wider net to find the most relevant documents.
+3.  **Advanced Contextual Retrieval:** The search uses **Hybrid Embedding**, which combines:
     * **Semantic search** (understanding meaning).
     * **Keyword search** (exact term precision).
     The **Reciprocal Rank Fusion (RRF)** algorithm merges the results from both methods to ensure maximum relevance before transmitting the context to the LLM.
-3.  **Re-Ranking & Filtering:** To further refine the results, a **Cross-Encoder** model re-ranks the documents retrieved in the previous step. It calculates a precise relevance score for each document in relation to the query. Only documents with a score exceeding a configurable **threshold** are kept, ensuring that only the most relevant information is passed to the LLM.
-4.  **Augmented Generation:** The most relevant context chunks are sent to the LLM (Groq) to generate a factual and justified response. The answer is delivered in real-time via **streaming**, ensuring an interactive and fluid user experience with very low latency.
+4.  **Re-Ranking & Filtering:** To further refine the results, a **Cross-Encoder** model re-ranks the documents retrieved in the previous step. It calculates a precise relevance score for each document in relation to the query. Only documents with a score exceeding a configurable **threshold** are kept, ensuring that only the most relevant information is passed to the LLM.
+5.  **Augmented Generation:** The most relevant context chunks are sent to the LLM (Groq) to generate a factual and justified response. The answer is delivered in real-time via **streaming**, ensuring an interactive and fluid user experience with very low latency.
 
 ---
 
@@ -65,15 +66,18 @@ data/
 
 Use the provided Makefile commands to set up the environment, process documents, and start the chat application.
 
-1. **Build Docker Project:**
+1. **Build, Start, and Run the Chat Interface:**
 
 ```bash
 make
 ```
+This single command will perform all the necessary steps. The chat interface will automatically wait for the RAG service to complete its initial indexing before prompting you for input, ensuring the system is ready to use.
 
-2. **Start the Conversational Chat Interface (and run dynamic indexing):**
+2. **Triggering a Re-Ingestion:**
 
+If you add or remove documents from the data/ directory while the service is running, you can trigger a re-ingestion without restarting the project:
 ```bash
-make start-chat
+make ingest
 ```
+The assistant will immediately have access to the updated knowledge base.
 
