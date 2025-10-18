@@ -3,6 +3,7 @@ rank-bm25==0.2.2
 langchain==0.3.27
 langchain-core==0.3.78
 langchain-community==0.3.30
+langchain-openai==0.3.35
 chromadb==1.1.1
 pydantic==2.11.10
 pypdf==6.1.1

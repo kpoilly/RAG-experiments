@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # --- Config ---
 RAG_CORE_URL="http://rag-core:8001/"
 CHAT_URL = f"{RAG_CORE_URL}/chat"
-STARTUP_TIMEOUT = 180
+STARTUP_TIMEOUT = 90
 
 chat_history: List[Dict[str, str]] = []
 
@@ -36,7 +36,7 @@ def wait_rag():
 			logger.info("RAG Service not ready yet. Retrying...")
 		except requests.exceptions.RequestException as e:
 			logger.error(f"Request failed: {e}")
-		time.sleep(15)
+		time.sleep(20)
 	logger.error("Timeout reached. RAG Core service did not start up in time.")
 	return False	
 		

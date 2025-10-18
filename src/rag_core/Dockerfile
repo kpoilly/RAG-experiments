@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ingestion.py /app/ingestion.py
 COPY retriever.py /app/retriever.py
+COPY models.py /app/models.py
 COPY main.py /app/main.py
 
 EXPOSE 8001

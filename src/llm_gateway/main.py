@@ -6,7 +6,9 @@ from pydantic import BaseModel
 from typing import List
 
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.exceptions import HTTPException
+
 from groq import Groq
 
 
@@ -22,11 +24,6 @@ class Message(BaseModel):
 class LLMRequest(BaseModel):
 	messages: List[Message]
 	model: str
-
-class LLMResponse(BaseModel):
-	response: str
-	model: str
-	status: str
 
 
 # --- init ---
@@ -50,7 +47,7 @@ async def health():
 	"""
 	return {"status": "ok"}
 
-@app.post("/chat", response_model=LLMResponse)
+@app.post("/chat")
 async def chat(request: LLMRequest):
 	"""
 	Receive final prompt (context + rag + prompt) and call the llm.
@@ -78,3 +75,38 @@ async def chat(request: LLMRequest):
 		content=groq_streaming_generator(messages, request.model),
 		media_type="application/x-ndjson"
 	)
+
+@app.post("/chat/completions")
+async def chat_openai(request: LLMRequest):
+	"""
+	Chat endpoint compatible with OpenAI API for MultiQueryRetriever (Streaming off).
+	"""
+	try:
+		messages = [msg.model_dump() for msg in request.messages]
+		chat_completion = client.chat.completions.create(
+			messages=messages,
+			model=request.model,
+			temperature=0.0,
+			stream=False
+		)
+		full_response_content = chat_completion.choices[0].message.content
+		return JSONResponse(
+			content={
+				"id": chat_completion.id,
+				"object": "chat.completion",
+				"created": chat_completion.created,
+				"model": chat_completion.model,
+				"choices": [{
+					"index": 0,
+					"message": {
+						"role": "assistant",
+						"content": full_response_content,
+					},
+					"finish_reason": "stop"
+				}],
+				"usage": chat_completion.usage.dict()
+			}
+		)
+	except Exception as e:
+		logger.error(f"Error during Groq non-streaming call: {e}")
+		raise HTTPException(status_code=500, detail=str(e))

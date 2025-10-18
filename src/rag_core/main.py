@@ -4,34 +4,16 @@ import json
 import logging
 import asyncio
 
-from typing import List, Dict
-from webbrowser import get
-from pydantic import BaseModel
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
-from retriever import orchestrate_rag_flow, get_ensemble_retriever, refresh_ensemble_retriever
+from retriever import orchestrate_rag_flow, get_ensemble_retriever, refresh_ensemble_retriever, get_llm_query_gen
 from ingestion import process_and_index_documents
+from models import GenerationRequest, IngestionResponse
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
-# --- Pydantic models ---
-class GenerationRequest(BaseModel):
-	query: str
-	history: List[Dict[str, str]]
-
-class GenerationResponse(BaseModel):
-	response: str
-	source_chunks: List[str]
-	status: str
-
-class IngestionResponse(BaseModel):
-	indexed_chunks: int
-	status: str
 
 
 # --- init ---
@@ -50,6 +32,8 @@ async def startup_event():
 		data_path = os.getenv("DATA_PATH", "/app/src/data")
 		await asyncio.to_thread(process_and_index_documents, data_path)
 		await asyncio.to_thread(get_ensemble_retriever)
+		await asyncio.to_thread(get_llm_query_gen)
+		app.state.rad_ready = True
 		logger.info("Application startup complete. Ready to serve requests.")
 	except Exception as e:
 		logger.error(f"FATAL: RAG initialization failed during startup: {e}", exc_info=True)

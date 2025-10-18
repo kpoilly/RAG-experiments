@@ -1,20 +1,24 @@
 import os
 import json
-import re
 import httpx
 import asyncio
 import logging
 import tiktoken
 
-from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
 
 from langchain_community.vectorstores import Chroma
-from langchain.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
-from langchain_core.documents import Document
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain.chains import LLMChain
+from langchain_core.documents import Document
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import CommaSeparatedListOutputParser
+from langchain_openai import ChatOpenAI
 
+from models import LLMRequest
 from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
 
 
@@ -33,16 +37,6 @@ RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
 RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.5))
 
 MAX_RETRIES = 3
-
-
-# --- Pydantic models ---
-class Message(BaseModel):
-	role: str
-	content: str
-
-class LLMRequest(BaseModel):
-	messages: List[Message]
-	model: str
 
 
 # --- Init ---
@@ -127,6 +121,35 @@ def refresh_ensemble_retriever():
 	global _EMSEMBLE_RETRIEVER, _RERANKER
 	_EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
 	logger.info("Ensemble retriever refreshed.")
+
+_LLM_QUERY_GEN: Optional[ChatOpenAI] = None
+def get_llm_query_gen() -> Optional[ChatOpenAI]:
+	"""
+	Get the LLM query generator.
+	"""
+	global _LLM_QUERY_GEN, _QUERY_PROMPT
+	if _LLM_QUERY_GEN is None:
+		logger.info("Initializing LLM query generator...")
+		llm = ChatOpenAI(
+			model_name=LLM_MODEL,
+			openai_api_base=LLM_GATEWAY_URL.replace("/chat", ""),
+			openai_api_key="not needed",
+			temperature=0.0,
+			streaming=False
+		)
+		output_parser = CommaSeparatedListOutputParser()
+		query_prompt = PromptTemplate(
+			input_variables=["question"],
+			template=(
+				"You are an AI language model assistant. Your task is to generate 3 "
+				"different versions of the given user question to retrieve relevant documents from a vector database. "
+				"Provide these alternative questions separated by commas and NOTHING ELSE. "
+				"ONLY return the comma-separated list of questions.\n"
+				"Original question: {question}"
+			))
+		_LLM_QUERY_GEN = LLMChain(llm=llm, prompt=query_prompt, output_parser=output_parser)
+		logger.info("LLM query generator initialized.")
+	return _LLM_QUERY_GEN
 
 
 # --- RAG flow ---
@@ -239,8 +262,14 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 		logger.error("Cannot retrieve retriever.")
 		yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + '\n'
 	
-	retrieved_docs: List[Document] = retriever.invoke(query)
+	llm = get_llm_query_gen()
+	multi_query_retriever = MultiQueryRetriever(
+		retriever=retriever,
+		llm_chain=llm
+	)
+	retrieved_docs: List[Document] = multi_query_retriever.invoke(query)
 	logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
+
 	if reranker is not None and retrieved_docs:
 		pairs = [(query, doc.page_content) for doc in retrieved_docs]
 		scores = reranker.score(pairs)
