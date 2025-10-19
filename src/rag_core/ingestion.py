@@ -109,6 +109,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 	Returns:
 		total number of indexed documents.
 	"""
+	BATCH_SIZE=512
 	logger.info(f"Starting ingestion from {data_dir}...")
 
 	files = glob.glob(os.path.join(data_dir, "*.pdf"))
@@ -138,44 +139,58 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 			collection.delete(where={'document_hash': hash})
 			logger.info(f"Deleted document chunk with hash {hash} from ChromaDB.")
 	
-	new_chunks_count = 0
+	new_chunk_ids = []
+	new_chunk_contents = []
+	new_chunk_metadatas = []
+
+	text_splitter = RecursiveCharacterTextSplitter(
+	chunk_size=env.CHUNK_SIZE,
+	chunk_overlap=env.CHUNK_OVERLAP,
+	separators=["\n\n", "\n", " ", ""])
+
 	for doc_hash, path in current_hashes.items():
 		if doc_hash not in existing_hashes:
 			try:
-				logger.info(f"Indexing new/modified document: {os.path.basename(path)}")
+				logger.info(f"Preparing new/modified document for batch indexing: {os.path.basename(path)}")
 				loader = PyPDFLoader(path)
 				documents = loader.load()
-
-				text_splitter = RecursiveCharacterTextSplitter(
-				chunk_size=env.CHUNK_SIZE,
-				chunk_overlap=env.CHUNK_OVERLAP,
-				separators=["\n\n", "\n", " ", ""],
-				)
 				chunks = text_splitter.split_documents(documents)
 
-				chunk_ids = []
-				chunk_contents = []
-				chunk_metadatas = []
 				for i, chunk in enumerate(chunks):
-					chunk_ids.append(create_chunk_id(doc_hash, i))
+					new_chunk_ids.append(create_chunk_id(doc_hash, i))
+
 					meta = chunk.metadata
 					meta["document_hash"] = doc_hash
 					meta["source"] = os.path.basename(path)
-					chunk_metadatas.append(meta)
-					chunk_contents.append(chunk.page_content)
-				
-				collection.add(
-					documents=chunk_contents,
-					metadatas=chunk_metadatas,
-					ids=chunk_ids
-				)
-				new_chunks_count += len(chunks)
+					new_chunk_metadatas.append(meta)
+					new_chunk_contents.append(chunk.page_content)
 			
 			except Exception as e:
-				logger.error(f"Error indexing documents: {e}")
+				logger.error(f"Error preparing document {path} for indexing: {e}")
 				return 0
+		
+		if len(new_chunk_ids) >= BATCH_SIZE:
+			logger.info(f"Adding a batch of {len(new_chunk_ids)} new chunks to the collection.")
+			collection.add(
+				documents=new_chunk_contents,
+				metadatas=new_chunk_metadatas,
+				ids=new_chunk_ids)
+			new_chunk_ids.clear()
+			new_chunk_contents.clear()
+			new_chunk_metadatas.clear()
 	
-	logger.info(f"Ingestion Sync Complete. {new_chunks_count} new chunks indexed.")
+	if new_chunk_contents:
+		logger.info(f"Adding {len(new_chunk_contents)} new chunks to the collection in one batch.")
+		try:
+			collection.add(
+				documents=new_chunk_contents,
+				metadatas=new_chunk_metadatas,
+				ids=new_chunk_ids)
+		except Exception as e:
+			logger.error(f"Error adding new chunks to the collection: {e}")
+			return 0
+	
+	logger.info(f"Ingestion Sync Complete. {len(new_chunk_contents)} new chunks indexed. Total chunks in DB: {collection.count()}")
 	return collection.count()
 
 
