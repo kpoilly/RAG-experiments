@@ -13,19 +13,11 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from chromadb import HttpClient, Settings
 from chromadb.api.models.Collection import Collection
 
+from config import settings as env
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
-# --- Config ---
-CHROMA_HOST = os.environ.get("CHROMA_HOST", "chromadb")
-CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
-COLLECTION_NAME = "rag_documents_collection"
-
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
-CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
-CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", 200))
 
 
 # --- Chroma set up ---
@@ -40,12 +32,12 @@ def get_chroma_client() -> Optional[HttpClient]:
 	
 	try:
 		_chroma_client = HttpClient(
-			host=CHROMA_HOST,
-			port=CHROMA_PORT,
+			host=env.CHROMA_HOST,
+			port=env.CHROMA_PORT,
 			settings=Settings(allow_reset=True)
 		)
 		_chroma_client.heartbeat()
-		logger.info(f"Connected to ChromaDB at {CHROMA_HOST}:{CHROMA_PORT}")
+		logger.info(f"Connected to ChromaDB at {env.CHROMA_HOST}:{env.CHROMA_PORT}")
 	except Exception as e:
 		logger.error(f"Error connecting to ChromaDB: {e}")
 		_chroma_client = None
@@ -59,14 +51,14 @@ def get_embeddings():
 	logger.info("Loading embeddings model...")
 	global _EMBEDDER
 	if _EMBEDDER is None:
-		logger.info(f"Initializing embeddings model ({EMBEDDING_MODEL})...")
+		logger.info(f"Initializing embeddings model ({env.EMBEDDING_MODEL})...")
 		device = "cuda" if torch.cuda.is_available() else "cpu"
 		logger.info(f"Using device: {device}")
-		_EMBEDDER = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={"device": device})
+		_EMBEDDER = HuggingFaceEmbeddings(model_name=env.EMBEDDING_MODEL, model_kwargs={"device": device})
 	logger.info("Embeddings model loaded.")
 	return _EMBEDDER
 
-def get_or_create_collection(client: HttpClient, collection_name: str, embedding_function: HuggingFaceEmbeddings) -> Collection:
+def get_or_create_collection(client: HttpClient, collection_name: str) -> Collection:
 	"""
 	Get or create a Chroma collection.
 	"""
@@ -110,7 +102,7 @@ def create_chunk_id(doc_hash: str, chunk_index: int) -> str:
 # --- Ingestion ---
 def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 	"""
-	Loads PDF documents, chunks and index them in ChromaDB
+	Loads PDF documents, chunks and index them in ChromaDB using a batch approach.
 
 	Args:
 		data_dir: path to the data directory.
@@ -129,21 +121,11 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 		logger.error("Error connecting to ChromaDB")
 		return 0
 	
-	embedding_function = get_embeddings()
-	if not embedding_function:
-		logger.error("Error loading embeddings model")
-		return 0
-	
-	collection = get_or_create_collection(client, COLLECTION_NAME, embedding_function)
-	existing_hashes = {
-		meta.get('document_hash') for meta in collection.get()['metadatas'] if meta.get('document_hash')
-	}
+	collection = get_or_create_collection(client, env.COLLECTION_NAME)
 
-	current_hashes = {}
-	for path in files:
-		file_hash = calculate_file_hash(path)
-		if file_hash:
-			current_hashes[file_hash] = path
+	existing_hashes = {meta.get('document_hash') for meta in collection.get(include=['metadatas'])['metadatas'] if meta and meta.get('document_hash')}
+	current_hashes = {calculate_file_hash(path): path for path in files}
+	current_hashes = {hash: path for hash, path in current_hashes.items() if hash}
 	
 	hashes_to_rm = existing_hashes.difference(set(current_hashes.keys()))
 	if hashes_to_rm:
@@ -165,8 +147,8 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 				documents = loader.load()
 
 				text_splitter = RecursiveCharacterTextSplitter(
-				chunk_size=CHUNK_SIZE,
-				chunk_overlap=CHUNK_OVERLAP,
+				chunk_size=env.CHUNK_SIZE,
+				chunk_overlap=env.CHUNK_OVERLAP,
 				separators=["\n\n", "\n", " ", ""],
 				)
 				chunks = text_splitter.split_documents(documents)

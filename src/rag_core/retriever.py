@@ -1,6 +1,4 @@
-import os
 import json
-import re
 import httpx
 import logging
 import tiktoken
@@ -21,22 +19,12 @@ from langchain_openai import ChatOpenAI
 
 from models import LLMRequest
 from utils import async_retry_post
-from ingestion import get_chroma_client, get_embeddings, COLLECTION_NAME
+from ingestion import get_chroma_client, get_embeddings
+from config import settings as env
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
-# --- Config ---
-LLM_MODEL=os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
-LLM_GATEWAY_URL = os.environ.get("LLM_GATEWAY_URL", "http://llm-gateway:8002/chat")
-MAX_CONTEXT_TOKENS = int(os.environ.get("MAX_CONTEXT_TOKENS", 4000))
-LLM_STRICT_RAG = os.environ.get("LLM_STRICT_RAG", True).lower() == "true"
-
-CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1000))
-RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-RERANKER_THRESHOLD = float(os.environ.get("RERANKER_THRESHOLD", 0.4))
 
 
 # --- Init ---
@@ -61,8 +49,15 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
 			logger.error("Error loading embeddings model")
 			return None
 		
+		logger.info("Initializing cross-encoder reranker...")
+		reranker = HuggingFaceCrossEncoder(
+			model_name=env.RERANKER_MODEL,
+			model_kwargs={'device': embedding_function.model_kwargs.get('device', 'cpu')}
+			)
+		logger.info(f"Cross-Encoder Reranker model ({env.RERANKER_MODEL}) initialized.")
+
 		vectorstore = Chroma(
-			collection_name=COLLECTION_NAME,
+			collection_name=env.COLLECTION_NAME,
 			client=client,
 			embedding_function=embedding_function
 		)
@@ -78,9 +73,9 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
 				retrievers=[dense_retriever],
 				weights=[1.0],
 				c=100
-			)
+			), reranker
 
-		all_documents = client.get_collection(COLLECTION_NAME).get(include=['documents', 'metadatas'])
+		all_documents = client.get_collection(env.COLLECTION_NAME).get(include=['documents', 'metadatas'])
 		docs = [Document(page_content=doc, metadata=meta) for doc, meta in zip(all_documents["documents"], all_documents["metadatas"])]
 
 		sparse_retriever = BM25Retriever.from_documents(
@@ -94,12 +89,6 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
 			c=100
 		)
 		logger.info("Hybrid RRF EnsembleRetriever initialized.")
-		logger.info("Initializing cross-encoder reranker...")
-		reranker = HuggingFaceCrossEncoder(
-			model_name=RERANKER_MODEL,
-			model_kwargs={'device': embedding_function.model_kwargs.get('device', 'cpu')}
-			)
-		logger.info(f"Cross-Encoder Reranker model ({RERANKER_MODEL}) initialized.")
 		return ensemble_retriever, reranker
 	
 	except Exception as e:
@@ -128,8 +117,8 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
 	if _LLM_QUERY_GEN is None:
 		logger.info("Initializing LLM query generator...")
 		llm = ChatOpenAI(
-			model_name=LLM_MODEL,
-			openai_api_base=LLM_GATEWAY_URL.replace("/chat", ""),
+			model_name=env.LLM_MODEL,
+			openai_api_base=env.LLM_GATEWAY_URL.replace("/chat", ""),
 			openai_api_key="not needed",
 			temperature=0.0,
 			streaming=False
@@ -167,7 +156,7 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
 	template = SYSTEM_PROMPTS["instructions"]
 	system_instruction = template.format(
 		context=context,
-		strict_rule=SYSTEM_PROMPTS["strict_rule_true"] if LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"]
+		strict_rule=SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"]
 	)
 	messages = [
 		{"role": "system", "content": system_instruction}
@@ -231,7 +220,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 			key=lambda x: x.metadata.get('relevance_score', 0.0),
 			reverse=True
 		)
-		filtered_docs = [doc for doc in reranked_docs if doc.metadata['relevance_score'] > RERANKER_THRESHOLD]
+		filtered_docs = [doc for doc in reranked_docs if doc.metadata['relevance_score'] > env.RERANKER_THRESHOLD]
 		final_docs = []
 
 		if filtered_docs:
@@ -240,7 +229,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 		elif reranked_docs:
 			final_docs = [reranked_docs[0]]
 			logger.warning(
-				f"No documents met the threshold of {RERANKER_THRESHOLD}. "
+				f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
 				f"Falling back to the single best document with score {reranked_docs[0].metadata['relevance_score']:.4f}."
         	)
 	retrieved_docs = final_docs
@@ -252,7 +241,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	
 	for doc in retrieved_docs:
 		doc_tokens = len(tokenizer.encode(doc.page_content))
-		if current_tokens + doc_tokens <= MAX_CONTEXT_TOKENS:
+		if current_tokens + doc_tokens <= env.MAX_CONTEXT_TOKENS:
 			current_tokens += doc_tokens
 			source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
 			context_texts.append(doc.page_content.replace('\udcc3', ' ').replace('\xa0', ' ').strip())
@@ -271,10 +260,10 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 	try:
 		request_data = LLMRequest(
 			messages=messages,
-			model=LLM_MODEL
+			model=env.LLM_MODEL
 		)
 		async with httpx.AsyncClient(timeout=120.0) as client:
-			response = await async_retry_post(LLM_GATEWAY_URL, request_data.model_dump())
+			response = await async_retry_post(env.LLM_GATEWAY_URL, request_data.model_dump())
 			async for chunk in response.aiter_lines():
 				if chunk:
 					try:

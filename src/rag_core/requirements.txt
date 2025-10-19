@@ -6,6 +6,7 @@ langchain-community==0.3.30
 langchain-openai==0.3.35
 chromadb==1.1.1
 pydantic==2.11.10
+pydantic-settings==2.11.0
 pypdf==6.1.1
 uvicorn==0.37.0
 fastapi==0.118.0

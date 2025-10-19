@@ -26,6 +26,7 @@ services:
       - CHROMA_PORT=8000
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - LLM_MODEL=${LLM_MODEL}
+      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
       - LLM_STRICT_RAG=${LLM_STRICT_RAG}
       - LLM_GATEWAY_URL=http://llm-gateway:8002/chat
       - CHUNK_SIZE=${CHUNK_SIZE}
