@@ -36,13 +36,6 @@ services:
     depends_on:
       - chromadb
       - llm-gateway
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - rag_network
   
