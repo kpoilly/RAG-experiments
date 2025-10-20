@@ -1,6 +1,8 @@
 .env
 data/*.pdf
 todo
+**/__pycache__
+
 src/api/pyproject.toml
 src/rag_core/pyproject.toml
 src/llm_gateway/pyproject.toml
