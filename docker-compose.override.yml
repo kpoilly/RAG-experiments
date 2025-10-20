@@ -1,0 +1,12 @@
+services:
+  api:
+    volumes:
+      - ./src/api:/app
+
+  rag-core:
+    volumes:
+      - ./src/rag_core:/app
+
+  llm-gateway:
+    volumes:
+      - ./src/llm_gateway:/app

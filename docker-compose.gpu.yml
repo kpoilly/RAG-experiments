@@ -1,41 +1,5 @@
 services:
-  api:
-    build:
-      context: src/api
-    container_name: api
-    stdin_open: true
-    tty: true
-    environment:
-      - RAG_CORE_HOST=rag-core
-    depends_on:
-      - rag-core
-    networks:
-      - rag_network
-    
   rag-core:
-    build:
-      context: src/rag_core
-    container_name: rag_core
-    restart: unless-stopped
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./data:/app/src/data
-    environment:
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - LLM_MODEL=${LLM_MODEL}
-      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
-      - LLM_GATEWAY_URL=http://llm-gateway:8002/chat
-      - CHUNK_SIZE=${CHUNK_SIZE}
-      - CHUNK_OVERLAP=${CHUNK_OVERLAP}
-      - RERANKER_MODEL=${RERANKER_MODEL}
-      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
-    depends_on:
-      - chromadb
-      - llm-gateway
     deploy:
       resources:
         reservations:
@@ -43,33 +7,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    networks:
-      - rag_network
-  
-  llm-gateway:
-    build:
-      context: src/llm_gateway
-    container_name: llm_gateway
-    restart: unless-stopped
-    ports:
-      - "8002:8002"
-    environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
-    networks:
-      - rag_network
-    
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: chromadb
-    restart: unless-stopped
-    volumes:
-      - chroma_data:/chroma_data
-    networks:
-      - rag_network
-
-volumes:
-  chroma_data:
-
-networks:
-  rag_network:
-    driver: bridge
