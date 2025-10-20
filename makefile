@@ -1,4 +1,6 @@
+SERVICES_FOLDERS := api rag_core llm_gateway
 COMPOSE_FILES := -f docker-compose.yml -f docker-compose.override.yml
+CONFIG_FILES := pyproject.toml
 
 HAS_NVIDIA := $(shell which nvidia-smi 2>/dev/null)
 ifeq ($(HAS_NVIDIA),)
@@ -8,10 +10,8 @@ else
 	GPU_STATUS := "GPU"
 endif
 
-SERVICES_FOLDERS := api rag_core llm_gateway
-CONFIG_FILES := pyproject.toml
 
-.PHONY: all up build ingest stop clean start-chat
+.PHONY: all up build sync-configs ingest stop clean start-chat logs-rag logs-llm lint format
 
 # --- GENERIC COMMANDS ---
 all: build up start-chat
