@@ -7,8 +7,13 @@ on:
     branches: [ main ]
 
 jobs:
-  lint-and-test:
+  quality-and-unit-tests:
     runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false 
+      matrix:
+        service: [rag-core, llm-gateway, api]
 
     steps:
       - name: Checkout Code
@@ -18,40 +23,61 @@ jobs:
         run: |
           echo "Initial disk space:"
           df -h
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
           echo "Disk space after cleanup:"
           df -h
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Cache Pip dependencies
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.service }}-${{ hashFiles(format('src/{0}/requirements.txt', matrix.service)) }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-pip-${{ matrix.service }}-
 
-      - name: Cache Hugging Face models
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/huggingface
-          key: ${{ runner.os }}-hf-${{ hashFiles('**/config.py') }}
-          restore-keys: |
-            ${{ runner.os }}-hf-
+      - name: Build image for ${{ matrix.service }}
+        run: docker compose build ${{ matrix.service }}
 
-      - name: Build Docker images
-        run: make build
+      - name: Lint ${{ matrix.service }}
+        run: make lint-${{ matrix.service }}
 
-      - name: Run Linting and Formatting Checks
-        run: make lint
+#       - name: Run unit tests for ${{ matrix.service }}
+#         run: make test-unit-${{ matrix.service }}
 
-      # - name: Run Unit Tests
-      #   run: make test-unit
+#   integration-tests:
+#     runs-on: ubuntu-latest
+#     needs: quality-and-unit-tests
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+
+#       - name: Free up disk space
+#         run: |
+#           echo "Initial disk space:"
+#           df -h
+#           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+#           echo "Disk space after cleanup:"
+#           df -h
+
+#       - name: Cache Pip dependencies
+#         uses: actions/cache@v4
+#         with:
+#           path: ~/.cache/pip
+#           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+#           restore-keys: |
+#             ${{ runner.os }}-pip-
       
-      # - name: Run Integration Tests
-      #   run: make test-integration
+#       - name: Cache Hugging Face models
+#         uses: actions/cache@v4
+#         with:
+#           path: ~/.cache/huggingface
+#           key: ${{ runner.os }}-hf-${{ hashFiles('**/config.py') }}
+#           restore-keys: |
+#             ${{ runner.os }}-hf-
+      
+#       - name: Build all images
+#         run: make build
+
+#       - name: Run integration tests
+#         run: make test-integration
