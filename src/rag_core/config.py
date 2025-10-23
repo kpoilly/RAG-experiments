@@ -11,8 +11,6 @@ class Settings(BaseSettings):
 
     # --- RAG Logic Settings ---
     MAX_CONTEXT_TOKENS: int = 10000
-    CHUNK_SIZE: int = 1000
-    CHUNK_OVERLAP: int = 200
     LLM_STRICT_RAG: bool = True
 
     # --- LLM & Gateway Settings ---

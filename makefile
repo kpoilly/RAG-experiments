@@ -5,6 +5,7 @@ else
   TARGET_SERVICES := $(SERVICE)
 endif
 
+COMPOSE_FILES := -f docker-compose.yml -f docker-compose.override.yml
 HAS_NVIDIA := $(shell which nvidia-smi 2>/dev/null)
 ifeq ($(HAS_NVIDIA),)
 	GPU_STATUS := "CPU"
@@ -14,7 +15,6 @@ else
 endif
 
 SERVICES_FOLDERS := rag_core llm_gateway api
-COMPOSE_FILES := -f docker-compose.yml -f docker-compose.override.yml
 CONFIG_FILES := pyproject.toml
 
 .PHONY: all up build sync-configs ingest stop down-clean clean start-chat logs-rag logs-llm lint format
