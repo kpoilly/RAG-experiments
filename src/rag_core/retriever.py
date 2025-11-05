@@ -1,19 +1,17 @@
-import json
 import asyncio
+import json
 import logging
-from tempfile import template
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
 from langchain.chains import LLMChain
 from langchain.retrievers import EnsembleRetriever
-from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-from langchain_core.output_parsers import JsonOutputParser, CommaSeparatedListOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from sentence_transformers.util import cos_sim
@@ -119,12 +117,12 @@ def get_query_expansion_chain() -> Optional[LLMChain]:
         if not llm:
             logger.error("Cannot initialize query expansion chain without LLM.")
             return None
-        
+
         output_parser = JsonOutputParser()
         prompt = PromptTemplate(
             template=QUERY_EXP_PROMPTS["instructions"],
             input_variables=["question", "chat_history"],
-            partial_variables={"format_instructions": QUERY_EXP_PROMPTS["format_instructions"]}
+            partial_variables={"format_instructions": QUERY_EXP_PROMPTS["format_instructions"]},
         )
 
         _QUERY_EXPANSION_CHAIN = LLMChain(llm=llm, prompt=prompt, output_parser=output_parser)
@@ -196,15 +194,12 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     # --- Contextual Query Expansion ---
     query_expansion_chain = get_query_expansion_chain()
     if query_expansion_chain is None:
-        logger.error("Cannot retrieve query expansion chain. Aborting RAG flow.") #TODO: faire en sorte de d'utiliser la query classique si pas de QE
+        logger.error("Cannot retrieve query expansion chain. Aborting RAG flow.")  # TODO: faire en sorte de d'utiliser la query classique si pas de QE
         yield json.dumps({"type": "error", "content": "System Error: Cannot initialize query expansion."}) + "\n"
         return
 
     history_str = format_history_for_prompt(history)
-    gen_exp_queries = await query_expansion_chain.ainvoke({
-        "question": query,
-        "chat_history": history_str
-    })
+    gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
 
     expanded_queries = gen_exp_queries.get("text", {}).get("queries", [])
     expanded_queries.insert(0, query)

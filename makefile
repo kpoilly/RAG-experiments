@@ -80,5 +80,4 @@ format:
 	@for service in $(TARGET_SERVICES); do \
 		echo "--- Formatting $$service ---"; \
 		docker compose run --rm $$service sh -c "ruff check /app/ --fix; black /app/"; \
-
 	done
