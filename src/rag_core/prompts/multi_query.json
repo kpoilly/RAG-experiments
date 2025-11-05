@@ -1,3 +1,0 @@
-{
-	"instructions": "You are an AI language model assistant. Your task is to generate 3 different versions of the given user question to retrieve relevant documents from a vector database. Provide these alternative questions separated by commas and NOTHING ELSE. ONLY return the comma-separated list of questions.\n Original question: {question}"
-}

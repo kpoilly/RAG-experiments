@@ -1,5 +1,7 @@
 import json
+import asyncio
 import logging
+from tempfile import template
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
@@ -11,7 +13,7 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-from langchain_core.output_parsers import CommaSeparatedListOutputParser
+from langchain_core.output_parsers import JsonOutputParser, CommaSeparatedListOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from sentence_transformers.util import cos_sim
@@ -19,17 +21,17 @@ from sentence_transformers.util import cos_sim
 from config import settings as env
 from ingestion import get_chroma_client, get_embeddings
 from models import LLMRequest
-from utils import async_retry_post
+from utils import async_retry_post, format_history_for_prompt
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-# --- Init ---
+# --- Init & Component Getters ---
 with open("/app/prompts/system.json", "r") as f:
     SYSTEM_PROMPTS = json.load(f)
-with open("/app/prompts/multi_query.json", "r") as f:
-    MULTI_QUERY_PROMPTS = json.load(f)
+with open("/app/prompts/query_expansion.json", "r") as f:
+    QUERY_EXP_PROMPTS = json.load(f)
 
 
 def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[HuggingFaceCrossEncoder]]:
@@ -76,6 +78,8 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
 
 _EMSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
 _RERANKER: Optional[HuggingFaceCrossEncoder] = None
+_LLM_QUERY_GEN: Optional[ChatOpenAI] = None
+_QUERY_EXPANSION_CHAIN: Optional[LLMChain] = None
 
 
 def get_ensemble_retriever(refresh: bool = False) -> Optional[EnsembleRetriever]:
@@ -90,24 +94,42 @@ def get_ensemble_retriever(refresh: bool = False) -> Optional[EnsembleRetriever]
     return _EMSEMBLE_RETRIEVER, _RERANKER
 
 
-_LLM_QUERY_GEN: Optional[ChatOpenAI] = None
-
-
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
     """
-    Get the LLM query generator.
+    Gets the non-streaming LLM instance for internal tasks like query generation.
     """
     global _LLM_QUERY_GEN
     if _LLM_QUERY_GEN is None:
         logger.info("Initializing LLM query generator...")
-        llm = ChatOpenAI(
+        _LLM_QUERY_GEN = ChatOpenAI(
             model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL.replace("/chat", ""), openai_api_key="not needed", temperature=0.0, streaming=False
         )
-        query_prompt = PromptTemplate(input_variables=["question"], template=MULTI_QUERY_PROMPTS["instructions"])
-        output_parser = CommaSeparatedListOutputParser()
-        _LLM_QUERY_GEN = LLMChain(llm=llm, prompt=query_prompt, output_parser=output_parser)
         logger.info("LLM query generator initialized.")
     return _LLM_QUERY_GEN
+
+
+def get_query_expansion_chain() -> Optional[LLMChain]:
+    """
+    Get the query expansion chain.
+    """
+    global _QUERY_EXPANSION_CHAIN
+    if _QUERY_EXPANSION_CHAIN is None:
+        logger.info("Initializing query expansion chain...")
+        llm = get_llm_query_gen()
+        if not llm:
+            logger.error("Cannot initialize query expansion chain without LLM.")
+            return None
+        
+        output_parser = JsonOutputParser()
+        prompt = PromptTemplate(
+            template=QUERY_EXP_PROMPTS["instructions"],
+            input_variables=["question", "chat_history"],
+            partial_variables={"format_instructions": QUERY_EXP_PROMPTS["format_instructions"]}
+        )
+
+        _QUERY_EXPANSION_CHAIN = LLMChain(llm=llm, prompt=prompt, output_parser=output_parser)
+        logger.info("Query expansion chain initialized.")
+    return _QUERY_EXPANSION_CHAIN
 
 
 # --- RAG flow ---
@@ -171,11 +193,31 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         logger.error("Cannot retrieve retriever.")
         yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + "\n"
 
-    llm = get_llm_query_gen()
-    multi_query_retriever = MultiQueryRetriever(retriever=retriever, llm_chain=llm)
-    retrieved_docs: List[Document] = multi_query_retriever.invoke(query)
+    # --- Contextual Query Expansion ---
+    query_expansion_chain = get_query_expansion_chain()
+    if query_expansion_chain is None:
+        logger.error("Cannot retrieve query expansion chain. Aborting RAG flow.") #TODO: faire en sorte de d'utiliser la query classique si pas de QE
+        yield json.dumps({"type": "error", "content": "System Error: Cannot initialize query expansion."}) + "\n"
+        return
+
+    history_str = format_history_for_prompt(history)
+    gen_exp_queries = await query_expansion_chain.ainvoke({
+        "question": query,
+        "chat_history": history_str
+    })
+
+    expanded_queries = gen_exp_queries.get("text", {}).get("queries", [])
+    expanded_queries.insert(0, query)
+    logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
+
+    # --- Parallel Multi-Query Retrieval ---
+    tasks = [retriever.ainvoke(q) for q in expanded_queries]
+    all_retrieved_docs = await asyncio.gather(*tasks)
+    filt_unique_docs = {doc.page_content: doc for docs in all_retrieved_docs for doc in docs}
+    retrieved_docs = list(filt_unique_docs.values())
     logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
+    # --- Reranking with Cross-Encoder ---
     MAX_DOCS_TO_RERANK = 15
     if len(retrieved_docs) > MAX_DOCS_TO_RERANK:
         retrieved_docs = filter_docs_to_rerank(retrieved_docs, query, MAX_DOCS_TO_RERANK)
@@ -201,6 +243,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
             )
     retrieved_docs = final_docs
 
+    # --- Context Assembly ---
     tokenizer = tiktoken.get_encoding("cl100k_base")
     context_texts = []
     source_metadatas = []

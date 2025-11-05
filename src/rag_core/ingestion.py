@@ -7,7 +7,7 @@ from typing import Optional
 import torch
 from chromadb import HttpClient, Settings
 from chromadb.api.models.Collection import Collection
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
@@ -139,8 +139,11 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     new_chunk_ids = []
     new_chunk_contents = []
     new_chunk_metadatas = []
-
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE, chunk_overlap=env.CHUNK_OVERLAP, separators=["\n\n", "\n", " ", ""])
+    
+    embedder = get_embeddings()
+    text_splitter = SemanticChunker(
+        embedder,
+        breakpoint_threshold_type="percentile")
 
     for doc_hash, path in current_hashes.items():
         if doc_hash not in existing_hashes:

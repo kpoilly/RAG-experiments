@@ -81,4 +81,3 @@ If you add or remove documents from the data/ directory while the service is run
 make ingest
 ```
 The assistant will immediately have access to the updated knowledge base.
-

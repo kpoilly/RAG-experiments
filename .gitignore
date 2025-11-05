@@ -1,8 +1,10 @@
 .env
 data/*.pdf
 todo
-**/__pycache__
 
 src/api/pyproject.toml
+src/api/__pycache__/
 src/rag_core/pyproject.toml
+src/rag_core/__pycache__/
 src/llm_gateway/pyproject.toml
+src/llm_gateway/__pycache__/
