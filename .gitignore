@@ -1,6 +1,5 @@
 .env
 data/*.pdf
-todo
 
 src/api/pyproject.toml
 src/api/__pycache__/

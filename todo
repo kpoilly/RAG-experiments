@@ -1,0 +1,96 @@
+### ✅ To-Do List du Projet RAG "Boilerplate"
+
+---
+
+#### **Phase 1 : MLOps - Le Socle de Qualité et d'Automatisation**
+
+*Objectif : Mettre en place les outils pour garantir la qualité, la fiabilité et l'automatisation du développement avant d'ajouter de nouvelles fonctionnalités.*
+
+-   **Mettre en place les Tests (`pytest`) :**
+    -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
+    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
+
+-   **Construire le Pipeline de CI/CD (GitHub Actions) :**
+    -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
+    -   Préparer un squelette de workflow de **CD** pour le déploiement.
+
+---
+
+#### **Phase 2 : Fiabilisation et Amélioration du Cœur RAG**
+
+*Objectif : Rendre le pipeline RAG actuel plus robuste, performant et intelligent.*
+
+-   **Mettre en place la Résilience :**
+    -   Implémenter la logique de **dégradation gracieuse (fallback)** dans `orchestrate_rag_flow`.
+
+-   **Migrer la Base de Données Vectorielle :**
+    -   Remplacer `ChromaDB` par **Postgres avec `pgvector`** (`PostgresVector`).
+
+-   **Améliorer la Compréhension Conversationnelle :**
+    -   Implémenter la **chaîne de réécriture de requête** pour gérer l'historique de chat.
+
+-   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
+    -   Créer le "golden dataset" d'évaluation.
+    -   Développer le script `evaluate.py`.
+    -   Intégrer **LangSmith** pour le tracing.
+
+---
+
+#### **Phase 3 : Infrastructure de Production et Performance**
+
+*Objectif : Préparer le service pour une charge de travail réelle et optimiser la vitesse.*
+
+-   **Ingestion Asynchrone :**
+    -   Mettre en place une file d'attente de tâches avec **`Redis`** et **`Celery`** ou `RQ`.
+    -   Transformer l'endpoint `/ingest` pour qu'il devienne asynchrone.
+
+-   **Créer le "Watchdog" :**
+    -   Développer un script qui surveille `/data` et appelle `POST /ingest`.
+
+-   **Sécuriser les APIs :**
+    -   Implémenter l'authentification par **clé API**.
+    -   Ajouter la validation du type de fichier avec `python-magic`.
+
+-   **Activer le Caching :**
+    -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
+
+-   **Monitoring et Analyse de la Latence :**
+    -   Mettre en place **Prometheus/Grafana/Loki**.
+    -   Analyser la **latence du reranking** pour valider sa pertinence.
+
+---
+
+#### **Phase 4 : Expansion des Capacités de l'Agent**
+
+*Objectif : Enrichir l'agent avec de nouvelles compétences et sources d'information.*
+
+-   **Ajouter des Outils Externes :**
+    -   Intégrer un outil **Web Search** (ex: `Tavily`).
+
+-   **Diversifier les Sources de Données :**
+    -   Étendre le support de fichiers (`.docx`, `.md`).
+    -   Ajouter l'ingestion depuis des **URLs**.
+    -   Intégrer l'**OCR** pour extraire le texte des images.
+
+-   **(Avancé) Implémenter le Mode Haute Précision :**
+    -   Ajouter la logique de **RAG-Fusion** comme une option configurable.
+
+---
+
+#### **Phase 5 : Déploiement Cloud-Native sur Kubernetes**
+
+*Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
+
+-   **Mettre en place l'Environnement Kubernetes Local :**
+    -   Installer et configurer **Kind** ou **Minikube**.
+
+-   **Écrire les Manifestes Kubernetes :**
+    -   Créer les fichiers `Deployment`, `Service`, `ConfigMap`, `Secret` pour chaque microservice.
+
+-   **Gérer les Environnements (`staging` vs. `production`) :**
+    -   Mettre en place **Kustomize** pour gérer les variations de configuration.
+
+-   **Mettre à jour le Pipeline de CD (Déploiement Continu) :**
+    -   Créer un workflow GitHub Actions pour le **Déploiement Continu**.
+    -   Automatiser le déploiement sur **staging**.
+    -   Mettre en place une **approbation manuelle** pour le déploiement en **production**.
