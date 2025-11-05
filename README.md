@@ -11,7 +11,7 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 The core of the system is enhancing information retrieval for the LLM.
 
 1.  **Indexing:** Documents are split into chunks and converted into **embeddings** (vectors).
-2.  **Query Transformation (Multi-Query):** Before searching, the user's original question is sent to an LLM to generate several alternative versions. This technique helps overcome the limitations of keyword or semantic search by exploring different formulations of the same intent, thus casting a wider net to find the most relevant documents.
+2.  **Query Expansion :** Before searching, the user's original question is sent to an LLM to generate several alternative versions. This technique helps overcome the limitations of keyword or semantic search by exploring different formulations of the same intent, thus casting a wider net to find the most relevant documents.
 3.  **Advanced Contextual Retrieval:** The search uses **Hybrid Embedding**, which combines:
     * **Semantic search** (understanding meaning).
     * **Keyword search** (exact term precision).
