@@ -13,7 +13,7 @@
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
     -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
 
--   **Construire le Pipeline de CI/CD (GitHub Actions) :**
+-   **Construire la Pipeline de CI/CD (GitHub Actions) :**
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
     -   Préparer un squelette de workflow de **CD** pour le déploiement.
 
@@ -41,10 +41,10 @@
 *Objectif : Préparer le service pour une charge de travail réelle et optimiser la vitesse.*
 
 -   **Créer le "Watchdog" :**
-    -   Développer un script qui surveille `/data` et appelle `POST /ingest`.
+    -   Développer un script qui surveille `/data` et appelle `POST /ingest` quand modifs.
 
 -   **Sécuriser les APIs :**
-    -   Implémenter l'authentification par **clé API**.
+    -   Implémenter de la sécurité (authentification par **clé API** par exemple).
     -   Ajouter la validation du type de fichier avec `python-magic`.
 
 -   **Activer le Caching :**
@@ -72,7 +72,16 @@
 
 ---
 
-#### **Phase 5 : Déploiement Cloud-Native sur Kubernetes**
+#### **Phase 5 : UI et Peaufinage**
+
+*Objectif : Avoir une belle UI pour utiliser le porjet (streamlit au moins, web au mieux)*
+
+-   **Fenêtre de chat**
+-   **Encart pour glisser des documents ?**
+-   **Settings, Docs etc.**
+-   **Tout mettre au propre pour rendre le projet modulaire, utilisable avec l'UI, le CLI ou via API**
+
+#### **Phase 6 : Déploiement Cloud-Native sur Kubernetes**
 
 *Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
 
@@ -89,3 +98,5 @@
     -   Créer un workflow GitHub Actions pour le **Déploiement Continu**.
     -   Automatiser le déploiement sur **staging**.
     -   Mettre en place une **approbation manuelle** pour le déploiement en **production**.
+
+-   **Porter ça sur GCP**
