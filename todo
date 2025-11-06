@@ -23,8 +23,8 @@
 
 *Objectif : Rendre le pipeline RAG actuel plus robuste, performant et intelligent.*
 
--   **Mettre en place la Résilience :**
-    -   Implémenter la logique de **dégradation gracieuse (fallback)** dans `orchestrate_rag_flow`.
+-   **Mettre en place plus de Résilience :**
+    -   Vérifier tous les checks models et autre, si pas dispo, trouver une alternative pour que l'app soit toujours opérationnelle.
 
 -   **Migrer la Base de Données Vectorielle :**
     -   Remplacer `ChromaDB` par **Postgres avec `pgvector`** (`PostgresVector`).
