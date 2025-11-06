@@ -1,11 +1,11 @@
 import asyncio
 import json
-import torch
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
+import torch
 from langchain.chains import LLMChain
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
@@ -164,6 +164,10 @@ def filter_docs_to_rerank(docs: List[Document], query: str, MAX_DOCS_TO_RERANK: 
     logger.info(f"Pre-ranking {len(docs)} documents with Bi-Encoder to select top {MAX_DOCS_TO_RERANK}...")
 
     embedder = get_embeddings()
+    if not embedder:
+        logger.error("Cannot load embedder for pre-ranking. Returning original documents.")
+        return docs[:MAX_DOCS_TO_RERANK]
+
     query_embedding = embedder.embed_query(query)
     doc_embeddings = embedder.embed_documents([doc.page_content for doc in docs])
     similarities = cos_sim(query_embedding, doc_embeddings).flatten()
@@ -195,20 +199,21 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     # --- Contextual Query Expansion ---
     query_expansion_chain = get_query_expansion_chain()
     if query_expansion_chain is None:
-        logger.error("Cannot retrieve query expansion chain. Aborting RAG flow.")  # TODO: faire en sorte de d'utiliser la query classique si pas de QE
-        yield json.dumps({"type": "error", "content": "System Error: Cannot initialize query expansion."}) + "\n"
-        return
+        logger.error("Cannot retrieve query expansion chain. Using original query.")
+        all_retrieved_docs = await retriever.ainvoke(query)
 
-    history_str = format_history_for_prompt(history)
-    gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
+    else:
+        history_str = format_history_for_prompt(history)
+        gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
 
-    expanded_queries = gen_exp_queries.get("text", {}).get("queries", [])
-    expanded_queries.insert(0, query)
-    logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
+        expanded_queries = gen_exp_queries.get("text", {}).get("queries", [])
+        expanded_queries.insert(0, query)
+        logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
 
-    # --- Parallel Multi-Query Retrieval ---
-    tasks = [retriever.ainvoke(q) for q in expanded_queries]
-    all_retrieved_docs = await asyncio.gather(*tasks)
+        # --- Parallel Multi-Query Retrieval ---
+        tasks = [retriever.ainvoke(q) for q in expanded_queries]
+        all_retrieved_docs = await asyncio.gather(*tasks)
+
     filt_unique_docs = {doc.page_content: doc for docs in all_retrieved_docs for doc in docs}
     retrieved_docs = list(filt_unique_docs.values())
     logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
@@ -249,7 +254,13 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         message_tokens = len(tokenizer.encode(message.get("content", "")))
         current_tokens += message_tokens
     current_tokens += len(tokenizer.encode(query))
-    current_tokens += len(tokenizer.encode(SYSTEM_PROMPTS["instructions"].replace("{context}", "").replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])))
+    current_tokens += len(
+        tokenizer.encode(
+            SYSTEM_PROMPTS["instructions"]
+            .replace("{context}", "")
+            .replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])
+        )
+    )
 
     for doc in retrieved_docs:
         doc_tokens = len(tokenizer.encode(doc.page_content))
