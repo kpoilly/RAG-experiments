@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     # --- RAG Logic Settings ---
-    MAX_CONTEXT_TOKENS: int = 10000
+    MAX_CONTEXT_TOKENS: int = 6000
     LLM_STRICT_RAG: bool = True
 
     # --- LLM & Gateway Settings ---

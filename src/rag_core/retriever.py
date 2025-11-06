@@ -1,5 +1,6 @@
 import asyncio
 import json
+import torch
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
@@ -49,13 +50,14 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
             return None
 
         logger.info("Initializing cross-encoder reranker...")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Using device: {device}")
         reranker = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedding_function.model_kwargs.get("device", "cpu")})
         logger.info(f"Cross-Encoder Reranker model ({env.RERANKER_MODEL}) initialized.")
 
         vectorstore = Chroma(collection_name=env.COLLECTION_NAME, client=client, embedding_function=embedding_function)
 
         dense_retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 10})
-
         if vectorstore._collection.count() == 0:
             logger.warning("No indexed documents, skipping sparse retriever.")
             return EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0], c=100), reranker
@@ -64,7 +66,6 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
         docs = [Document(page_content=doc, metadata=meta) for doc, meta in zip(all_documents["documents"], all_documents["metadatas"])]
 
         sparse_retriever = BM25Retriever.from_documents(documents=docs, k=10)
-
         ensemble_retriever = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5], c=100)
         logger.info("Hybrid RRF EnsembleRetriever initialized.")
         return ensemble_retriever, reranker
@@ -236,13 +237,19 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
                 f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
                 f"Falling back to the single best document with score {reranked_docs[0].metadata['relevance_score']:.4f}."
             )
-    retrieved_docs = final_docs
+        retrieved_docs = final_docs
 
     # --- Context Assembly ---
     tokenizer = tiktoken.get_encoding("cl100k_base")
     context_texts = []
     source_metadatas = []
     current_tokens = 0
+
+    for message in history:
+        message_tokens = len(tokenizer.encode(message.get("content", "")))
+        current_tokens += message_tokens
+    current_tokens += len(tokenizer.encode(query))
+    current_tokens += len(tokenizer.encode(SYSTEM_PROMPTS["instructions"].replace("{context}", "").replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])))
 
     for doc in retrieved_docs:
         doc_tokens = len(tokenizer.encode(doc.page_content))
@@ -261,6 +268,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
             unique_metadatas.append(metadata)
 
     system_instruction, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
+    logging.info(f"Final prompt constructed ({current_tokens} tokens). Invoking LLM...")
     full_response = ""
     try:
         request_data = LLMRequest(messages=messages, model=env.LLM_MODEL)

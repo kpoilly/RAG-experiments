@@ -6,6 +6,9 @@
 
 *Objectif : Mettre en place les outils pour garantir la qualité, la fiabilité et l'automatisation du développement avant d'ajouter de nouvelles fonctionnalités.*
 
+-   **Mieux gérer l'historique :**
+    - Supprimer les messages trops anciens pour éviter de dépasser la window ? Ou autre idée (Enregistrer l'historique comme document du RAG quand il atteint un limite ? Résumer les messages précédents pour les effacer et gagner de la place...)
+
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
     -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
@@ -30,9 +33,9 @@
     -   Implémenter la **chaîne de réécriture de requête** pour gérer l'historique de chat.
 
 -   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
-    -   Créer le "golden dataset" d'évaluation.
-    -   Développer le script `evaluate.py`.
+    -   Intégrer RAGAS (Golden Dataset, évaluations).
     -   Intégrer **LangSmith** pour le tracing.
+    -   Stratégie d'évaluations (schedulées ?)
 
 ---
 
