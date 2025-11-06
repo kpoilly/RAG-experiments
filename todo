@@ -29,9 +29,6 @@
 -   **Migrer la Base de Données Vectorielle :**
     -   Remplacer `ChromaDB` par **Postgres avec `pgvector`** (`PostgresVector`).
 
--   **Améliorer la Compréhension Conversationnelle :**
-    -   Implémenter la **chaîne de réécriture de requête** pour gérer l'historique de chat.
-
 -   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
     -   Intégrer RAGAS (Golden Dataset, évaluations).
     -   Intégrer **LangSmith** pour le tracing.
