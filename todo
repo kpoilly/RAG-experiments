@@ -43,10 +43,6 @@
 
 *Objectif : Préparer le service pour une charge de travail réelle et optimiser la vitesse.*
 
--   **Ingestion Asynchrone :**
-    -   Mettre en place une file d'attente de tâches avec **`Redis`** et **`Celery`** ou `RQ`.
-    -   Transformer l'endpoint `/ingest` pour qu'il devienne asynchrone.
-
 -   **Créer le "Watchdog" :**
     -   Développer un script qui surveille `/data` et appelle `POST /ingest`.
 
@@ -59,7 +55,6 @@
 
 -   **Monitoring et Analyse de la Latence :**
     -   Mettre en place **Prometheus/Grafana/Loki**.
-    -   Analyser la **latence du reranking** pour valider sa pertinence.
 
 ---
 
