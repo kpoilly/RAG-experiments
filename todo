@@ -45,7 +45,7 @@
 
 -   **Sécuriser les APIs :**
     -   Implémenter de la sécurité (authentification par **clé API** par exemple).
-    -   Ajouter la validation du type de fichier avec `python-magic`.
+    -   Ajouter la validation du type de fichier avec `python-magic` (ou magika?).
 
 -   **Activer le Caching :**
     -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
