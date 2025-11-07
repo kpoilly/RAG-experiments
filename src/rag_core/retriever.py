@@ -5,7 +5,6 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
-
 from langchain.chains import LLMChain
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
