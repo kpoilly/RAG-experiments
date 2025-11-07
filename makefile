@@ -81,3 +81,9 @@ format:
 		echo "--- Formatting $$service ---"; \
 		docker compose run --rm $$service sh -c "ruff check /app/ --fix; black /app/"; \
 	done
+
+# --- GIT ---
+push: lint
+	git add .
+	git commit -m "$(MSG)"
+	git push origin main
