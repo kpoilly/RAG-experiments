@@ -34,6 +34,9 @@
     -   Intégrer **LangSmith** pour le tracing.
     -   Stratégie d'évaluations (schedulées ?)
 
+-   **Modification majeur du llm-gateway :**
+    -   Implémenter LiteLLM ou équivalent production-ready.
+
 ---
 
 #### **Phase 3 : Infrastructure de Production et Performance**
@@ -45,7 +48,7 @@
 
 -   **Sécuriser les APIs :**
     -   Implémenter de la sécurité (authentification par **clé API** par exemple).
-    -   Ajouter la validation du type de fichier avec `python-magic` (ou magika?).
+    -   Ajouter la validation du type de fichier avec `python-magic`.
 
 -   **Activer le Caching :**
     -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
