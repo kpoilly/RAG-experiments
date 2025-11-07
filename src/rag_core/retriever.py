@@ -271,6 +271,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         else:
             logger.info("Reached max context tokens. Stopping context assembly.")
             break
+
     if not context_texts:
         logger.warning("No relevant documents found.")
     unique_metadatas = []
