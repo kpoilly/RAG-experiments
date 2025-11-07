@@ -16,9 +16,8 @@ The core of the system is enhancing information retrieval for the LLM.
     * **Semantic search** (understanding meaning).
     * **Keyword search** (exact term precision).
     The **Reciprocal Rank Fusion (RRF)** algorithm merges the results from both methods to ensure maximum relevance before transmitting the context to the LLM.
-4.  **Pre-Ranking (Bi-Encoder):** To efficiently reduce noise from the candidate pool, a fast **Bi-Encoder** (the embedding model) pre-ranks all retrieved documents based on their semantic similarity to the original user query. Only the top candidates from this step are passed on.
-5.  **Re-Ranking & Filtering:** To further refine the results, a **Cross-Encoder** model re-ranks the documents retrieved in the previous step. It calculates a precise relevance score for each document in relation to the query. Only documents with a score exceeding a configurable **threshold** are kept, ensuring that only the most relevant information is passed to the LLM.
-6.  **Augmented Generation:** The most relevant context chunks are sent to the LLM (Groq) to generate a factual and justified response. The answer is delivered in real-time via **streaming**, ensuring an interactive and fluid user experience with very low latency.
+4.  **Re-Ranking & Filtering:** To further refine the results, a **Cross-Encoder** model re-ranks the documents retrieved in the previous step. It calculates a precise relevance score for each document in relation to the query. Only documents with a score exceeding a configurable **threshold** are kept, ensuring that only the most relevant information is passed to the LLM.
+5.  **Augmented Generation:** The most relevant context chunks are sent to the LLM (Groq) to generate a factual and justified response. The answer is delivered in real-time via **streaming**, ensuring an interactive and fluid user experience with very low latency.
 
 ---
 

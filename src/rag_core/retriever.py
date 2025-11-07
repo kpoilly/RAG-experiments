@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
-import torch
+
 from langchain.chains import LLMChain
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
@@ -15,7 +15,6 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from sentence_transformers.util import cos_sim
 
 from config import settings as env
 from ingestion import get_chroma_client, get_embeddings
@@ -50,14 +49,12 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
             return None
 
         logger.info("Initializing cross-encoder reranker...")
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"Using device: {device}")
         reranker = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedding_function.model_kwargs.get("device", "cpu")})
         logger.info(f"Cross-Encoder Reranker model ({env.RERANKER_MODEL}) initialized.")
 
         vectorstore = Chroma(collection_name=env.COLLECTION_NAME, client=client, embedding_function=embedding_function)
 
-        dense_retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 10})
+        dense_retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 8})
         if vectorstore._collection.count() == 0:
             logger.warning("No indexed documents, skipping sparse retriever.")
             return EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0], c=100), reranker
@@ -65,7 +62,7 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
         all_documents = client.get_collection(env.COLLECTION_NAME).get(include=["documents", "metadatas"])
         docs = [Document(page_content=doc, metadata=meta) for doc, meta in zip(all_documents["documents"], all_documents["metadatas"])]
 
-        sparse_retriever = BM25Retriever.from_documents(documents=docs, k=10)
+        sparse_retriever = BM25Retriever.from_documents(documents=docs, k=8)
         ensemble_retriever = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5], c=100)
         logger.info("Hybrid RRF EnsembleRetriever initialized.")
         return ensemble_retriever, reranker
@@ -160,24 +157,6 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
     return system_instruction, messages
 
 
-def filter_docs_to_rerank(docs: List[Document], query: str, MAX_DOCS_TO_RERANK: int):
-    logger.info(f"Pre-ranking {len(docs)} documents with Bi-Encoder to select top {MAX_DOCS_TO_RERANK}...")
-
-    embedder = get_embeddings()
-    if not embedder:
-        logger.error("Cannot load embedder for pre-ranking. Returning original documents.")
-        return docs[:MAX_DOCS_TO_RERANK]
-
-    query_embedding = embedder.embed_query(query)
-    doc_embeddings = embedder.embed_documents([doc.page_content for doc in docs])
-    similarities = cos_sim(query_embedding, doc_embeddings).flatten()
-
-    sorted_docs = sorted(list(zip(docs, similarities.tolist())), key=lambda x: x[1], reverse=True)
-    docs_to_rerank = [doc for doc, score in sorted_docs[:MAX_DOCS_TO_RERANK]]
-    logger.info(f"Top {len(docs_to_rerank)} documents selected for final re-ranking.")
-    return docs_to_rerank
-
-
 async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """
     Execute the whole RAG flow: Retrieval, Context Building and LLm call.
@@ -218,10 +197,11 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     retrieved_docs = list(filt_unique_docs.values())
     logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
-    # --- Reranking with Cross-Encoder ---
+    # --- Reranking ---
     MAX_DOCS_TO_RERANK = 15
     if len(retrieved_docs) > MAX_DOCS_TO_RERANK:
-        retrieved_docs = filter_docs_to_rerank(retrieved_docs, query, MAX_DOCS_TO_RERANK)
+        retrieved_docs = retrieved_docs[:MAX_DOCS_TO_RERANK]
+        logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")
 
     if reranker is not None and retrieved_docs:
         pairs = [(query, doc.page_content) for doc in retrieved_docs]
