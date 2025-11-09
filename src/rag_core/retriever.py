@@ -74,7 +74,7 @@ async def get_retriever(refresh: bool = False) -> Tuple[Optional[EnsembleRetriev
         _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0])
     else:
         sparse_retriever = BM25Retriever.from_documents(documents=all_docs, k=8)
-        _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5])
+        _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.7, 0.3])
 
     logger.info("Hybrid RRF Ensemble retriever initialized.")
     return _ENSEMBLE_RETRIEVER, _RERANKER

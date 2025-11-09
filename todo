@@ -17,6 +17,9 @@
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
     -   Préparer un squelette de workflow de **CD** pour le déploiement.
 
+-   **Monitoring et Analyse de la Latence :**
+    -   Mettre en place **Prometheus/Grafana/Loki**.
+
 ---
 
 #### **Phase 2 : Fiabilisation et Amélioration du Cœur RAG**
@@ -38,6 +41,10 @@
 -   **Parent Document Retrieval :**
     -   Implémenter du ChildChunking (option A, préférée) ou résumé par LLM (Option B)
 
+-   **Optimisations paramètres RAG :**
+    -   Poids des retrievers
+    -   Différents modèles, stratégies etc.
+
 ---
 
 #### **Phase 3 : Infrastructure de Production et Performance**
@@ -54,12 +61,20 @@
 -   **Activer le Caching :**
     -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
 
--   **Monitoring et Analyse de la Latence :**
-    -   Mettre en place **Prometheus/Grafana/Loki**.
+---
+
+#### **Phase 4 : UI et Peaufinage**
+
+*Objectif : Avoir une belle UI pour utiliser le porjet (streamlit au moins, web au mieux)*
+
+-   **Fenêtre de chat**
+-   **Encart pour glisser des documents ?**
+-   **Settings, Docs etc.**
+-   **Tout mettre au propre pour rendre le projet modulaire, utilisable avec l'UI, le CLI ou via API**
 
 ---
 
-#### **Phase 4 : Expansion des Capacités de l'Agent**
+#### **Phase 5 : Expansion des Capacités de l'Agent**
 
 *Objectif : Enrichir l'agent avec de nouvelles compétences et sources d'information.*
 
@@ -75,15 +90,6 @@
     -   Ajouter la logique de **RAG-Fusion** comme une option configurable.
 
 ---
-
-#### **Phase 5 : UI et Peaufinage**
-
-*Objectif : Avoir une belle UI pour utiliser le porjet (streamlit au moins, web au mieux)*
-
--   **Fenêtre de chat**
--   **Encart pour glisser des documents ?**
--   **Settings, Docs etc.**
--   **Tout mettre au propre pour rendre le projet modulaire, utilisable avec l'UI, le CLI ou via API**
 
 #### **Phase 6 : Déploiement Cloud-Native sur Kubernetes**
 
