@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     TABLE_NAME: str = "rag_documents"
 
     DB_URL_ASYNC: str = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    DB_URL_SYNC: str = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     DB_URL_PSYCOG2: str = f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD} host={DB_HOST} port={DB_PORT}"
 
     DATA_PATH: str = "/app/src/data"

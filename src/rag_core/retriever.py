@@ -14,9 +14,10 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_postgres.vectorstores import PGVector
 
 from config import settings as env
-from ingestion import get_embeddings, get_pg_vector_store
+from ingestion import get_embeddings
 from models import LLMRequest
 from utils import async_retry_post, format_history_for_prompt
 
@@ -137,6 +138,21 @@ def get_query_expansion_chain() -> Optional[LLMChain]:
         _QUERY_EXPANSION_CHAIN = LLMChain(llm=llm, prompt=prompt, output_parser=output_parser)
         logger.info("Query expansion chain initialized.")
     return _QUERY_EXPANSION_CHAIN
+
+
+_PG_VECTOR_STORE: Optional[PGVector] = None
+
+
+def get_pg_vector_store() -> PGVector:
+    """
+    Get the PGVector store.
+    """
+    global _PG_VECTOR_STORE
+    if _PG_VECTOR_STORE is None:
+        logger.info("Initializing PGVector store...")
+        _PG_VECTOR_STORE = PGVector(collection_name=env.TABLE_NAME, connection=env.DB_URL_ASYNC, embeddings=get_embeddings())
+        logger.info("PGVector store initialized.")
+    return _PG_VECTOR_STORE
 
 
 # --- RAG flow ---

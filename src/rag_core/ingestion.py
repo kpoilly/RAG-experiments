@@ -56,15 +56,6 @@ def initialize_database():
         logger.info(f"Database initialized and table '{env.TABLE_NAME}' is ready.")
 
 
-def get_pg_vector_store() -> PGVector:
-    """
-    Get the PGVector store.
-    """
-    embedder = get_embeddings()
-    _pgvector_store = PGVector(collection_name=env.TABLE_NAME, connection=env.DB_URL_ASYNC, embeddings=embedder)
-    return _pgvector_store
-
-
 _EMBEDDER: Optional[HuggingFaceEmbeddings] = None
 
 
@@ -179,8 +170,14 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 
     if new_documents_to_add:
         logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
-        vector_store = get_pg_vector_store()
-        vector_store.add_documents(new_documents_to_add, ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add])
+        PGVector.from_documents(
+            documents=new_documents_to_add,
+            embedding=embedder,
+            collection_name=env.TABLE_NAME,
+            connection=env.DB_URL_SYNC,
+            ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
+            pre_delete_collection=False,
+        )
         logger.info("New chunks added successfully.")
 
     cur.execute(f"SELECT COUNT(*) FROM {env.TABLE_NAME};")
