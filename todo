@@ -38,6 +38,9 @@
     -   Retirer dépendance à Groq, pouvoir utiliser n'importe quel LLM.
     -   Implémenter LiteLLM ou équivalent production-ready.
 
+-   **Parent Document Retrieval :**
+    -   Implémenter du ChildChunking (option A, préférée) ou résumé par LLM (Option B)
+
 ---
 
 #### **Phase 3 : Infrastructure de Production et Performance**
