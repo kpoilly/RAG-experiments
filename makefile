@@ -48,6 +48,9 @@ down:
 down-clean:
 	docker compose down -v
 
+docker-clean:
+	docker system prune -a --volumes -f
+
 start-chat:
 	docker compose exec -it api python main.py
 

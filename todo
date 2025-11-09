@@ -34,7 +34,8 @@
     -   Intégrer **LangSmith** pour le tracing.
     -   Stratégie d'évaluations (schedulées ?)
 
--   **Modification majeur du llm-gateway :**
+-   **Modification du llm-gateway :**
+    -   Retirer dépendance à Groq, pouvoir utiliser n'importe quel LLM.
     -   Implémenter LiteLLM ou équivalent production-ready.
 
 ---

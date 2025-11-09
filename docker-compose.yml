@@ -23,8 +23,12 @@ services:
     volumes:
       - ./data:/app/src/data
     environment:
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - TABLE_NAME=${TABLE_NAME}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - LLM_MODEL=${LLM_MODEL}
       - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
@@ -33,7 +37,7 @@ services:
       - RERANKER_MODEL=${RERANKER_MODEL}
       - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
     depends_on:
-      - chromadb
+      - postgres
       - llm-gateway
     networks:
       - rag_network
@@ -49,18 +53,36 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
     networks:
       - rag_network
-    
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: chromadb
+
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: postgres_db
     restart: unless-stopped
+    ports:
+      - "5432:5432"
     volumes:
-      - chroma_data:/chroma_data
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME:-rag_db}
+      - POSTGRES_USER=${DB_USER:-rag_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-rag_password}
     networks:
       - rag_network
+  
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    depends_on:
+      - postgres
 
 volumes:
-  chroma_data:
+  postgres_data:
 
 networks:
   rag_network:

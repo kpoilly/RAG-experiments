@@ -5,18 +5,18 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
+import psycopg2
 from langchain.chains import LLMChain
 from langchain.retrievers import EnsembleRetriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.retrievers import BM25Retriever
-from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
 from config import settings as env
-from ingestion import get_chroma_client, get_embeddings
+from ingestion import get_embeddings, get_pg_vector_store
 from models import LLMRequest
 from utils import async_retry_post, format_history_for_prompt
 
@@ -35,11 +35,6 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
     """
     Initialize the retrievers (Dense and Sparse) and combine them with RRF.
     """
-    client = get_chroma_client()
-    if not client:
-        logger.error("Error connecting to ChromaDB")
-        return None
-
     logger.info("Initializing retrievers...")
     try:
         embedding_function = get_embeddings()
@@ -51,17 +46,34 @@ def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[Huggi
         reranker = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedding_function.model_kwargs.get("device", "cpu")})
         logger.info(f"Cross-Encoder Reranker model ({env.RERANKER_MODEL}) initialized.")
 
-        vectorstore = Chroma(collection_name=env.COLLECTION_NAME, client=client, embedding_function=embedding_function)
-
+        vectorstore = get_pg_vector_store()
         dense_retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 8})
-        if vectorstore._collection.count() == 0:
-            logger.warning("No indexed documents, skipping sparse retriever.")
+
+        all_documents = []
+        try:
+            conn = psycopg2.connect(env.DB_URL_PSYCOG2)
+            cur = conn.cursor()
+
+            cur.execute(f"SELECT COUNT(*) FROM {env.TABLE_NAME};")
+            doc_count = cur.fetchone()[0]
+
+            if doc_count == 0:
+                logger.warning("No documents found in the database, skipping sparse retriever.")
+                cur.close()
+                conn.close()
+                return EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0], c=100), reranker
+
+            cur.execute(f"SELECT page_content, metadata FROM {env.TABLE_NAME};")
+            all_documents_data = cur.fetchall()
+            all_documents = [Document(page_content=row[0], metadata=row[1]) for row in all_documents_data]
+
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error fetching documents for sparse retriever: {e}")
             return EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0], c=100), reranker
 
-        all_documents = client.get_collection(env.COLLECTION_NAME).get(include=["documents", "metadatas"])
-        docs = [Document(page_content=doc, metadata=meta) for doc, meta in zip(all_documents["documents"], all_documents["metadatas"])]
-
-        sparse_retriever = BM25Retriever.from_documents(documents=docs, k=8)
+        sparse_retriever = BM25Retriever.from_documents(documents=all_documents, k=8)
         ensemble_retriever = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5], c=100)
         logger.info("Hybrid RRF EnsembleRetriever initialized.")
         return ensemble_retriever, reranker
@@ -172,7 +184,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     retriever, reranker = get_ensemble_retriever()
     if retriever is None:
         logger.error("Cannot retrieve retriever.")
-        yield json.dumps({"type": "error", "content": "System Error: Error connecting to ChromaDB."}) + "\n"
+        yield json.dumps({"type": "error", "content": "System Error: Error connecting to DB."}) + "\n"
 
     # --- Contextual Query Expansion ---
     query_expansion_chain = get_query_expansion_chain()

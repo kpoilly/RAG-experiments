@@ -1,3 +1,4 @@
+from curses.ascii import TAB
 import glob
 import hashlib
 import logging
@@ -5,8 +6,10 @@ import os
 from typing import Optional
 
 import torch
-from chromadb import HttpClient, Settings
-from chromadb.api.models.Collection import Collection
+import psycopg2
+from psycopg2.extras import execute_values
+from langchain_core.documents import Document
+from langchain_postgres.vectorstores import PGVector
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_experimental.text_splitter import SemanticChunker
@@ -17,31 +20,57 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-# --- Chroma set up ---
-_chroma_client: Optional[HttpClient] = None
-
-
-def get_chroma_client() -> Optional[HttpClient]:
+# --- DB set up ---
+def initialize_database():
     """
-    Get the Chroma client.
+    Initialize the PostgreSQL database and create the necessary table if it doesn't exist.
     """
-    global _chroma_client
-    if _chroma_client is not None:
-        return _chroma_client
-
     try:
-        _chroma_client = HttpClient(host=env.CHROMA_HOST, port=env.CHROMA_PORT, settings=Settings(allow_reset=True))
-        _chroma_client.heartbeat()
-        logger.info(f"Connected to ChromaDB at {env.CHROMA_HOST}:{env.CHROMA_PORT}")
-    except Exception as e:
-        logger.error(f"Error connecting to ChromaDB: {e}")
-        _chroma_client = None
-    return _chroma_client
+        logger.info("Connecting to PostgreSQL to initialize database schema...")
+        conn = psycopg2.connect(env.DB_URL_PSYCOG2)
+        cur = conn.cursor()
+
+        cur.execute(f"CREATE EXTENSION IF NOT EXISTS vector;")
+        logger.info("pgvector extension is enabled.")
+
+        create_table_query = f"""
+        CREATE TABLE IF NOT EXISTS {env.TABLE_NAME} (
+            chunk_id TEXT PRIMARY KEY,
+            document_hash TEXT,
+            page_content TEXT,
+            metadata JSONB
+        );
+        """
+
+        cur.execute(create_table_query)
+        conn.commit()
+        logger.info(f"Table '{env.TABLE_NAME}' created successfully.")
+
+        cur.close()
+
+    except psycopg2.Error as e:
+        logger.error(f"Error initializing database: {e}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+        logger.info(f"Database initialized and table '{env.TABLE_NAME}' is ready.")
+
+
+def get_pg_vector_store() -> PGVector:
+    """
+    Get the PGVector store.
+    """
+    embedder = get_embeddings()
+    _pgvector_store = PGVector(
+        collection_name=env.TABLE_NAME,
+        connection = env.DB_URL_ASYNC,
+        embeddings=embedder
+    )
+    return _pgvector_store
 
 
 _EMBEDDER: Optional[HuggingFaceEmbeddings] = None
-
-
 def get_embeddings():
     """
     Load the embeddings model.
@@ -55,21 +84,6 @@ def get_embeddings():
         _EMBEDDER = HuggingFaceEmbeddings(model_name=env.EMBEDDING_MODEL, model_kwargs={"device": device})
     logger.info("Embeddings model loaded.")
     return _EMBEDDER
-
-
-def get_or_create_collection(client: HttpClient, collection_name: str) -> Collection:
-    """
-    Get or create a Chroma collection.
-    """
-    try:
-        collection = client.get_collection(collection_name)
-        logger.info(f"Collection {collection_name} loaded successfully.")
-        return collection
-    except Exception:
-        logger.info(f"Collection {collection_name} does not exist. Creating...")
-        collection = client.create_collection(name=collection_name, metadata={"hnsw:space": "cosine"})
-        logger.info(f"Collection {collection_name} created successfully.")
-        return collection
 
 
 # --- Haching and files ID ---
@@ -99,47 +113,49 @@ def create_chunk_id(doc_hash: str, chunk_index: int) -> str:
 # --- Ingestion ---
 def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     """
-    Loads PDF documents, chunks and index them in ChromaDB using a batch approach.
+    Loads PDF documents, chunks and index them in PGVector using a batch approach.
 
     Args:
         data_dir: path to the data directory.
     Returns:
         total number of indexed documents.
     """
-    BATCH_SIZE = 512
     logger.info(f"Starting ingestion from {data_dir}...")
+    initialize_database()
 
     files = glob.glob(os.path.join(data_dir, "*.pdf"))
     if not files:
         logger.error(f"No PDF files found in {data_dir}")
         return 0
 
-    client = get_chroma_client()
-    if not client:
-        logger.error("Error connecting to ChromaDB")
+    try:
+        conn = psycopg2.connect(
+            dbname=env.DB_NAME,
+            user=env.DB_USER,
+            password=env.DB_PASSWORD,
+            host=env.DB_HOST,
+            port=env.DB_PORT,
+        )
+        cur = conn.cursor()
+    except psycopg2.OperationalError as e:
+        logger.error(f"Error connecting to PostgreSQL: {e}")
         return 0
 
-    collection = get_or_create_collection(client, env.COLLECTION_NAME)
+    cur.execute(f"SELECT DISTINCT document_hash FROM {env.TABLE_NAME};")
+    existing_hashes = {row[0] for row in cur.fetchall()}
+    logger.info(f"Found {len(existing_hashes)} existing document hashes in the database.")
 
-    existing_hashes = {meta.get("document_hash") for meta in collection.get(include=["metadatas"])["metadatas"] if meta and meta.get("document_hash")}
     current_hashes = {calculate_file_hash(path): path for path in files}
-    current_hashes = {hash: path for hash, path in current_hashes.items() if hash}
+    current_hashes = {h: p for h, p in current_hashes.items() if h}
 
-    hashes_to_rm = existing_hashes.difference(set(current_hashes.keys()))
+    hashes_to_rm = existing_hashes - set(current_hashes.keys())
     if hashes_to_rm:
-        ids_to_rm = []
-        metadatas = collection.get(include=["metadatas"])["metadatas"]
-        for i, meta in enumerate(metadatas):
-            if meta.get("document_hash") in hashes_to_rm:
-                ids_to_rm.append(collection.get(include=[])['ids"'][i])
-        for hash in hashes_to_rm:
-            collection.delete(where={"document_hash": hash})
-            logger.info(f"Deleted document chunk with hash {hash} from ChromaDB.")
+        logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
+        execute_values(cur, f"DELETE FROM {env.TABLE_NAME} WHERE document_hash IN %s;", [(list(hashes_to_rm),)])
+        conn.commit()
+        logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
 
-    new_chunk_ids = []
-    new_chunk_contents = []
-    new_chunk_metadatas = []
-
+    new_documents_to_add = []
     embedder = get_embeddings()
     text_splitter = SemanticChunker(embedder, breakpoint_threshold_type="percentile")
 
@@ -152,35 +168,32 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
                 chunks = text_splitter.split_documents(documents)
 
                 for i, chunk in enumerate(chunks):
-                    new_chunk_ids.append(create_chunk_id(doc_hash, i))
+                    metadata = chunk.metadata
+                    metadata["document_hash"] = doc_hash
+                    metadata["chunk_id"] = create_chunk_id(doc_hash, i)
+                    metadata["source"] = os.path.basename(path)
 
-                    meta = chunk.metadata
-                    meta["document_hash"] = doc_hash
-                    meta["source"] = os.path.basename(path)
-                    new_chunk_metadatas.append(meta)
-                    new_chunk_contents.append(chunk.page_content)
+                    new_doc = Document(page_content=chunk.page_content, metadata=metadata)
+                    new_documents_to_add.append(new_doc)
 
             except Exception as e:
                 logger.error(f"Error preparing document {path} for indexing: {e}")
                 return 0
 
-        if len(new_chunk_ids) >= BATCH_SIZE:
-            logger.info(f"Adding a batch of {len(new_chunk_ids)} new chunks to the collection.")
-            collection.add(documents=new_chunk_contents, metadatas=new_chunk_metadatas, ids=new_chunk_ids)
-            new_chunk_ids.clear()
-            new_chunk_contents.clear()
-            new_chunk_metadatas.clear()
+    if new_documents_to_add:
+        logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
+        vector_store = get_pg_vector_store()
+        vector_store.add_documents(new_documents_to_add, ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add])
+        logger.info("New chunks added successfully.")
 
-    if new_chunk_contents:
-        logger.info(f"Adding {len(new_chunk_contents)} new chunks to the collection in one batch.")
-        try:
-            collection.add(documents=new_chunk_contents, metadatas=new_chunk_metadatas, ids=new_chunk_ids)
-        except Exception as e:
-            logger.error(f"Error adding new chunks to the collection: {e}")
-            return 0
+    cur.execute(f"SELECT COUNT(*) FROM {env.TABLE_NAME};")
+    total_chunks = cur.fetchone()[0]
 
-    logger.info(f"Ingestion Sync Complete. {len(new_chunk_contents)} new chunks indexed. Total chunks in DB: {collection.count()}")
-    return collection.count()
+    cur.close()
+    conn.close()
+
+    logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new documents indexed. Total chunks in DB: {total_chunks}")
+    return total_chunks
 
 
 if __name__ == "__main__":

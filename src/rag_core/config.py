@@ -23,9 +23,16 @@ class Settings(BaseSettings):
     RERANKER_THRESHOLD: float = 0.4
 
     # --- Database & Data Path Settings ---
-    CHROMA_HOST: str = "chromadb"
-    CHROMA_PORT: int = 8000
-    COLLECTION_NAME: str = "rag_documents_collection"
+    DB_HOST: str = "postgres"
+    DB_PORT: int = 5432
+    DB_NAME: str = "rag_db"
+    DB_USER: str = "rag_user"
+    DB_PASSWORD: str = "rag_password"
+    TABLE_NAME: str = "rag_documents"
+
+    DB_URL_ASYNC: str = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    DB_URL_PSYCOG2: str = f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD} host={DB_HOST} port={DB_PORT}"
+
     DATA_PATH: str = "/app/src/data"
 
 
