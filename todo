@@ -26,9 +26,6 @@
 -   **Mettre en place plus de Résilience :**
     -   Vérifier tous les checks models et autre, si pas dispo, trouver une alternative pour que l'app soit toujours opérationnelle.
 
--   **Migrer la Base de Données Vectorielle :**
-    -   Remplacer `ChromaDB` par **Postgres avec `pgvector`** (`PostgresVector`).
-
 -   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
     -   Intégrer RAGAS (Golden Dataset, évaluations).
     -   Intégrer **LangSmith** pour le tracing.

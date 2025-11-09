@@ -30,28 +30,12 @@ def initialize_database():
 
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
         logger.info("pgvector extension is enabled.")
-
-        create_table_query = f"""
-        CREATE TABLE IF NOT EXISTS {env.TABLE_NAME} (
-            chunk_id TEXT PRIMARY KEY,
-            document_hash TEXT,
-            page_content TEXT,
-            metadata JSONB
-        );
-        """
-
-        cur.execute(create_table_query)
         conn.commit()
-        logger.info(f"Table '{env.TABLE_NAME}' created successfully.")
         cur.close()
-
+        conn.close()
     except psycopg.Error as e:
         logger.error(f"Error initializing database: {e}")
         raise
-    finally:
-        if conn:
-            conn.close()
-        logger.info(f"Database initialized and table '{env.TABLE_NAME}' is ready.")
 
 
 _EMBEDDER: Optional[HuggingFaceEmbeddings] = None
@@ -114,71 +98,96 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         logger.error(f"No PDF files found in {data_dir}")
         return 0
 
+    collection_name = env.COLLECTION_NAME
+
+    conn = None
     try:
         conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
         cur = conn.cursor()
-    except psycopg.OperationalError as e:
-        logger.error(f"Error connecting to PostgreSQL: {e}")
+        try:
+            query = """
+            SELECT id FROM langchain_pg_embedding
+            WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
+            """
+            cur.execute(query, (collection_name,))
+            existing_hashes = {row[0].split("_")[0] for row in cur.fetchall() if row[0]}
+            logger.info(f"Found {len(existing_hashes)} existing document hashes in the database.")
+        except psycopg.errors.UndefinedTable:
+            logger.warning("The embedding table does not exist yet. Proceeding with empty database.")
+            existing_hashes = set()
+
+        current_hashes = {calculate_file_hash(path): path for path in files}
+        current_hashes = {h: p for h, p in current_hashes.items() if h}
+
+        hashes_to_rm = existing_hashes - set(current_hashes.keys())
+        if hashes_to_rm:
+            logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
+            delete_query = """
+            DELETE FROM langchain_pg_embedding
+            WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
+            AND SPLIT_PART(id, '_', 1) = ANY(%s);
+            """
+            cur.execute(delete_query, (collection_name, list(hashes_to_rm)))
+            conn.commit()
+            logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
+
+        new_documents_to_add = []
+        embedder = get_embeddings()
+        text_splitter = SemanticChunker(embedder, breakpoint_threshold_type="percentile")
+
+        for doc_hash, path in current_hashes.items():
+            if doc_hash not in existing_hashes:
+                try:
+                    logger.info(f"Preparing new/modified document for batch indexing: {os.path.basename(path)}")
+                    loader = PyPDFLoader(path)
+                    documents = loader.load()
+                    chunks = text_splitter.split_documents(documents)
+
+                    for i, chunk in enumerate(chunks):
+                        metadata = chunk.metadata
+                        metadata["document_hash"] = doc_hash
+                        metadata["chunk_id"] = create_chunk_id(doc_hash, i)
+                        metadata["source"] = os.path.basename(path)
+
+                        new_doc = Document(page_content=chunk.page_content, metadata=metadata)
+                        new_documents_to_add.append(new_doc)
+
+                except Exception as e:
+                    logger.error(f"Error preparing document {path} for indexing: {e}")
+                    return 0
+
+        if new_documents_to_add:
+            logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
+            PGVector.from_documents(
+                documents=new_documents_to_add,
+                embedding=embedder,
+                collection_name=collection_name,
+                connection=env.DB_URL,
+                pre_delete_collection=False,
+                ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
+            )
+            logger.info("New chunks added successfully.")
+
+        count_query = """
+        SELECT COUNT(*) FROM langchain_pg_embedding
+        WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
+        """
+        cur.execute(count_query, (collection_name,))
+        res = cur.fetchone()
+        total_chunks = res[0] if res else 0
+
+        logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new documents indexed. Total chunks in DB: {total_chunks}")
+        return total_chunks
+
+    except (Exception, psycopg.Error) as e:
+        logger.error(f"Error during ingestion: {e}", exc_info=True)
+        if conn:
+            conn.rollback()
         return 0
-
-    cur.execute(f"SELECT DISTINCT document_hash FROM {env.TABLE_NAME};")
-    existing_hashes = {row[0] for row in cur.fetchall()}
-    logger.info(f"Found {len(existing_hashes)} existing document hashes in the database.")
-
-    current_hashes = {calculate_file_hash(path): path for path in files}
-    current_hashes = {h: p for h, p in current_hashes.items() if h}
-
-    hashes_to_rm = existing_hashes - set(current_hashes.keys())
-    if hashes_to_rm:
-        logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
-        cur.execute(f"DELETE FROM {env.TABLE_NAME} WHERE document_hash = ANY(%s)", (list(hashes_to_rm),))
-        conn.commit()
-        logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
-
-    new_documents_to_add = []
-    embedder = get_embeddings()
-    text_splitter = SemanticChunker(embedder, breakpoint_threshold_type="percentile")
-
-    for doc_hash, path in current_hashes.items():
-        if doc_hash not in existing_hashes:
-            try:
-                logger.info(f"Preparing new/modified document for batch indexing: {os.path.basename(path)}")
-                loader = PyPDFLoader(path)
-                documents = loader.load()
-                chunks = text_splitter.split_documents(documents)
-
-                for i, chunk in enumerate(chunks):
-                    metadata = chunk.metadata
-                    metadata["document_hash"] = doc_hash
-                    metadata["chunk_id"] = create_chunk_id(doc_hash, i)
-                    metadata["source"] = os.path.basename(path)
-
-                    new_doc = Document(page_content=chunk.page_content, metadata=metadata)
-                    new_documents_to_add.append(new_doc)
-
-            except Exception as e:
-                logger.error(f"Error preparing document {path} for indexing: {e}")
-                return 0
-
-    if new_documents_to_add:
-        logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
-        PGVector.from_documents(
-            documents=new_documents_to_add,
-            embedding=embedder,
-            collection_name=env.TABLE_NAME,
-            connection=env.DB_URL,
-            ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
-            pre_delete_collection=False,
-        )
-        logger.info("New chunks added successfully.")
-
-    cur.execute(f"SELECT COUNT(*) FROM {env.TABLE_NAME};")
-    total_chunks = cur.fetchone()[0]
-    cur.close()
-    conn.close()
-
-    logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new documents indexed. Total chunks in DB: {total_chunks}")
-    return total_chunks
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
 
 
 if __name__ == "__main__":

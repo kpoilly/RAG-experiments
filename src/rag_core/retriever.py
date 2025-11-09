@@ -46,7 +46,7 @@ async def get_retriever(refresh: bool = False) -> Tuple[Optional[EnsembleRetriev
         return _ENSEMBLE_RETRIEVER, _RERANKER
 
     embedder = get_embeddings()
-    vector_store = PGVector(collection_name=env.TABLE_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
+    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
 
     logger.info("Loading reranker model...")
     _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device})
@@ -58,7 +58,11 @@ async def get_retriever(refresh: bool = False) -> Tuple[Optional[EnsembleRetriev
     def fetch_docs():
         conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
         cur = conn.cursor()
-        cur.execute(f"SELECT page_content, metadata FROM {env.TABLE_NAME};")
+        query = """
+        SELECT document, cmetadata FROM langchain_pg_embedding
+        WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
+        """
+        cur.execute(query, (env.COLLECTION_NAME,))
         data = cur.fetchall()
         cur.close()
         conn.close()

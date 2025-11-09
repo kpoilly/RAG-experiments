@@ -28,10 +28,9 @@ class Settings(BaseSettings):
     DB_NAME: str = "rag_db"
     DB_USER: str = "rag_user"
     DB_PASSWORD: str = "rag_password"
-    TABLE_NAME: str = "rag_documents"
-
     DB_URL: str = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
+    COLLECTION_NAME: str = "rag_documents"
     DATA_PATH: str = "/app/src/data"
 
 

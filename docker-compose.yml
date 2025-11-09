@@ -28,7 +28,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
-      - TABLE_NAME=${TABLE_NAME}
+      - COLLECTION_NAME=${COLLECTION_NAME}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - LLM_MODEL=${LLM_MODEL}
       - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
@@ -63,9 +63,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${DB_NAME:-rag_db}
-      - POSTGRES_USER=${DB_USER:-rag_user}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-rag_password}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     networks:
       - rag_network
   
@@ -73,11 +73,11 @@ services:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
       - PGADMIN_DEFAULT_PASSWORD=admin
     restart: unless-stopped
     ports:
-      - "8011:8011"
+      - "8011:80"
     depends_on:
       - postgres
 
