@@ -6,11 +6,11 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 
 ## 💡 Overview of Functioning (Advanced RAG)
 
-***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically when the RAG service starts**. It can also be triggered at any time via an API endpoint (`/ingest`). This allows you to update your reference documents (in the `data/` folder) while the service is running. The assistant will benefit from the new knowledge in real-time, without any interruption or restart needed.*
+***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically when the RAG service starts**. It can also be triggered at any time via an API endpoint (`/ingest`). This allows you to update your reference documents (in the `data/` folder) while the service is running. The assistant will benefit from the new knowledge in real-time, without any interruption or restart needed. The system detects added, modified, or deleted files to update only what is necessary.*
 
 The core of the system is enhancing information retrieval for the LLM.
 
-1.  **Indexing:** Documents are split into chunks and converted into **embeddings** (vectors).
+1.  **Indexing:** Documents are split into chunks and converted into **embeddings** (vectors). These vectors, along with document metadata, are stored in a **PostgreSQL** database using the **PGVector** extension.
 2.  **Query Expansion :** Before searching, the user's original question is sent to an LLM to generate several alternative versions. This technique helps overcome the limitations of keyword or semantic search by exploring different formulations of the same intent, thus casting a wider net to find the most relevant documents.
 3.  **Advanced Contextual Retrieval:** The search uses **Hybrid Embedding**, which combines:
     * **Semantic search** (understanding meaning).
@@ -26,7 +26,7 @@ The core of the system is enhancing information retrieval for the LLM.
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
 | **LLM & Inference** | Groq (API) / Llama-3.1-8b-Instant | Ultra-fast response generation and reasoning. |
-| **Vector Databases** | ChromaDB | Storage, indexing, and vector search for documents. |
+| **Vector Database** | PostgreSQL + PGVector | Robust, transactional storage, indexing, and vector search for documents. |
 | **RAG Framework** | LangChain | Orchestration of the complete RAG workflow. |
 | **Embeddings** | Multilingual models (e.g., E5) | Creation of vector representations (supports hybrid seaarch). |
 | **Reranking & Filtering**| BAAI/bge-reranker-v2-m3 (Cross-Encoder) | Refines search results by calculating a precise relevance score for each document. |
@@ -49,6 +49,12 @@ The service's behavior is controlled by the following environment variables. The
 | **LLM_STRICT_RAG** | `True` | Determines whether the model can use its internal knowledge. | If **`True`**, the system instruction **forces** the model to respond ONLY with the provided context. If it cannot find the answer, it must explicitly state so (Strict RAG mode). If **`False`** (Relaxed RAG mode), the model is allowed to use its general knowledge when the context is insufficient. **WARNING**: Setting this to `False` may lead to answers that are not 100% faithful to the document and potentially increase the risk of **hallucinations**. |
 | **RERANKER_MODEL** | `BAAI/bge-reranker-v2-m3` | Name of the **Cross-Encoder** model used to re-rank documents and calculate a precise relevance score. | Refines the list of documents retrieved before sending them to the LLM. |
 | **RERANKER_THRESHOLD** | `0.4` | Minimum relevance score (float between 0.0 and 1.0) required for a document to be included in the final context. | Filters out documents considered irrelevant by the reranker. A higher value leads to stricter, more relevant context, but risks omitting potentially useful information. |
+| **DB_HOST** | `postgres` | Hostname of the PostgreSQL service (as defined in `docker-compose.yml`). | Database connection. |
+| **DB_PORT** | `5432` | Listening port of the PostgreSQL service. | Database connection. |
+| **DB_USER** | `user` | Username for connecting to the PostgreSQL database. | Database access. |
+| **DB_PASSWORD** | `password` | Password for connecting to the PostgreSQL database. | Database access. |
+| **DB_NAME** | `rag_db` | Name of the database to use within the PostgreSQL instance. | Specifies the target database. |
+| **COLLECTION_NAME** | `rag_documents` | Name of the logical "collection" within PGVector. This isolates the project's documents. | Filters searches to only include documents from this project. |
 
 Define your API key and parameters in a **`.env`** file at the **project root**.
 
