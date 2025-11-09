@@ -86,7 +86,7 @@ format:
 	done
 
 # --- GIT ---
-push: lint
+push: format
 	git add .
 	git commit -m "$(MSG)"
 	git push origin main

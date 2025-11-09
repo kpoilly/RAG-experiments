@@ -1,18 +1,17 @@
-from curses.ascii import TAB
 import glob
 import hashlib
 import logging
 import os
 from typing import Optional
 
-import torch
 import psycopg2
-from psycopg2.extras import execute_values
-from langchain_core.documents import Document
-from langchain_postgres.vectorstores import PGVector
+import torch
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 from langchain_experimental.text_splitter import SemanticChunker
+from langchain_postgres.vectorstores import PGVector
+from psycopg2.extras import execute_values
 
 from config import settings as env
 
@@ -30,7 +29,7 @@ def initialize_database():
         conn = psycopg2.connect(env.DB_URL_PSYCOG2)
         cur = conn.cursor()
 
-        cur.execute(f"CREATE EXTENSION IF NOT EXISTS vector;")
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
         logger.info("pgvector extension is enabled.")
 
         create_table_query = f"""
@@ -62,15 +61,13 @@ def get_pg_vector_store() -> PGVector:
     Get the PGVector store.
     """
     embedder = get_embeddings()
-    _pgvector_store = PGVector(
-        collection_name=env.TABLE_NAME,
-        connection = env.DB_URL_ASYNC,
-        embeddings=embedder
-    )
+    _pgvector_store = PGVector(collection_name=env.TABLE_NAME, connection=env.DB_URL_ASYNC, embeddings=embedder)
     return _pgvector_store
 
 
 _EMBEDDER: Optional[HuggingFaceEmbeddings] = None
+
+
 def get_embeddings():
     """
     Load the embeddings model.
