@@ -8,8 +8,7 @@ langchain-openai==0.3.35
 langchain-experimental==0.3.4
 langchain-postgres==0.0.16
 
-psycopg2-binary==2.9.11
-asyncpg==0.30.0
+psycopg==3.2.12
 
 pydantic==2.11.10
 pydantic-settings==2.11.0

@@ -4,7 +4,7 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
-import psycopg2
+import psycopg
 import tiktoken
 from langchain.chains import LLMChain
 from langchain.retrievers import EnsembleRetriever
@@ -32,74 +32,48 @@ with open("/app/prompts/query_expansion.json", "r") as f:
     QUERY_EXP_PROMPTS = json.load(f)
 
 
-def initialize_retrievers() -> Tuple[Optional[EnsembleRetriever], Optional[HuggingFaceCrossEncoder]]:
-    """
-    Initialize the retrievers (Dense and Sparse) and combine them with RRF.
-    """
-    logger.info("Initializing retrievers...")
-    try:
-        embedding_function = get_embeddings()
-        if not embedding_function:
-            logger.error("Error loading embeddings model")
-            return None
-
-        logger.info("Initializing cross-encoder reranker...")
-        reranker = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedding_function.model_kwargs.get("device", "cpu")})
-        logger.info(f"Cross-Encoder Reranker model ({env.RERANKER_MODEL}) initialized.")
-
-        vectorstore = get_pg_vector_store()
-        dense_retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 8})
-
-        all_documents = []
-        try:
-            conn = psycopg2.connect(env.DB_URL_PSYCOG2)
-            cur = conn.cursor()
-
-            cur.execute(f"SELECT COUNT(*) FROM {env.TABLE_NAME};")
-            doc_count = cur.fetchone()[0]
-
-            if doc_count == 0:
-                logger.warning("No documents found in the database, skipping sparse retriever.")
-                cur.close()
-                conn.close()
-                return EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0], c=100), reranker
-
-            cur.execute(f"SELECT page_content, metadata FROM {env.TABLE_NAME};")
-            all_documents_data = cur.fetchall()
-            all_documents = [Document(page_content=row[0], metadata=row[1]) for row in all_documents_data]
-
-            cur.close()
-            conn.close()
-        except Exception as e:
-            logger.error(f"Error fetching documents for sparse retriever: {e}")
-            return EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0], c=100), reranker
-
-        sparse_retriever = BM25Retriever.from_documents(documents=all_documents, k=8)
-        ensemble_retriever = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5], c=100)
-        logger.info("Hybrid RRF EnsembleRetriever initialized.")
-        return ensemble_retriever, reranker
-
-    except Exception as e:
-        logger.error(f"Error initializing retrievers: {e}")
-        return None
-
-
-_EMSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
+_ENSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
 _RERANKER: Optional[HuggingFaceCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 _QUERY_EXPANSION_CHAIN: Optional[LLMChain] = None
 
 
-def get_ensemble_retriever(refresh: bool = False) -> Optional[EnsembleRetriever]:
-    """
-    Get the ensemble retriever.
-    """
-    logger.info("Getting ensemble retriever...")
-    global _EMSEMBLE_RETRIEVER, _RERANKER
-    if _EMSEMBLE_RETRIEVER is None or refresh:
-        _EMSEMBLE_RETRIEVER, _RERANKER = initialize_retrievers()
-    logger.info("Ensemble retriever retrieved.")
-    return _EMSEMBLE_RETRIEVER, _RERANKER
+async def get_retriever(refresh: bool = False) -> Tuple[Optional[EnsembleRetriever], Optional[HuggingFaceCrossEncoder]]:
+    global _ENSEMBLE_RETRIEVER, _RERANKER
+    logger.info(f"Initializing retriever... (refresh={refresh})")
+
+    if _ENSEMBLE_RETRIEVER is not None and not refresh:
+        return _ENSEMBLE_RETRIEVER, _RERANKER
+
+    embedder = get_embeddings()
+    vector_store = PGVector(collection_name=env.TABLE_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
+
+    logger.info("Loading reranker model...")
+    _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device})
+    logger.info("Reranker model loaded.")
+
+    logger.info("Initializing ensemble retriever...")
+    dense_retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 8})
+
+    def fetch_docs():
+        conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
+        cur = conn.cursor()
+        cur.execute(f"SELECT page_content, metadata FROM {env.TABLE_NAME};")
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return [Document(page_content=row[0], metadata=row[1]) for row in data]
+
+    all_docs = await asyncio.to_thread(fetch_docs)
+    if not all_docs:
+        logger.warning("No documents found in the database for sparse retriever.")
+        _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0])
+    else:
+        sparse_retriever = BM25Retriever.from_documents(documents=all_docs, k=8)
+        _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.5, 0.5])
+
+    logger.info("Hybrid RRF Ensemble retriever initialized.")
+    return _ENSEMBLE_RETRIEVER, _RERANKER
 
 
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
@@ -138,21 +112,6 @@ def get_query_expansion_chain() -> Optional[LLMChain]:
         _QUERY_EXPANSION_CHAIN = LLMChain(llm=llm, prompt=prompt, output_parser=output_parser)
         logger.info("Query expansion chain initialized.")
     return _QUERY_EXPANSION_CHAIN
-
-
-_PG_VECTOR_STORE: Optional[PGVector] = None
-
-
-def get_pg_vector_store() -> PGVector:
-    """
-    Get the PGVector store.
-    """
-    global _PG_VECTOR_STORE
-    if _PG_VECTOR_STORE is None:
-        logger.info("Initializing PGVector store...")
-        _PG_VECTOR_STORE = PGVector(collection_name=env.TABLE_NAME, connection=env.DB_URL_ASYNC, embeddings=get_embeddings())
-        logger.info("PGVector store initialized.")
-    return _PG_VECTOR_STORE
 
 
 # --- RAG flow ---
@@ -197,10 +156,11 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     """
     logger.info(f"Starting RAG flow for query: {query[:50]}...")
 
-    retriever, reranker = get_ensemble_retriever()
+    retriever, reranker = await get_retriever()
     if retriever is None:
         logger.error("Cannot retrieve retriever.")
         yield json.dumps({"type": "error", "content": "System Error: Error connecting to DB."}) + "\n"
+        return
 
     # --- Contextual Query Expansion ---
     query_expansion_chain = get_query_expansion_chain()
@@ -286,7 +246,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         if metadata not in unique_metadatas:
             unique_metadatas.append(metadata)
 
-    system_instruction, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
+    _, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
     logging.info(f"Final prompt constructed ({current_tokens} tokens). Invoking LLM...")
     full_response = ""
     try:

@@ -4,14 +4,13 @@ import logging
 import os
 from typing import Optional
 
-import psycopg2
+import psycopg
 import torch
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_postgres.vectorstores import PGVector
-from psycopg2.extras import execute_values
 
 from config import settings as env
 
@@ -26,7 +25,7 @@ def initialize_database():
     """
     try:
         logger.info("Connecting to PostgreSQL to initialize database schema...")
-        conn = psycopg2.connect(env.DB_URL_PSYCOG2)
+        conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
         cur = conn.cursor()
 
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
@@ -44,10 +43,9 @@ def initialize_database():
         cur.execute(create_table_query)
         conn.commit()
         logger.info(f"Table '{env.TABLE_NAME}' created successfully.")
-
         cur.close()
 
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         logger.error(f"Error initializing database: {e}")
         raise
     finally:
@@ -117,15 +115,9 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         return 0
 
     try:
-        conn = psycopg2.connect(
-            dbname=env.DB_NAME,
-            user=env.DB_USER,
-            password=env.DB_PASSWORD,
-            host=env.DB_HOST,
-            port=env.DB_PORT,
-        )
+        conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
         cur = conn.cursor()
-    except psycopg2.OperationalError as e:
+    except psycopg.OperationalError as e:
         logger.error(f"Error connecting to PostgreSQL: {e}")
         return 0
 
@@ -139,7 +131,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     hashes_to_rm = existing_hashes - set(current_hashes.keys())
     if hashes_to_rm:
         logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
-        execute_values(cur, f"DELETE FROM {env.TABLE_NAME} WHERE document_hash IN %s;", [(list(hashes_to_rm),)])
+        cur.execute(f"DELETE FROM {env.TABLE_NAME} WHERE document_hash = ANY(%s)", (list(hashes_to_rm),))
         conn.commit()
         logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
 
@@ -174,7 +166,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
             documents=new_documents_to_add,
             embedding=embedder,
             collection_name=env.TABLE_NAME,
-            connection=env.DB_URL_SYNC,
+            connection=env.DB_URL,
             ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
             pre_delete_collection=False,
         )
@@ -182,7 +174,6 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 
     cur.execute(f"SELECT COUNT(*) FROM {env.TABLE_NAME};")
     total_chunks = cur.fetchone()[0]
-
     cur.close()
     conn.close()
 
