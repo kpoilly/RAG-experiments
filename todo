@@ -31,18 +31,13 @@
 
 -   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
     -   Intégrer RAGAS (Golden Dataset, évaluations).
-    -   Intégrer **LangSmith** pour le tracing.
     -   Stratégie d'évaluations (schedulées ?)
 
 -   **Modification du llm-gateway :**
     -   Retirer dépendance à Groq, pouvoir utiliser n'importe quel LLM.
     -   Implémenter LiteLLM ou équivalent production-ready.
 
--   **Parent Document Retrieval :**
-    -   Implémenter du ChildChunking (option A, préférée) ou résumé par LLM (Option B)
-
 -   **Optimisations paramètres RAG :**
-    -   Poids des retrievers
     -   Différents modèles, stratégies etc.
 
 ---
