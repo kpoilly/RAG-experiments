@@ -141,7 +141,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
                     WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
                     AND cmetadata ->> 'document_hash' = ANY(%s);
                     """
-                    cur.execute(get_parent_keys_query, (f"{collection_name}_parents", list(hashes_to_rm)))
+                    cur.execute(get_parent_keys_query, (collection_name, list(hashes_to_rm)))
                     parent_keys = [row[0] for row in cur.fetchall()]
 
                     if parent_keys:
@@ -150,7 +150,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
                         WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
                         AND cmetadata ->> 'doc_id' = ANY(%s);
                         """
-                        cur.execute(delete_query_children, (collection_name, list(hashes_to_rm)))
+                        cur.execute(delete_query_children, (collection_name, parent_keys))
                         logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
                         delete_query_parents = """
                         DELETE FROM langchain_key_value_stores
