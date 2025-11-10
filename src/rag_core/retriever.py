@@ -49,7 +49,7 @@ async def get_retriever(refresh: bool = False) -> Tuple[Optional[EnsembleRetriev
     vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
 
     logger.info("Loading reranker model...")
-    _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device})
+    _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device, "trust_remote_code": True})
     logger.info("Reranker model loaded.")
 
     logger.info("Initializing ensemble retriever...")
@@ -189,12 +189,13 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
     # --- Reranking ---
-    MAX_DOCS_TO_RERANK = 15
+    MAX_DOCS_TO_RERANK = 10
     if len(retrieved_docs) > MAX_DOCS_TO_RERANK:
         retrieved_docs = retrieved_docs[:MAX_DOCS_TO_RERANK]
         logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")
 
     if reranker is not None and retrieved_docs:
+        logger.info("Reranking documents...")
         pairs = [(query, doc.page_content) for doc in retrieved_docs]
         scores = reranker.score(pairs)
         for doc, score in zip(retrieved_docs, scores):

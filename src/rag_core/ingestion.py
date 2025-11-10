@@ -100,94 +100,94 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
 
     collection_name = env.COLLECTION_NAME
 
-    conn = None
     try:
-        conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
-        cur = conn.cursor()
-        try:
-            query = """
-            SELECT id FROM langchain_pg_embedding
-            WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
-            """
-            cur.execute(query, (collection_name,))
-            existing_hashes = {row[0].split("_")[0] for row in cur.fetchall() if row[0]}
-            logger.info(f"Found {len(existing_hashes)} existing document hashes in the database.")
-        except psycopg.errors.UndefinedTable:
-            logger.warning("The embedding table does not exist yet. Proceeding with empty database.")
-            existing_hashes = set()
-
-        current_hashes = {calculate_file_hash(path): path for path in files}
-        current_hashes = {h: p for h, p in current_hashes.items() if h}
-
-        hashes_to_rm = existing_hashes - set(current_hashes.keys())
-        if hashes_to_rm:
-            logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
-            delete_query = """
-            DELETE FROM langchain_pg_embedding
-            WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
-            AND SPLIT_PART(id, '_', 1) = ANY(%s);
-            """
-            cur.execute(delete_query, (collection_name, list(hashes_to_rm)))
-            conn.commit()
-            logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
-
-        new_documents_to_add = []
-        embedder = get_embeddings()
-        text_splitter = SemanticChunker(embedder, breakpoint_threshold_type="percentile")
-
-        for doc_hash, path in current_hashes.items():
-            if doc_hash not in existing_hashes:
+        with psycopg.connect(env.DB_URL.replace("+psycopg", "")) as conn:
+            with conn.cursor() as cur:
                 try:
-                    logger.info(f"Preparing new/modified document for batch indexing: {os.path.basename(path)}")
-                    loader = PyPDFLoader(path)
-                    documents = loader.load()
-                    chunks = text_splitter.split_documents(documents)
+                    query = """
+                    SELECT id FROM langchain_pg_embedding
+                    WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
+                    """
+                    cur.execute(query, (collection_name,))
+                    existing_hashes = {row[0].split("_")[0] for row in cur.fetchall() if row[0]}
+                    logger.info(f"Found {len(existing_hashes)} existing document hashes in the database.")
+                except psycopg.errors.UndefinedTable:
+                    logger.warning("The embedding table does not exist yet. Proceeding with empty database.")
+                    existing_hashes = set()
 
-                    for i, chunk in enumerate(chunks):
-                        metadata = chunk.metadata
-                        metadata["document_hash"] = doc_hash
-                        metadata["chunk_id"] = create_chunk_id(doc_hash, i)
-                        metadata["source"] = os.path.basename(path)
+                current_hashes = {calculate_file_hash(path): path for path in files}
+                current_hashes = {h: p for h, p in current_hashes.items() if h}
 
-                        new_doc = Document(page_content=chunk.page_content, metadata=metadata)
-                        new_documents_to_add.append(new_doc)
-
-                except Exception as e:
-                    logger.error(f"Error preparing document {path} for indexing: {e}")
-                    return 0
-
-        if new_documents_to_add:
-            logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
-            PGVector.from_documents(
-                documents=new_documents_to_add,
-                embedding=embedder,
-                collection_name=collection_name,
-                connection=env.DB_URL,
-                pre_delete_collection=False,
-                ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
-            )
-            logger.info("New chunks added successfully.")
-
-        count_query = """
-        SELECT COUNT(*) FROM langchain_pg_embedding
-        WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
-        """
-        cur.execute(count_query, (collection_name,))
-        res = cur.fetchone()
-        total_chunks = res[0] if res else 0
-
-        logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new documents indexed. Total chunks in DB: {total_chunks}")
-        return total_chunks
-
-    except (Exception, psycopg.Error) as e:
-        logger.error(f"Error during ingestion: {e}", exc_info=True)
-        if conn:
-            conn.rollback()
+                hashes_to_rm = existing_hashes - set(current_hashes.keys())
+                if hashes_to_rm:
+                    logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
+                    delete_query = """
+                    DELETE FROM langchain_pg_embedding
+                    WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
+                    AND SPLIT_PART(id, '_', 1) = ANY(%s);
+                    """
+                    cur.execute(delete_query, (collection_name, list(hashes_to_rm)))
+                    conn.commit()
+                    logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
+    except psycopg.Error as e:
+        logger.error(f"Error during read/delete phase: {e}", exc_info=True)
         return 0
-    finally:
-        if conn:
-            cur.close()
-            conn.close()
+
+    new_documents_to_add = []
+    embedder = get_embeddings()
+    text_splitter = SemanticChunker(embedder, breakpoint_threshold_type="percentile")
+
+    for doc_hash, path in current_hashes.items():
+        if doc_hash not in existing_hashes:
+            try:
+                logger.info(f"Preparing new/modified document for batch indexing: {os.path.basename(path)}")
+                loader = PyPDFLoader(path)
+                documents = loader.load()
+                chunks = text_splitter.split_documents(documents)
+
+                for i, chunk in enumerate(chunks):
+                    metadata = chunk.metadata
+                    metadata["document_hash"] = doc_hash
+                    metadata["chunk_id"] = create_chunk_id(doc_hash, i)
+                    metadata["source"] = os.path.basename(path)
+
+                    new_doc = Document(page_content=chunk.page_content, metadata=metadata)
+                    new_documents_to_add.append(new_doc)
+
+            except Exception as e:
+                logger.error(f"Error preparing document {path} for indexing: {e}")
+                return 0
+
+    if new_documents_to_add:
+        logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
+        PGVector.from_documents(
+            documents=new_documents_to_add,
+            embedding=embedder,
+            collection_name=collection_name,
+            connection=env.DB_URL,
+            pre_delete_collection=False,
+            ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
+        )
+        logger.info("New chunks added successfully.")
+
+    total_chunks = 0
+    try:
+        with psycopg.connect(env.DB_URL.replace("+psycopg", "")) as conn:
+            with conn.cursor() as cur:
+                count_query = """
+                SELECT COUNT(*) FROM langchain_pg_embedding
+                WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
+                """
+                cur.execute(count_query, (collection_name,))
+                res = cur.fetchone()
+                total_chunks = res[0] if res else 0
+
+    except psycopg.Error as e:
+        logger.error(f"Error counting total chunks: {e}", exc_info=True)
+        total_chunks = len(new_documents_to_add)
+
+    logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new documents indexed. Total chunks in DB: {total_chunks}")
+    return total_chunks
 
 
 if __name__ == "__main__":
