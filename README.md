@@ -10,12 +10,12 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 
 The core of the system is enhancing information retrieval for the LLM.
 
-1.  **Indexing:** Documents are split into chunks and converted into **embeddings** (vectors). These vectors, along with document metadata, are stored in a **PostgreSQL** database using the **PGVector** extension.
+1.  **Indexing with Parent Document Retriever (PDR):** Documents are processed through a sophisticated chunking strategy:
+    *   **Parent Chunks:** Documents are initially split into larger, semantically coherent chunks (e.g., 2000 characters with overlap) to capture broader context. These are stored in a **PostgreSQL `docstore` table**.
+    *   **Child Chunks:** Each parent chunk is then further split into smaller, precise chunks (e.g., 300 characters with overlap). These smaller chunks are converted into **embeddings** (vectors) and indexed in a **PostgreSQL `PGVector` collection** for efficient retrieval.
+    This two-tier approach allows for precise retrieval of relevant information while providing rich, contextual parent chunks to the LLM.
 2.  **Query Expansion :** Before searching, the user's original question is sent to an LLM to generate several alternative versions. This technique helps overcome the limitations of keyword or semantic search by exploring different formulations of the same intent, thus casting a wider net to find the most relevant documents.
-3.  **Advanced Contextual Retrieval:** The search uses **Hybrid Embedding**, which combines:
-    * **Semantic search** (understanding meaning).
-    * **Keyword search** (exact term precision).
-    The **Reciprocal Rank Fusion (RRF)** algorithm merges the results from both methods to ensure maximum relevance before transmitting the context to the LLM.
+3.  **Advanced Contextual Retrieval:** The search is performed using the **Parent Document Retriever**, which retrieves the most relevant **child chunks** via vector search (on `PGVector`) and then fetches their corresponding **parent chunks** from the `PostgreSQL DocStore`.
 4.  **Re-Ranking & Filtering:** To further refine the results, a **Cross-Encoder** model re-ranks the documents retrieved in the previous step. It calculates a precise relevance score for each document in relation to the query. Only documents with a score exceeding a configurable **threshold** are kept, ensuring that only the most relevant information is passed to the LLM.
 5.  **Augmented Generation:** The most relevant context chunks are sent to the LLM (Groq) to generate a factual and justified response. The answer is delivered in real-time via **streaming**, ensuring an interactive and fluid user experience with very low latency.
 
@@ -26,11 +26,14 @@ The core of the system is enhancing information retrieval for the LLM.
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
 | **LLM & Inference** | Groq (API) / Llama-3.1-8b-Instant | Ultra-fast response generation and reasoning. |
+| **Document Storage** | PostgreSQL | Robust, transactional storage for parent chunks and metadata. |
 | **Vector Database** | PostgreSQL + PGVector | Robust, transactional storage, indexing, and vector search for documents. |
 | **RAG Framework** | LangChain | Orchestration of the complete RAG workflow. |
+| **Chunking Strategies** | `RecursiveCharacterTextSplitter` | Creates predictable parent and child chunks for PDR. |
 | **Embeddings** | Multilingual models (e.g., E5) | Creation of vector representations (supports hybrid seaarch). |
 | **Reranking & Filtering**| BAAI/bge-reranker-v2-m3 (Cross-Encoder) | Refines search results by calculating a precise relevance score for each document. |
 | **Parsing** | PyPDF | Extraction of plain text and metadata from PDF files. |
+| **Observability** | LangSmith | Tracing, debugging, and evaluating RAG pipeline execution. |
 
 ---
 
