@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from ingestion import process_and_index_documents
 from models import GenerationRequest, IngestionResponse
-from retriever import get_llm_query_gen, get_retriever, orchestrate_rag_flow
+from retriever import get_llm_query_gen, get_query_expansion_chain, get_retriever, orchestrate_rag_flow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ async def startup_event():
         await asyncio.to_thread(process_and_index_documents, data_path)
         await get_retriever()
         await asyncio.to_thread(get_llm_query_gen)
+        await asyncio.to_thread(get_query_expansion_chain)
         app.state.rad_ready = True
         logger.info("Application startup complete. Ready to serve requests.")
     except Exception as e:

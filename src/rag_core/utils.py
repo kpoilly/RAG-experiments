@@ -1,8 +1,10 @@
 import asyncio
+import json
 import logging
 from typing import Any, Dict, List
 
 import httpx
+from langchain.load import dumps, loads
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -62,3 +64,11 @@ def format_history_for_prompt(history: List[Dict[str, str]]) -> str:
         f"{msg.get('role', 'unknown')}: {msg.get('content', '')}" for msg in history if isinstance(msg, dict) and msg.get("role") and msg.get("content")
     ]
     return "\n".join(formatted_messages)
+
+
+def value_serializer(value: Any) -> bytes:
+    return json.dumps(dumps(value)).encode("utf-8")
+
+
+def value_deserializer(data: bytes) -> Any:
+    return loads(json.loads(data.decode("utf-8")))

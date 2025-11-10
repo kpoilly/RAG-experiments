@@ -5,10 +5,10 @@ langchain==0.3.27
 langchain-core==0.3.78
 langchain-community==0.3.30
 langchain-openai==0.3.35
-langchain-experimental==0.3.4
 langchain-postgres==0.0.16
 
 psycopg==3.2.12
+sqlalchemy==2.0.44
 
 pydantic==2.11.10
 pydantic-settings==2.11.0

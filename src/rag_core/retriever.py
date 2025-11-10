@@ -4,22 +4,22 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
-import psycopg
 import tiktoken
 from langchain.chains import LLMChain
-from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import EncoderBackedStore
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-from langchain_community.retrievers import BM25Retriever
-from langchain_core.documents import Document
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_community.storage import SQLStore
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
 
 from config import settings as env
 from ingestion import get_embeddings
-from models import LLMRequest
-from utils import async_retry_post, format_history_for_prompt
+from models import ExpandedQueries, LLMRequest
+from utils import async_retry_post, format_history_for_prompt, value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -32,52 +32,32 @@ with open("/app/prompts/query_expansion.json", "r") as f:
     QUERY_EXP_PROMPTS = json.load(f)
 
 
-_ENSEMBLE_RETRIEVER: Optional[EnsembleRetriever] = None
+_PDR_RETRIEVER: Optional[ParentDocumentRetriever] = None
 _RERANKER: Optional[HuggingFaceCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 _QUERY_EXPANSION_CHAIN: Optional[LLMChain] = None
 
 
-async def get_retriever(refresh: bool = False) -> Tuple[Optional[EnsembleRetriever], Optional[HuggingFaceCrossEncoder]]:
-    global _ENSEMBLE_RETRIEVER, _RERANKER
+async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentRetriever], Optional[HuggingFaceCrossEncoder]]:
+    global _PDR_RETRIEVER, _RERANKER
+
+    if _PDR_RETRIEVER is not None and not refresh:
+        return _PDR_RETRIEVER, _RERANKER
+
     logger.info(f"Initializing retriever... (refresh={refresh})")
-
-    if _ENSEMBLE_RETRIEVER is not None and not refresh:
-        return _ENSEMBLE_RETRIEVER, _RERANKER
-
     embedder = get_embeddings()
     vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
+    doc_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents", async_mode=True)
+    store = EncoderBackedStore(doc_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
+
+    _PDR_RETRIEVER = ParentDocumentRetriever(vectorstore=vector_store, docstore=store, child_splitter=RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50))
 
     logger.info("Loading reranker model...")
     _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device, "trust_remote_code": True})
     logger.info("Reranker model loaded.")
 
-    logger.info("Initializing ensemble retriever...")
-    dense_retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 8})
-
-    def fetch_docs():
-        conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
-        cur = conn.cursor()
-        query = """
-        SELECT document, cmetadata FROM langchain_pg_embedding
-        WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
-        """
-        cur.execute(query, (env.COLLECTION_NAME,))
-        data = cur.fetchall()
-        cur.close()
-        conn.close()
-        return [Document(page_content=row[0], metadata=row[1]) for row in data]
-
-    all_docs = await asyncio.to_thread(fetch_docs)
-    if not all_docs:
-        logger.warning("No documents found in the database for sparse retriever.")
-        _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever], weights=[1.0])
-    else:
-        sparse_retriever = BM25Retriever.from_documents(documents=all_docs, k=8)
-        _ENSEMBLE_RETRIEVER = EnsembleRetriever(retrievers=[dense_retriever, sparse_retriever], weights=[0.7, 0.3])
-
-    logger.info("Hybrid RRF Ensemble retriever initialized.")
-    return _ENSEMBLE_RETRIEVER, _RERANKER
+    logger.info("Parent Document Retriever initialized.")
+    return _PDR_RETRIEVER, _RERANKER
 
 
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
@@ -106,11 +86,11 @@ def get_query_expansion_chain() -> Optional[LLMChain]:
             logger.error("Cannot initialize query expansion chain without LLM.")
             return None
 
-        output_parser = JsonOutputParser()
+        output_parser = PydanticOutputParser(pydantic_object=ExpandedQueries)
         prompt = PromptTemplate(
             template=QUERY_EXP_PROMPTS["instructions"],
             input_variables=["question", "chat_history"],
-            partial_variables={"format_instructions": QUERY_EXP_PROMPTS["format_instructions"]},
+            partial_variables={"format_instructions": output_parser.get_format_instructions()},
         )
 
         _QUERY_EXPANSION_CHAIN = LLMChain(llm=llm, prompt=prompt, output_parser=output_parser)
@@ -176,7 +156,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         history_str = format_history_for_prompt(history)
         gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
 
-        expanded_queries = gen_exp_queries.get("text", {}).get("queries", [])
+        expanded_queries = gen_exp_queries["text"].queries if "text" in gen_exp_queries and hasattr(gen_exp_queries["text"], "queries") else []
         expanded_queries.insert(0, query)
         logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
 
@@ -189,7 +169,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
     # --- Reranking ---
-    MAX_DOCS_TO_RERANK = 10
+    MAX_DOCS_TO_RERANK = 15
     if len(retrieved_docs) > MAX_DOCS_TO_RERANK:
         retrieved_docs = retrieved_docs[:MAX_DOCS_TO_RERANK]
         logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")

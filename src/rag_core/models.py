@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GenerationRequest(BaseModel):
@@ -21,3 +21,7 @@ class Message(BaseModel):
 class LLMRequest(BaseModel):
     messages: List[Message]
     model: str
+
+
+class ExpandedQueries(BaseModel):
+    queries: List[str] = Field(description="A list of 3 or fewer standalone search queries.")

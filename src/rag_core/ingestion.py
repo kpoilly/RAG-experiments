@@ -6,13 +6,16 @@ from typing import Optional
 
 import psycopg
 import torch
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import EncoderBackedStore
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_core.documents import Document
-from langchain_experimental.text_splitter import SemanticChunker
+from langchain_community.storage import SQLStore
 from langchain_postgres.vectorstores import PGVector
 
 from config import settings as env
+from utils import value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -25,14 +28,22 @@ def initialize_database():
     """
     try:
         logger.info("Connecting to PostgreSQL to initialize database schema...")
-        conn = psycopg.connect(env.DB_URL.replace("+psycopg", ""))
-        cur = conn.cursor()
+        with psycopg.connect(env.DB_URL.replace("+psycopg", "")) as conn:
+            with conn.cursor() as cur:
+                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                logger.info("pgvector extension is enabled.")
 
-        cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-        logger.info("pgvector extension is enabled.")
-        conn.commit()
-        cur.close()
-        conn.close()
+                create_table_query = """
+                CREATE TABLE IF NOT EXISTS langchain_key_value_stores (
+                    namespace VARCHAR,
+                    key VARCHAR,
+                    value BYTEA,
+                    PRIMARY KEY (namespace, key)
+                );
+                """
+                cur.execute(create_table_query)
+                logger.info("SQLStore table 'langchain_key_value_stores' is ready.")
+
     except psycopg.Error as e:
         logger.error(f"Error initializing database: {e}")
         raise
@@ -96,79 +107,94 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     files = glob.glob(os.path.join(data_dir, "*.pdf"))
     if not files:
         logger.error(f"No PDF files found in {data_dir}")
-        return 0
+        hashes_to_rm = ["%"]
 
     collection_name = env.COLLECTION_NAME
+
+    existing_hashes = set()
+    current_hashes = {calculate_file_hash(path): path for path in files if calculate_file_hash(path)}
 
     try:
         with psycopg.connect(env.DB_URL.replace("+psycopg", "")) as conn:
             with conn.cursor() as cur:
                 try:
                     query = """
-                    SELECT id FROM langchain_pg_embedding
+                    SELECT DISTINCT cmetadata ->> 'document_hash' FROM langchain_pg_embedding
                     WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s);
                     """
                     cur.execute(query, (collection_name,))
-                    existing_hashes = {row[0].split("_")[0] for row in cur.fetchall() if row[0]}
+                    existing_hashes = {row[0] for row in cur.fetchall() if row[0]}
                     logger.info(f"Found {len(existing_hashes)} existing document hashes in the database.")
                 except psycopg.errors.UndefinedTable:
                     logger.warning("The embedding table does not exist yet. Proceeding with empty database.")
-                    existing_hashes = set()
-
-                current_hashes = {calculate_file_hash(path): path for path in files}
-                current_hashes = {h: p for h, p in current_hashes.items() if h}
 
                 hashes_to_rm = existing_hashes - set(current_hashes.keys())
+
+                if not files:
+                    hashes_to_rm = existing_hashes
+
                 if hashes_to_rm:
                     logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
-                    delete_query = """
-                    DELETE FROM langchain_pg_embedding
+
+                    get_parent_keys_query = """
+                    SELECT DISTINCT cmetadata ->> 'doc_id' FROM langchain_pg_embedding
                     WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
-                    AND SPLIT_PART(id, '_', 1) = ANY(%s);
+                    AND cmetadata ->> 'document_hash' = ANY(%s);
                     """
-                    cur.execute(delete_query, (collection_name, list(hashes_to_rm)))
-                    conn.commit()
-                    logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
+                    cur.execute(get_parent_keys_query, (f"{collection_name}_parents", list(hashes_to_rm)))
+                    parent_keys = [row[0] for row in cur.fetchall()]
+
+                    if parent_keys:
+                        delete_query_children = """
+                        DELETE FROM langchain_pg_embedding
+                        WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
+                        AND cmetadata ->> 'doc_id' = ANY(%s);
+                        """
+                        cur.execute(delete_query_children, (collection_name, list(hashes_to_rm)))
+                        logger.info(f"Deleted chunks for {len(hashes_to_rm)} documents.")
+                        delete_query_parents = """
+                        DELETE FROM langchain_key_value_stores
+                        WHERE namespace = %s AND key = ANY(%s);
+                        """
+                        cur.execute(delete_query_parents, (f"{collection_name}_parents", parent_keys))
+                        logger.info(f"Deleted {len(parent_keys)} parent documents from docstore.")
+    except psycopg.errors.UndefinedTable:
+        logger.warning("The embedding or kv table does not exist yet. Proceeding with empty database.")
     except psycopg.Error as e:
         logger.error(f"Error during read/delete phase: {e}", exc_info=True)
         return 0
 
     new_documents_to_add = []
-    embedder = get_embeddings()
-    text_splitter = SemanticChunker(embedder, breakpoint_threshold_type="percentile")
-
     for doc_hash, path in current_hashes.items():
         if doc_hash not in existing_hashes:
             try:
-                logger.info(f"Preparing new/modified document for batch indexing: {os.path.basename(path)}")
+                logger.info(f"Preparing new/modified document for indexing: {os.path.basename(path)}")
                 loader = PyPDFLoader(path)
-                documents = loader.load()
-                chunks = text_splitter.split_documents(documents)
-
-                for i, chunk in enumerate(chunks):
-                    metadata = chunk.metadata
-                    metadata["document_hash"] = doc_hash
-                    metadata["chunk_id"] = create_chunk_id(doc_hash, i)
-                    metadata["source"] = os.path.basename(path)
-
-                    new_doc = Document(page_content=chunk.page_content, metadata=metadata)
-                    new_documents_to_add.append(new_doc)
+                loaded_pages = loader.load()
+                for page in loaded_pages:
+                    page.metadata["document_hash"] = doc_hash
+                new_documents_to_add.extend(loaded_pages)
 
             except Exception as e:
                 logger.error(f"Error preparing document {path} for indexing: {e}")
-                return 0
 
     if new_documents_to_add:
-        logger.info(f"Adding {len(new_documents_to_add)} new chunks to the database...")
-        PGVector.from_documents(
-            documents=new_documents_to_add,
-            embedding=embedder,
-            collection_name=collection_name,
-            connection=env.DB_URL,
-            pre_delete_collection=False,
-            ids=[doc.metadata["chunk_id"] for doc in new_documents_to_add],
+        logger.info(f"Adding {len(new_documents_to_add)} new pages to the database...")
+        embedder = get_embeddings()
+        vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=embedder)
+        sql_store = SQLStore(db_url=env.DB_URL, namespace=f"{collection_name}_parents")
+        store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
+        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+        child_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
+
+        retriever = ParentDocumentRetriever(
+            vectorstore=vector_store,
+            docstore=store,
+            child_splitter=child_splitter,
+            parent_splitter=parent_splitter,
         )
-        logger.info("New chunks added successfully.")
+        retriever.add_documents(new_documents_to_add, ids=None, add_to_docstore=True)
+        logger.info("New documents added successfully.")
 
     total_chunks = 0
     try:
@@ -186,7 +212,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         logger.error(f"Error counting total chunks: {e}", exc_info=True)
         total_chunks = len(new_documents_to_add)
 
-    logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new documents indexed. Total chunks in DB: {total_chunks}")
+    logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new pages indexed. Total chunks in DB: {total_chunks}")
     return total_chunks
 
 
