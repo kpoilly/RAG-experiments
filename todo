@@ -33,10 +33,6 @@
     -   Intégrer RAGAS (Golden Dataset, évaluations).
     -   Stratégie d'évaluations (schedulées ?)
 
--   **Modification du llm-gateway :**
-    -   Retirer dépendance à Groq, pouvoir utiliser n'importe quel LLM.
-    -   Implémenter LiteLLM ou équivalent production-ready.
-
 -   **Optimisations paramètres RAG :**
     -   Différents modèles, stratégies etc.
 

@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from ingestion import process_and_index_documents
 from models import GenerationRequest, IngestionResponse
-from retriever import get_llm_query_gen, get_query_expansion_chain, get_retriever, orchestrate_rag_flow
+from retriever import init_components, build_retriever, orchestrate_rag_flow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -31,9 +31,8 @@ async def startup_event():
     try:
         data_path = os.getenv("DATA_PATH", "/app/src/data")
         await asyncio.to_thread(process_and_index_documents, data_path)
-        await get_retriever()
-        await asyncio.to_thread(get_llm_query_gen)
-        await asyncio.to_thread(get_query_expansion_chain)
+        await asyncio.to_thread(init_components)
+        await build_retriever()
         app.state.rad_ready = True
         logger.info("Application startup complete. Ready to serve requests.")
     except Exception as e:
@@ -56,7 +55,7 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
     """
     logger.info(f"Starting ingestion for path: {data_path}")
     indexed_count = await asyncio.to_thread(process_and_index_documents, data_path)
-    await get_retriever(refresh=True)
+    await build_retriever()
     if indexed_count > 0:
         logger.info("Ingestion completed successfully.")
         return IngestionResponse(indexed_chunks=indexed_count, status="success")
@@ -69,7 +68,7 @@ async def generate(request: GenerationRequest):
     try:
         formated_query = re.sub(r"(\b[ldjstnmc]|qu)'", r"\1 ", request.query.lower())
         response_generator = orchestrate_rag_flow(formated_query, request.history)
-        return StreamingResponse(content=response_generator, media_type="application/jsonlines")
+        return StreamingResponse(content=response_generator, media_type="text/event-stream")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
         return StreamingResponse(content=json.dumps({"type": "error", "content": str(e)}), media_type="application/jsonlines", status_code=500)
