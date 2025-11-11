@@ -1,7 +1,9 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+
 
 import httpx
 import tiktoken
@@ -37,27 +39,63 @@ _RERANKER: Optional[HuggingFaceCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 _QUERY_EXPANSION_CHAIN: Optional[LLMChain] = None
 
+def init_components():
+    """
+    Initialize heavy components (Embedder, Reranker, LLM).
+    """
+    global _RERANKER, _LLM_QUERY_GEN
+    logger.info("Initializing Embedder, Reranker and LLM...")
 
-async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentRetriever], Optional[HuggingFaceCrossEncoder]]:
-    global _PDR_RETRIEVER, _RERANKER
+    embedder = get_embeddings()
 
-    if _PDR_RETRIEVER is not None and not refresh:
-        return _PDR_RETRIEVER, _RERANKER
+    if _RERANKER is None:
+        logger.info("Initializing reranker model...")
+        _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device, "trust_remote_code": True})
+        logger.info("Reranker model loaded.")
 
-    logger.info(f"Initializing retriever... (refresh={refresh})")
+    if _LLM_QUERY_GEN is None:
+        logger.info("Initializing LLM query generator...")
+        get_llm_query_gen()
+        get_query_expansion_chain()
+        logger.info("LLM query generator initialized.")
+
+
+    logger.info("Embedder, Reranker and LLM chain initialized.")
+
+
+async def build_retriever():
+    """
+    Build or refresh the ParentDocumentRetriever.
+    """
+    global _PDR_RETRIEVER
+    logger.info("Building retriever...")
+    
     embedder = get_embeddings()
     vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
     doc_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents", async_mode=True)
     store = EncoderBackedStore(doc_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
 
     _PDR_RETRIEVER = ParentDocumentRetriever(vectorstore=vector_store, docstore=store, child_splitter=RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50))
+    logger.info("Parent Document Retriever is ready.")
 
-    logger.info("Loading reranker model...")
-    _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device, "trust_remote_code": True})
-    logger.info("Reranker model loaded.")
 
-    logger.info("Parent Document Retriever initialized.")
+async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentRetriever], Optional[HuggingFaceCrossEncoder]]:
+    """
+    Get the ParentDocumentRetriever and Reranker, initializing them if necessary.
+
+    Args:
+        refresh: Whether to refresh/rebuild the retriever.
+
+    Returns:
+        A tuple containing the ParentDocumentRetriever and the Reranker.
+    """
+    global _PDR_RETRIEVER, _RERANKER
+
+    if _PDR_RETRIEVER is None:
+        await build_retriever()
+    
     return _PDR_RETRIEVER, _RERANKER
+
 
 
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
@@ -68,7 +106,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     if _LLM_QUERY_GEN is None:
         logger.info("Initializing LLM query generator...")
         _LLM_QUERY_GEN = ChatOpenAI(
-            model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL.replace("/chat", ""), openai_api_key="not needed", temperature=0.0, streaming=False
+            model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False
         )
         logger.info("LLM query generator initialized.")
     return _LLM_QUERY_GEN
@@ -184,22 +222,22 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         logger.info("Reranking documents...")
         pairs = [(query, doc.page_content) for doc in retrieved_docs]
         scores = reranker.score(pairs)
-        for doc, score in zip(retrieved_docs, scores):
-            doc.metadata["relevance_score"] = score
+        reranked_results = sorted(zip(retrieved_docs, scores), key=lambda x: x[1], reverse=True)
 
-        reranked_docs = sorted(retrieved_docs, key=lambda x: x.metadata.get("relevance_score", 0.0), reverse=True)
-        filtered_docs = [doc for doc in reranked_docs if doc.metadata["relevance_score"] > env.RERANKER_THRESHOLD]
         final_docs = []
+        if reranked_results:
+            filtered_results = [result for result in reranked_results if result[1] > env.RERANKER_THRESHOLD]
 
-        if filtered_docs:
-            final_docs = filtered_docs
-            logger.info(f"{len(final_docs)} documents remaining after reranking and thresholding.")
-        elif reranked_docs:
-            final_docs = [reranked_docs[0]]
-            logger.warning(
-                f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
-                f"Falling back to the single best document with score {reranked_docs[0].metadata['relevance_score']:.4f}."
-            )
+            if filtered_results:
+                final_docs = [dpc for dpc, score in filtered_results]
+                logger.info(f"{len(final_docs)} documents passed the reranker threshold of {env.RERANKER_THRESHOLD}.")
+            else:
+                final_docs = [reranked_results[0][0]]
+                logger.warning(
+                    f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
+                    f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
+                )
+        
         retrieved_docs = final_docs
 
     # --- Context Assembly ---
@@ -239,22 +277,14 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
 
     _, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
     logging.info(f"Final prompt constructed ({current_tokens} tokens). Invoking LLM...")
-    full_response = ""
     try:
-        request_data = LLMRequest(messages=messages, model=env.LLM_MODEL)
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await async_retry_post(client, env.LLM_GATEWAY_URL, request_data.model_dump())
-            async for chunk in response.aiter_lines():
-                if chunk:
-                    try:
-                        data = json.loads(chunk)
-                        text_chunk = data.get("text", "")
-                        if text_chunk:
-                            full_response += text_chunk
-                            text_chunk_data = json.dumps({"type": "text", "content": text_chunk}) + "\n"
-                            yield text_chunk_data
-                    except json.JSONDecodeError:
-                        continue
+        request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, stream=True)
+        gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", gateway_url, json=request_data.model_dump()) as response:
+                response.raise_for_status()
+                async for text_chunk in response.aiter_text():
+                    yield text_chunk
         logger.info("RAG flow completed.")
 
     except httpx.RequestError as e:

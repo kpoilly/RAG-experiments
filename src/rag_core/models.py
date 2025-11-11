@@ -1,5 +1,4 @@
-from typing import Dict, List
-
+from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -21,6 +20,7 @@ class Message(BaseModel):
 class LLMRequest(BaseModel):
     messages: List[Message]
     model: str
+    stream: Optional[bool] = False
 
 
 class ExpandedQueries(BaseModel):

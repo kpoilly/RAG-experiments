@@ -71,15 +71,24 @@ def run_chatbot_cli():
 
                 full_response = ""
                 print("\n\033[31mMichel\033[0m: ", end="", flush=True)
-                for line in response.iter_lines():
-                    if line:
-                        try:
-                            chunk = json.loads(line.decode("utf-8"))
-                            print(chunk["content"], end="", flush=True)
-                            full_response += chunk["content"]
-                        except json.JSONDecodeError:
-                            logger.warning(f"Failed to decode JSON chunk: {line.decode('utf-8')}")
-                            continue
+                for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+                    if chunk:
+                        for line in chunk.splitlines():
+                            if line.startswith("data: "):
+                                data_str = line[5:].lstrip()
+                                if data_str == "[DONE]":
+                                    break
+                                try:
+                                    data = json.loads(data_str)
+                                    delta = data.get("choices", [{}])[0].get("delta", {})
+                                    content = delta.get("content", "")
+                                    if content:
+                                        print(content, end="", flush=True)
+                                        full_response += content
+                                except json.JSONDecodeError:
+                                    logger.error(f"Failed to decode JSON: {data_str}")
+                                    continue
+
                 print("\n")
                 if full_response:
                     chat_history.append({"role": "assistant", "content": full_response})

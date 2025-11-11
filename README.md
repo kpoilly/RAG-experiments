@@ -25,7 +25,8 @@ The core of the system is enhancing information retrieval for the LLM.
 
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
-| **LLM & Inference** | Groq (API) / Llama-3.1-8b-Instant | Ultra-fast response generation and reasoning. |
+| **LLM Gateway** | LiteLLM | Provides a unified, OpenAI-compatible API to interact with 100+ LLM providers (Groq, OpenAI, Anthropic, etc.). |
+| **LLM & Inference** | Any LiteLLM Provider (e.g., Groq) | Ultra-fast response generation and reasoning. |
 | **Document Storage** | PostgreSQL | Robust, transactional storage for parent chunks and metadata. |
 | **Vector Database** | PostgreSQL + PGVector | Robust, transactional storage, indexing, and vector search for documents. |
 | **RAG Framework** | LangChain | Orchestration of the complete RAG workflow. |
@@ -43,11 +44,21 @@ The core of the system is enhancing information retrieval for the LLM.
 
 The service's behavior is controlled by the following environment variables. They must be defined in your `.env` file or when launching the application.
 
-| Variable | Default Value | Description | Usage |
-| :--- | :--- | :--- | :--- |
-| **GROQ_API_KEY** | (None) | API key required for accessing the **Groq platform**, which hosts the selected LLM model for high-speed inference. | Authentication and authorization for LLM calls via the gateway. |
-| **LLM_MODEL** | `llama-3.1-8b-instant` | Name of the LLM model to call via the gateway. Ensure this model is available in your `llm-gateway`. | Defines the model used for final response generation. |
-| **EMBEDDING_MODEL** | `intfloat/multilingual-e5-small` | Name of the model used to generate vector embeddings for indexing and querying documents. | Defines the embedding function used by the vector database (ChromaDB) for dense search. |
+#### Provider-Specific API Keys
+You must provide the API key for the LLM provider you intend to use. LiteLLM automatically detects these standard environment variables.
+
+| Variable | Example | Description |
+| :--- | :--- | :--- |
+| **GROQ_API_KEY** | `gsk_...` | API key for the Groq platform. |
+| **OPENAI_API_KEY** | `sk-...` | API key for the OpenAI platform. |
+| **ANTHROPIC_API_KEY** | `sk-ant-...` | API key for the Anthropic platform. |
+| *(and others...)* | | See LiteLLM documentation for more. |
+
+#### Main Application Configuration
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| **LLM_MODEL** | `groq/llama-3.1-8b-instant` | **Crucial.** Name of the LLM model to call via the gateway, prefixed with the provider. Examples: `groq/llama-3.1-8b-instant`, `gpt-4o`, `claude-3-opus-20240229`. || **EMBEDDING_MODEL** | `intfloat/multilingual-e5-small` | Name of the model used to generate vector embeddings for indexing and querying documents. | Defines the embedding function used by the vector database (ChromaDB) for dense search. |
 | **MAX_CONTEXT_TOKENS** | `4000` | Maximum context size (in tokens) that the LLM can accept. **Important**: This value is used to determine the maximum number of document chunks (`CHUNK_SIZE`) to include in the prompt. | Limits the amount of document content sent to the LLM to prevent context overflow. |
 | **LLM_STRICT_RAG** | `True` | Determines whether the model can use its internal knowledge. | If **`True`**, the system instruction **forces** the model to respond ONLY with the provided context. If it cannot find the answer, it must explicitly state so (Strict RAG mode). If **`False`** (Relaxed RAG mode), the model is allowed to use its general knowledge when the context is insufficient. **WARNING**: Setting this to `False` may lead to answers that are not 100% faithful to the document and potentially increase the risk of **hallucinations**. |
 | **RERANKER_MODEL** | `BAAI/bge-reranker-v2-m3` | Name of the **Cross-Encoder** model used to re-rank documents and calculate a precise relevance score. | Refines the list of documents retrieved before sending them to the LLM. |
