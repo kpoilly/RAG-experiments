@@ -7,15 +7,21 @@
 *Objectif : Transformer le projet en un outil fonctionnel  à utiliser en local, avec une gestion simple des documents et un comportement robuste face aux erreurs.*
 
 -   **UI :**
-    -   Mettre en place une fenêtre de chat simple.
-    -   Créer une section pour visualiser et gérer les documents actuellement dans la base de données.
-    -   Ajouter des fonctionnalités pour téléverser (upload) et supprimer des documents directement depuis l'UI, déclenchant automatiquement l'ingestion.
+    -   Mettre en place une fenêtre de chat simple pour interagir avec le RAG..
+    -   Ajouter des fonctionnalités pour téléverser (upload) et supprimer des documents directement depuis l'UI, déclenchant automatiquement l'ingestion via l'endpoint /ingest.
 
 -   **Mieux gérer l'historique :**
-    - Supprimer les messages trops anciens pour éviter de dépasser la window ? Ou autre idée (Enregistrer l'historique comme document du RAG quand il atteint un limite ? Résumer les messages précédents   pour les effacer et gagner de la place...)
+    - Implémenter une stratégie de fenêtre glissante ("sliding window") pour ne conserver que les N derniers échanges et éviter de dépasser la limite de contexte du LLM.
 
 -   **Mettre en place plus de Résilience :**
-    -   Vérifier tous les checks models et autre, si pas dispo, trouver une alternative pour que l'app soit toujours opérationnelle (mode dégradé).
+    -   Mettre en place une dégradation gracieuse : si un composant optionnel (ex: query_expansion, reranker) échoue, l'application doit continuer à fonctionner sans lui et logger un avertissement.
+    -   **Gestion dynamique du contexte LLM :**
+        -   Ajouter un endpoint /v1/models au llm-gateway pour exposer les capacités des modèles (ex: max_tokens).
+        -   Au démarrage du rag-core, appeler cet endpoint pour récupérer dynamiquement la context_window du LLM configuré.
+
+-   **Refactorisation et "Code Polishing" :**
+    -   Centraliser tous les hyperparamètres du RAG (chunk_size, k, threshold...) dans le fichier config.py.
+    -   Découper les fonctions monolithiques (orchestrate_rag_flow) en plus petites fonctions testables.
 
 ---
 
@@ -31,8 +37,11 @@
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
     -   Préparer un squelette de workflow de **CD** pour le déploiement.
 
--   **Monitoring et Analyse de la Latence :**
-    -   Mettre en place **Prometheus/Grafana/Loki**.
+-   **Architecture du Gateway de LLM :**
+    -   Intégrer le Proxy LiteLLM comme un service dédié pour gérer le routing, le fallback et le load balancing entre les fournisseurs de LLM.
+    -   Transformer le llm-gateway actuel en une API Gateway légère dont le rôle est :
+        -   Sécurité : Authentification des services internes (via clé API).
+        -   Abstraction : Masquer le Proxy LiteLLM et fournir un point d'entrée unique et stable.
 
 -   **Activer le Caching :**
     -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
@@ -43,7 +52,7 @@
 
 ---
 
-#### **Phase 3 : Évaluation et Optimisation du RAG**
+#### **Phase 3 : Monitoring, Évaluation et Optimisation du RAG**
 
 *Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
@@ -51,8 +60,8 @@
     -   Intégrer RAGAS (Golden Dataset, évaluations).
     -   Stratégie d'évaluations (schedulées ?)
 
--   **Optimisations paramètres RAG :**
-    -   Différents modèles, stratégies etc.
+-   **Monitoring et Analyse de la Latence :**
+    -   Mettre en place **Prometheus/Grafana/Loki**.
 
 ---
 
