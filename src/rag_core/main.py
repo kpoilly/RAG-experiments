@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from ingestion import process_and_index_documents
 from models import GenerationRequest, IngestionResponse
-from retriever import init_components, build_retriever, orchestrate_rag_flow
+from retriever import build_retriever, init_components, orchestrate_rag_flow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
