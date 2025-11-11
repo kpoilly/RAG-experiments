@@ -16,7 +16,7 @@
 -   **Mettre en place plus de Résilience :**
     -   Mettre en place une dégradation gracieuse : si un composant optionnel (ex: query_expansion, reranker) échoue, l'application doit continuer à fonctionner sans lui et logger un avertissement.
     -   **Gestion dynamique du contexte LLM :**
-        -   Ajouter un endpoint /v1/models au llm-gateway pour exposer les capacités des modèles (ex: max_tokens).
+        -   Ajouter un endpoint /models au llm-gateway pour exposer les capacités des modèles (ex: max_tokens).
         -   Au démarrage du rag-core, appeler cet endpoint pour récupérer dynamiquement la context_window du LLM configuré.
 
 -   **Refactorisation et "Code Polishing" :**
