@@ -5,9 +5,9 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
-from langchain.retrievers import ParentDocumentRetriever
-from langchain.storage import EncoderBackedStore
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.retrievers import ParentDocumentRetriever
+from langchain_classic.storage import EncoderBackedStore
+from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.storage import SQLStore
 from langchain_core.output_parsers import PydanticOutputParser
@@ -49,7 +49,7 @@ def init_components():
 
     if _RERANKER is None:
         logger.info("Initializing reranker model...")
-        _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder.client.device, "trust_remote_code": True})
+        _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder._client.device, "trust_remote_code": True})
         logger.info("Reranker model loaded.")
 
     if _LLM_QUERY_GEN is None:

@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List
 
 import httpx
-from langchain.load import dumps, loads
+from langchain_classic.load import dumps, loads
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

@@ -6,12 +6,12 @@ from typing import Optional
 
 import psycopg
 import torch
-from langchain.retrievers import ParentDocumentRetriever
-from langchain.storage import EncoderBackedStore
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.retrievers import ParentDocumentRetriever
+from langchain_classic.storage import EncoderBackedStore
+from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.storage import SQLStore
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres.vectorstores import PGVector
 
 from config import settings as env
