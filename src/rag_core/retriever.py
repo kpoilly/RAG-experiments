@@ -5,7 +5,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
-from langchain.chains import LLMChain
+
+from langchain_core.runnables import RunnableSequence
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.storage import EncoderBackedStore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -35,7 +36,7 @@ with open("/app/prompts/query_expansion.json", "r") as f:
 _PDR_RETRIEVER: Optional[ParentDocumentRetriever] = None
 _RERANKER: Optional[HuggingFaceCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
-_QUERY_EXPANSION_CHAIN: Optional[LLMChain] = None
+_QUERY_EXPANSION_CHAIN: Optional[RunnableSequence] = None
 
 
 def init_components():
@@ -107,7 +108,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     return _LLM_QUERY_GEN
 
 
-def get_query_expansion_chain() -> Optional[LLMChain]:
+def get_query_expansion_chain() -> Optional[RunnableSequence]:
     """
     Get the query expansion chain.
     """
@@ -126,7 +127,7 @@ def get_query_expansion_chain() -> Optional[LLMChain]:
             partial_variables={"format_instructions": output_parser.get_format_instructions()},
         )
 
-        _QUERY_EXPANSION_CHAIN = LLMChain(llm=llm, prompt=prompt, output_parser=output_parser)
+        _QUERY_EXPANSION_CHAIN = prompt | llm | output_parser
         logger.info("Query expansion chain initialized.")
     return _QUERY_EXPANSION_CHAIN
 
@@ -186,12 +187,17 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         all_retrieved_docs = await retriever.ainvoke(query)
 
     else:
-        history_str = format_history_for_prompt(history)
-        gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
+        try:
+            history_str = format_history_for_prompt(history)
+            gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
 
-        expanded_queries = gen_exp_queries["text"].queries if "text" in gen_exp_queries and hasattr(gen_exp_queries["text"], "queries") else []
+            expanded_queries = gen_exp_queries.queries if hasattr(gen_exp_queries, 'queries') else []
+            logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
+        except Exception as e:
+            logger.warning(f"Query expansion failed: {e}. Using original query.")
+            expanded_queries = []
+
         expanded_queries.insert(0, query)
-        logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
 
         # --- Parallel Multi-Query Retrieval ---
         tasks = [retriever.ainvoke(q) for q in expanded_queries]
