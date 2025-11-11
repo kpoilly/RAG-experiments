@@ -164,8 +164,14 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         tasks = [retriever.ainvoke(q) for q in expanded_queries]
         all_retrieved_docs = await asyncio.gather(*tasks)
 
-    filt_unique_docs = {doc.page_content: doc for docs in all_retrieved_docs for doc in docs}
-    retrieved_docs = list(filt_unique_docs.values())
+    flat_list = [doc for sublist in all_retrieved_docs for doc in sublist]
+    seen_contents = set()
+    unique_docs = []
+    for doc in flat_list:
+        if doc.page_content not in seen_contents:
+            seen_contents.add(doc.page_content)
+            unique_docs.append(doc)
+    retrieved_docs = unique_docs
     logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
 
     # --- Reranking ---

@@ -9,13 +9,11 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    # --- RAG Logic Settings ---
-    MAX_CONTEXT_TOKENS: int = 6000
-    LLM_STRICT_RAG: bool = True
-
     # --- LLM & Gateway Settings ---
     LLM_MODEL: str = "llama-3.1-8b-instant"
     LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
+    MAX_CONTEXT_TOKENS: int = 6000
+    LLM_STRICT_RAG: bool = True
 
     # --- Embedding & Reranking Models ---
     EMBEDDING_MODEL: str = "intfloat/multilingual-e5-small"
