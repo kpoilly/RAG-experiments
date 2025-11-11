@@ -1,9 +1,7 @@
 import asyncio
 import json
 import logging
-import re
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
-
 
 import httpx
 import tiktoken
@@ -21,7 +19,7 @@ from langchain_postgres.vectorstores import PGVector
 from config import settings as env
 from ingestion import get_embeddings
 from models import ExpandedQueries, LLMRequest
-from utils import async_retry_post, format_history_for_prompt, value_deserializer, value_serializer
+from utils import format_history_for_prompt, value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -38,6 +36,7 @@ _PDR_RETRIEVER: Optional[ParentDocumentRetriever] = None
 _RERANKER: Optional[HuggingFaceCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 _QUERY_EXPANSION_CHAIN: Optional[LLMChain] = None
+
 
 def init_components():
     """
@@ -59,7 +58,6 @@ def init_components():
         get_query_expansion_chain()
         logger.info("LLM query generator initialized.")
 
-
     logger.info("Embedder, Reranker and LLM chain initialized.")
 
 
@@ -69,7 +67,7 @@ async def build_retriever():
     """
     global _PDR_RETRIEVER
     logger.info("Building retriever...")
-    
+
     embedder = get_embeddings()
     vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
     doc_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents", async_mode=True)
@@ -93,9 +91,8 @@ async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentR
 
     if _PDR_RETRIEVER is None:
         await build_retriever()
-    
-    return _PDR_RETRIEVER, _RERANKER
 
+    return _PDR_RETRIEVER, _RERANKER
 
 
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
@@ -105,9 +102,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     global _LLM_QUERY_GEN
     if _LLM_QUERY_GEN is None:
         logger.info("Initializing LLM query generator...")
-        _LLM_QUERY_GEN = ChatOpenAI(
-            model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False
-        )
+        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
         logger.info("LLM query generator initialized.")
     return _LLM_QUERY_GEN
 
@@ -234,10 +229,9 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
             else:
                 final_docs = [reranked_results[0][0]]
                 logger.warning(
-                    f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
-                    f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
+                    f"No documents met the threshold of {env.RERANKER_THRESHOLD}. " f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
                 )
-        
+
         retrieved_docs = final_docs
 
     # --- Context Assembly ---

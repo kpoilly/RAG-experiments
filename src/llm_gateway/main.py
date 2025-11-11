@@ -3,7 +3,6 @@ import logging
 from typing import List, Optional
 
 import litellm
-
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -11,7 +10,8 @@ from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-litellm.set_verbose=False
+litellm.set_verbose = False
+
 
 # --- Pydantic models ---
 class Message(BaseModel):
@@ -45,14 +45,10 @@ async def chat(request: LLMRequest):
     """
     messages = [msg.model_dump() for msg in request.messages]
     try:
-        response_stream = await litellm.acompletion(
-            model=request.model,
-            messages=messages,
-            temperature=0.0,
-            stream=request.stream
-        )
-        
+        response_stream = await litellm.acompletion(model=request.model, messages=messages, temperature=0.0, stream=request.stream)
+
         if request.stream:
+
             async def streaming_generator():
                 try:
                     async for chunk in response_stream:
@@ -61,13 +57,12 @@ async def chat(request: LLMRequest):
                     yield "data: [DONE]\n\n"
                 except Exception as e:
                     logger.error(f"Error during LiteLLM stream iteration: {e}")
-            
+
             return StreamingResponse(streaming_generator(), media_type="text/event-stream")
-        
+
         else:
             return JSONResponse(content=response_stream.model_dump())
-    
+
     except Exception as e:
         logger.error(f"LiteLLM call failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
