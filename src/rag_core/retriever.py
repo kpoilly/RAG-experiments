@@ -5,8 +5,6 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
 import tiktoken
-
-from langchain_core.runnables import RunnableSequence
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.storage import EncoderBackedStore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -14,6 +12,7 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.storage import SQLStore
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableSequence
 from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
 
@@ -191,7 +190,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
             history_str = format_history_for_prompt(history)
             gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
 
-            expanded_queries = gen_exp_queries.queries if hasattr(gen_exp_queries, 'queries') else []
+            expanded_queries = gen_exp_queries.queries if hasattr(gen_exp_queries, "queries") else []
             logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
         except Exception as e:
             logger.warning(f"Query expansion failed: {e}. Using original query.")
