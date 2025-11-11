@@ -29,28 +29,37 @@ async def async_retry_post(client: httpx.AsyncClient, url: str, payload: Dict[st
         httpx.HTTPStatusError: if every try fails or if fatal error.
     """
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        for attempt in range(max_retries):
-            try:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                return response
+    last_exception = None
+    for attempt in range(max_retries):
+        try:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            return response
 
-            except httpx.RequestError as e:
-                if 400 <= e.response.status_code < 500:
-                    logger.error(f"Fatal client error (Status {e.response.status_code})")
-                    raise e
-                delay = 0.5 * (2**attempt)
-                logger.warning(f"HTTP request failed (Status {e.response.status_code} or Timeout). " f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries}).")
-                await asyncio.sleep(delay)
+        except httpx.HTTPStatusError as e:
+            last_exception = e
+            if 400 <= e.response.status_code < 500:
+                logger.error(f"Client error calling {url}: Status {e.response.status_code}. No more retries.")
+                raise e
+            
+            delay = 0.5 * (2**attempt)
+            logger.warning(
+                f"HTTP request to {url} failed with status {e.response.status_code}. "
+                f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
+            )
+            await asyncio.sleep(delay)
+            
+        except httpx.RequestError as e:
+            last_exception = e
+            delay = 0.5 * (2**attempt)
+            logger.warning(
+                f"Network error calling {url}: {e.__class__.__name__}. "
+                f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
+            )
+            await asyncio.sleep(delay)
 
-            except httpx.RequestError as e:
-                delay = 0.5 * (2**attempt)
-                logger.warning(f"HTTP request failed (Status {e.response.status_code} or Timeout). " f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries}).")
-                await asyncio.sleep(delay)
-
-        logger.error(f"HTTP request permanently failed after {max_retries} attempts.")
-        raise httpx.RequestError("Failed to communicate with LLM Gateway after multiple retries.")
+    logger.error(f"HTTP request to {url} failed permanently after {max_retries} attempts.")
+    raise httpx.RequestError(f"Failed to communicate with {url} after multiple retries.") from last_exception
 
 
 def format_history_for_prompt(history: List[Dict[str, str]]) -> str:
