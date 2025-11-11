@@ -74,6 +74,7 @@
 
 -   **Écrire les Manifestes Kubernetes :**
     -   Créer les fichiers `Deployment`, `Service`, `ConfigMap`, `Secret` pour chaque microservice.
+    -   Nginx comme point d'entrée pour le trafic externe.
 
 -   **Gérer les Environnements (`staging` vs. `production`) :**
     -   Mettre en place **Kustomize** pour gérer les variations de configuration.
