@@ -2,12 +2,26 @@
 
 ---
 
-#### **Phase 1 : MLOps - Le Socle de Qualité et d'Automatisation**
+#### **Phase 1 : MVP**
 
-*Objectif : Mettre en place les outils pour garantir la qualité, la fiabilité et l'automatisation du développement avant d'ajouter de nouvelles fonctionnalités.*
+*Objectif : Transformer le projet en un outil fonctionnel  à utiliser en local, avec une gestion simple des documents et un comportement robuste face aux erreurs.*
+
+-   **UI :**
+    -   Mettre en place une fenêtre de chat simple.
+    -   Créer une section pour visualiser et gérer les documents actuellement dans la base de données.
+    -   Ajouter des fonctionnalités pour téléverser (upload) et supprimer des documents directement depuis l'UI, déclenchant automatiquement l'ingestion.
 
 -   **Mieux gérer l'historique :**
-    - Supprimer les messages trops anciens pour éviter de dépasser la window ? Ou autre idée (Enregistrer l'historique comme document du RAG quand il atteint un limite ? Résumer les messages précédents pour les effacer et gagner de la place...)
+    - Supprimer les messages trops anciens pour éviter de dépasser la window ? Ou autre idée (Enregistrer l'historique comme document du RAG quand il atteint un limite ? Résumer les messages précédents   pour les effacer et gagner de la place...)
+
+-   **Mettre en place plus de Résilience :**
+    -   Vérifier tous les checks models et autre, si pas dispo, trouver une alternative pour que l'app soit toujours opérationnelle (mode dégradé).
+
+---
+
+#### **Phase 2 : MLOps & Fondations de Production**
+
+*Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et l'observabilité du projet.*
 
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
@@ -20,14 +34,18 @@
 -   **Monitoring et Analyse de la Latence :**
     -   Mettre en place **Prometheus/Grafana/Loki**.
 
+-   **Activer le Caching :**
+    -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
+
+-   **Sécuriser les APIs :**
+    -   Implémenter de la sécurité (authentification par **clé API** par exemple).
+    -   Ajouter la validation du type de fichier avec `python-magic`.
+
 ---
 
-#### **Phase 2 : Fiabilisation et Amélioration du Cœur RAG**
+#### **Phase 3 : Évaluation et Optimisation du RAG**
 
-*Objectif : Rendre le pipeline RAG actuel plus robuste, performant et intelligent.*
-
--   **Mettre en place plus de Résilience :**
-    -   Vérifier tous les checks models et autre, si pas dispo, trouver une alternative pour que l'app soit toujours opérationnelle.
+*Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
 -   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
     -   Intégrer RAGAS (Golden Dataset, évaluations).
@@ -38,51 +56,7 @@
 
 ---
 
-#### **Phase 3 : Infrastructure de Production et Performance**
-
-*Objectif : Préparer le service pour une charge de travail réelle et optimiser la vitesse.*
-
--   **Créer le "Watchdog" :**
-    -   Développer un script qui surveille `/data` et appelle `POST /ingest` quand modifs.
-
--   **Sécuriser les APIs :**
-    -   Implémenter de la sécurité (authentification par **clé API** par exemple).
-    -   Ajouter la validation du type de fichier avec `python-magic`.
-
--   **Activer le Caching :**
-    -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
-
----
-
-#### **Phase 4 : UI et Peaufinage**
-
-*Objectif : Avoir une belle UI pour utiliser le porjet (streamlit au moins, web au mieux)*
-
--   **Fenêtre de chat**
--   **Encart pour glisser des documents ?**
--   **Settings, Docs etc.**
--   **Tout mettre au propre pour rendre le projet modulaire, utilisable avec l'UI, le CLI ou via API**
-
----
-
-#### **Phase 5 : Expansion des Capacités de l'Agent**
-
-*Objectif : Enrichir l'agent avec de nouvelles compétences et sources d'information.*
-
--   **Ajouter des Outils Externes :**
-    -   Intégrer un outil **Web Search** (ex: `Tavily`).
-
--   **Diversifier les Sources de Données :**
-    -   Étendre le support de fichiers (`.docx`, `.md`).
-    -   Ajouter l'ingestion depuis des **URLs**.
-    -   Intégrer l'**OCR** pour extraire le texte des images.
-
--   **(Avancé) Implémenter le Mode Haute Précision :**
-    -   Ajouter la logique de **RAG-Fusion** comme une option configurable.
-
----
-
-#### **Phase 6 : Déploiement Cloud-Native sur Kubernetes**
+#### **Phase 4 : Déploiement Cloud-Native sur Kubernetes**
 
 *Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
 
@@ -101,3 +75,20 @@
     -   Mettre en place une **approbation manuelle** pour le déploiement en **production**.
 
 -   **Porter ça sur GCP**
+
+---
+
+#### **Phase 5 : Expansion des Capacités de l'Agent**
+
+*Objectif : Enrichir l'agent avec de nouvelles compétences et sources d'information.*
+
+-   **Ajouter des Outils Externes :**
+    -   Intégrer un outil **Web Search** (ex: `Tavily`).
+
+-   **Diversifier les Sources de Données :**
+    -   Étendre le support de fichiers (`.docx`, `.md`).
+    -   Ajouter l'ingestion depuis des **URLs**.
+    -   Intégrer l'**OCR** pour extraire le texte des images.
+
+-   **(Avancé) Implémenter le Mode Haute Précision :**
+    -   Ajouter la logique de **RAG-Fusion** comme une option configurable.
