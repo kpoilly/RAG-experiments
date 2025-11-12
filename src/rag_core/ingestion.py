@@ -196,7 +196,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=embedder)
         sql_store = SQLStore(db_url=env.DB_URL, namespace=f"{collection_name}_parents")
         store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
-        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
         child_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
 
         retriever = ParentDocumentRetriever(

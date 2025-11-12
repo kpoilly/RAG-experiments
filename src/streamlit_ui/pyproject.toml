@@ -1,0 +1,13 @@
+[tool.black]
+line-length = 170
+
+[tool.ruff]
+line-length = 170
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+]
