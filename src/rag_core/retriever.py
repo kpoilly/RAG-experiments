@@ -219,7 +219,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")
 
     if reranker is not None and retrieved_docs:
-        logger.info("Reranking documents...")
+        logger.info(f"Reranking documents... (Threshold: {env.RERANKER_THRESHOLD}, Device: {reranker.model_kwargs.get('device', 'cpu')})")
         pairs = [(query, doc.page_content) for doc in retrieved_docs]
         scores = reranker.score(pairs)
         reranked_results = sorted(zip(retrieved_docs, scores), key=lambda x: x[1], reverse=True)

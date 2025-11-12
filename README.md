@@ -6,7 +6,7 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 
 ## 💡 Overview of Functioning (Advanced RAG)
 
-***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically when the RAG service starts**. It can also be triggered at any time via an API endpoint (`/ingest`). This allows you to update your reference documents (in the `data/` folder) while the service is running. The assistant will benefit from the new knowledge in real-time, without any interruption or restart needed. The system detects added, modified, or deleted files to update only what is necessary.*
+***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically when the RAG service starts**. It can also be triggered at any time via the Streamlit UI or an API endpoint (`/ingest`). This allows you to update your reference documents in real-time by adding or removing them from the `data/` folder or the UI. The assistant will benefit from the new knowledge without any service interruption.*
 
 The core of the system is enhancing information retrieval for the LLM.
 
@@ -25,6 +25,7 @@ The core of the system is enhancing information retrieval for the LLM.
 
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
+| **User Interface** | Streamlit | Provides an interactive web UI for chat and document management. |
 | **LLM Gateway** | LiteLLM | Provides a unified, OpenAI-compatible API to interact with 100+ LLM providers (Groq, OpenAI, Anthropic, etc.). |
 | **LLM & Inference** | Any LiteLLM Provider (e.g., Groq) | Ultra-fast response generation and reasoning. |
 | **Document Storage** | PostgreSQL | Robust, transactional storage for parent chunks and metadata. |
@@ -33,7 +34,7 @@ The core of the system is enhancing information retrieval for the LLM.
 | **Chunking Strategies** | `RecursiveCharacterTextSplitter` | Creates predictable parent and child chunks for PDR. |
 | **Embeddings** | Multilingual models (e.g., E5) | Creation of vector representations (supports hybrid seaarch). |
 | **Reranking & Filtering**| BAAI/bge-reranker-v2-m3 (Cross-Encoder) | Refines search results by calculating a precise relevance score for each document. |
-| **Parsing** | PyPDF | Extraction of plain text and metadata from PDF files. |
+| **Parsing** | PyPDF, Unstructured | Extraction of text from various file formats (.pdf, .docx, .md). |
 | **Observability** | LangSmith | Tracing, debugging, and evaluating RAG pipeline execution. |
 
 ---
@@ -74,11 +75,14 @@ Define your API key and parameters in a **`.env`** file at the **project root**.
 
 ### 2. Adding Source Documents
 
-Place all your **PDF files** in the directory:
+You have two ways to add documents:
 
+1.  **Manually:** Place your **PDF, DOCX, or MD files** in the `data/` directory before starting the service and use the folowing command to run a new ingestion.
 ```bash
-data/
+make ingest
 ```
+2.  **Via the UI:** Use the upload feature in the Streamlit interface once the application is running.
+
 
 ### 3. Running the Service
 
@@ -89,12 +93,13 @@ Use the provided Makefile commands to set up the environment, process documents,
 ```bash
 make
 ```
-This single command will perform all the necessary steps. The chat interface will automatically wait for the RAG service to complete its initial indexing before prompting you for input, ensuring the system is ready to use.
+This single command will perform all the necessary steps. Build all the Docker images, start all services, run the initial document ingestion based on the content of the `data/` folder and automatically open the **Streamlit web interface** in your browser at `http://localhost:8501`.
 
-2. **Triggering a Re-Ingestion:**
+2.  **Using the Interface:**
+    *   The main page provides a **chat interface** to interact with the assistant.
+    *   The **"Document Management"** panel on the right allows you to **upload** new files or **remove** existing ones. Uploading or removing documents will automatically trigger a re-ingestion process to update the assistant's knowledge base.
 
-If you add or remove documents from the data/ directory while the service is running, you can trigger a re-ingestion without restarting the project:
-```bash
-make ingest
-```
-The assistant will immediately have access to the updated knowledge base.
+3.  **Stopping the Service:**
+    ```bash
+    make down
+    ```

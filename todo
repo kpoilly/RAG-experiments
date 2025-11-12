@@ -6,10 +6,6 @@
 
 *Objectif : Transformer le projet en un outil fonctionnel  à utiliser en local, avec une gestion simple des documents et un comportement robuste face aux erreurs.*
 
--   **UI :**
-    -   Mettre en place une fenêtre de chat simple pour interagir avec le RAG..
-    -   Ajouter des fonctionnalités pour téléverser (upload) et supprimer des documents directement depuis l'UI, déclenchant automatiquement l'ingestion via l'endpoint /ingest.
-
 -   **Mieux gérer l'historique :**
     - Implémenter une stratégie de fenêtre glissante ("sliding window") pour ne conserver que les N derniers échanges et éviter de dépasser la limite de contexte du LLM.
 
