@@ -9,7 +9,7 @@ import torch
 from langchain_classic.retrievers import ParentDocumentRetriever
 from langchain_classic.storage import EncoderBackedStore
 from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, UnstructuredMarkdownLoader, UnstructuredWordDocumentLoader
 from langchain_community.storage import SQLStore
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres.vectorstores import PGVector
@@ -104,9 +104,12 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     logger.info(f"Starting ingestion from {data_dir}...")
     initialize_database()
 
-    files = glob.glob(os.path.join(data_dir, "*.pdf"))
+    supported_extensions = ["*.pdf", "*.docx", "*.md"]
+    files = []
+    for ext in supported_extensions:
+        files.extend(glob.glob(os.path.join(data_dir, ext)))
     if not files:
-        logger.error(f"No PDF files found in {data_dir}")
+        logger.error(f"No files found in {data_dir}")
         hashes_to_rm = ["%"]
 
     collection_name = env.COLLECTION_NAME
@@ -169,7 +172,16 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         if doc_hash not in existing_hashes:
             try:
                 logger.info(f"Preparing new/modified document for indexing: {os.path.basename(path)}")
-                loader = PyPDFLoader(path)
+                if path.endswith(".pdf"):
+                    loader = PyPDFLoader(path)
+                elif path.endswith(".docx"):
+                    loader = UnstructuredWordDocumentLoader(path)
+                elif path.endswith(".md"):
+                    loader = UnstructuredMarkdownLoader(path)
+                else:
+                    logger.warning(f"Unsupported file type for {path}, skipping.")
+                    continue
+
                 loaded_pages = loader.load()
                 for page in loaded_pages:
                     page.metadata["document_hash"] = doc_hash

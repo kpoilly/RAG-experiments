@@ -41,21 +41,15 @@ async def async_retry_post(client: httpx.AsyncClient, url: str, payload: Dict[st
             if 400 <= e.response.status_code < 500:
                 logger.error(f"Client error calling {url}: Status {e.response.status_code}. No more retries.")
                 raise e
-            
+
             delay = 0.5 * (2**attempt)
-            logger.warning(
-                f"HTTP request to {url} failed with status {e.response.status_code}. "
-                f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
-            )
+            logger.warning(f"HTTP request to {url} failed with status {e.response.status_code}. " f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries}).")
             await asyncio.sleep(delay)
-            
+
         except httpx.RequestError as e:
             last_exception = e
             delay = 0.5 * (2**attempt)
-            logger.warning(
-                f"Network error calling {url}: {e.__class__.__name__}. "
-                f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries})."
-            )
+            logger.warning(f"Network error calling {url}: {e.__class__.__name__}. " f"Retrying in {delay:.2f}s (Attempt {attempt + 1}/{max_retries}).")
             await asyncio.sleep(delay)
 
     logger.error(f"HTTP request to {url} failed permanently after {max_retries} attempts.")

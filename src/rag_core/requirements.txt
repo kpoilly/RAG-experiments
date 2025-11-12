@@ -10,10 +10,13 @@ langchain-huggingface==1.0.1
 
 psycopg==3.2.12
 sqlalchemy==2.0.44
-
 pydantic==2.11.10
 pydantic-settings==2.11.0
+
+unstructured==0.18.18
 pypdf==6.1.1
+Markdown==3.10
+
 uvicorn==0.37.0
 fastapi==0.118.0
 torch==2.8.0

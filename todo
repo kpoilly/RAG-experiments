@@ -96,9 +96,8 @@
     -   Intégrer un outil **Web Search** (ex: `Tavily`).
 
 -   **Diversifier les Sources de Données :**
-    -   Étendre le support de fichiers (`.docx`, `.md`).
     -   Ajouter l'ingestion depuis des **URLs**.
-    -   Intégrer l'**OCR** pour extraire le texte des images.
+    -   gestion des images (**OCR** pour extraire le texte des images, description d'image etc.)
 
 -   **(Avancé) Implémenter le Mode Haute Précision :**
     -   Ajouter la logique de **RAG-Fusion** comme une option configurable.
