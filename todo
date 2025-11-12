@@ -35,16 +35,7 @@
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
     -   Préparer un squelette de workflow de **CD** pour le déploiement.
 
--   **Architecture du Gateway de LLM :**
-    -   Intégrer le Proxy LiteLLM comme un service dédié pour gérer le routing, le fallback et le load balancing entre les fournisseurs de LLM.
-    -   Transformer le llm-gateway actuel en une API Gateway légère dont le rôle est :
-        -   Sécurité : Authentification des services internes (via clé API).
-        -   Abstraction : Masquer le Proxy LiteLLM et fournir un point d'entrée unique et stable.
-
--   **Activer le Caching :**
-    -   Configurer `RedisCache` de LangChain pour mettre en cache les appels LLM.
-
--   **Sécuriser les APIs :**
+-   **Sécuriser les APIs et le LLM-gateway :**
     -   Implémenter de la sécurité (authentification par **clé API** par exemple).
     -   Ajouter la validation du type de fichier avec `python-magic`.
 

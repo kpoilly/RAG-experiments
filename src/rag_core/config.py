@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # --- LLM & Gateway Settings ---
     LLM_MODEL: str = "groq/llama-3.1-8b-instant"
     LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
-    MAX_CONTEXT_TOKENS: int = 6000
+    MAX_CONTEXT_TOKENS: int = 30000
     LLM_STRICT_RAG: bool = True
 
     # --- Embedding & Reranking Models ---
