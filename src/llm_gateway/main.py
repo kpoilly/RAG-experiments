@@ -1,28 +1,12 @@
-import json
-import logging
-from typing import List, Optional
+import os
+import httpx
 
-import litellm
-from fastapi import FastAPI
-from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-litellm.set_verbose = False
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 
 
-# --- Pydantic models ---
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class LLMRequest(BaseModel):
-    messages: List[Message]
-    model: str
-    stream: Optional[bool] = False
+LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL")
+app = FastAPI(title="LLM Gateway Facade")
 
 
 # --- init ---
@@ -39,30 +23,23 @@ async def health():
 
 
 @app.post("/chat/completions")
-async def chat(request: LLMRequest):
+async def chat(request: Request):
     """
-    Chat endpoint for streaming and non-streaming responses.
+    Act as a proxy to LiteLLM proxy service.
     """
-    messages = [msg.model_dump() for msg in request.messages]
-    try:
-        response_stream = await litellm.acompletion(model=request.model, messages=messages, temperature=0.0, stream=request.stream)
 
-        if request.stream:
+    client = httpx.AsyncClient()
+    url = f"{LITELLM_PROXY_URL}/chat/completions"
+    
+    request_body = await request.json()
 
-            async def streaming_generator():
-                try:
-                    async for chunk in response_stream:
-                        if chunk.choices[0].delta.content is not None:
-                            yield f"data: {json.dumps(chunk.model_dump())}\n\n"
-                    yield "data: [DONE]\n\n"
-                except Exception as e:
-                    logger.error(f"Error during LiteLLM stream iteration: {e}")
+    async def stream_proxy():
+        async with client.stream("POST", url, json=request_body) as proxy_response:
+            proxy_response.raise_for_status()
+            async for chunk in proxy_response.aiter_bytes():
+                yield chunk
 
-            return StreamingResponse(streaming_generator(), media_type="text/event-stream")
-
-        else:
-            return JSONResponse(content=response_stream.model_dump())
-
-    except Exception as e:
-        logger.error(f"LiteLLM call failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return StreamingResponse(
+        stream_proxy(),
+        media_type="text/event-stream"
+    )
