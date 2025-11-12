@@ -6,12 +6,14 @@
 
 *Objectif : Transformer le projet en un outil fonctionnel  à utiliser en local, avec une gestion simple des documents et un comportement robuste face aux erreurs.*
 
--   Mettre en place la configuration via call API pour le LLM_STRICT_RAG et le RERANKER_THRESHOLD pour pouvoir le configurer via l'UI.
+-   **Configuration dynamique via l'UI :**
+    -   Modifier l'endpoint /chat pour accepter des paramètres optionnels (strict_mode, reranker_threshold).
+    -   Permettre à l'UI Streamlit de surcharger ces paramètres pour la session en cours.
 
 -   **Mieux gérer l'historique :**
     - Implémenter une stratégie de fenêtre glissante ("sliding window") pour ne conserver que les N derniers échanges et éviter de dépasser la limite de contexte du LLM.
 
--   **Mettre en place plus de Résilience :**
+-   **Améliorer la Résilience du Pipeline :**
     -   Mettre en place une dégradation gracieuse : si un composant optionnel (ex: query_expansion, reranker) échoue, l'application doit continuer à fonctionner sans lui et logger un avertissement.
     -   **Gestion dynamique du contexte LLM :**
         -   Ajouter un endpoint /models au llm-gateway pour exposer les capacités des modèles (ex: max_tokens).
@@ -35,9 +37,15 @@
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
     -   Préparer un squelette de workflow de **CD** pour le déploiement.
 
--   **Sécuriser les APIs et le LLM-gateway :**
-    -   Implémenter de la sécurité (authentification par **clé API** par exemple).
+-   **Architecture Multi-Tenant et Sécurité :**
     -   Ajouter la validation du type de fichier avec `python-magic`.
+    -   Gestion des Utilisateurs : Mettre en place un système d'authentification de base (ex: JWT) pour identifier les utilisateurs.
+    -   Sécuriser les APIs : Implémenter une authentification par token sur les endpoints (/chat, /ingest).
+    -   Isolation des Données : Rendre le collection_name et le namespace dynamiques, basés sur l'ID de l'utilisateur, pour garantir la confidentialité des documents.
+    -   Gestion des Quotas (BYOK - Bring Your Own Key) :
+        -   Permettre aux utilisateurs de stocker leur propre clé API de manière sécurisée (chiffrée en base de données).
+        -   Modifier le llm-gateway pour qu'il transmette la clé de l'utilisateur au Proxy LiteLLM pour chaque requête.
+        -   Ajouter une logique de limitation d'usage (ex: nombre de documents, nombre de requêtes par mois) pour chaque utilisateur.
 
 ---
 
@@ -54,16 +62,34 @@
 
 ---
 
-#### **Phase 4 : Déploiement Cloud-Native sur Kubernetes**
+### **Phase 4 : Architecture de Déploiement et Cloud :**
+
+*Objectif : Préparer et maîtriser le déploiement de l'application sur une infrastructure cloud scalable.*
+
+-   **Passage au Stockage Cloud :**
+    -   Remplacer le volume local /data par un bucket de stockage objet (ex: Cloudflare R2, Google Cloud Storage).
+    -   Mettre en placeodifier l'UI et l'ingestion pour uploader/lire les fichiers depuis ce bucket.
+
+-   **Héberger la Base de Données :**
+    -   Migrer la base de données PostgreSQL vers un service managé (ex: Supabase, Cloud SQL).
+
+-   **Point d'Entrée Réseau (Reverse Proxy) :**
+    -   Intégrer Nginx dans docker-compose comme point d'entrée unique.
+    -   Configurer Nginx pour la terminaison SSL/TLS (HTTPS) et le routage vers le service UI.
+
+-   **Préparation pour Kubernetes :**
+    -   Installer et configurer **Kind** ou **Minikube**.
+    -   Commencer à écrire les manifestes Kubernetes, en utilisant un Ingress Controller (Nginx) comme équivalent du reverse proxy.
+
+
+
+#### **Phase 5 : Déploiement Cloud-Native sur Kubernetes**
 
 *Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
 
--   **Mettre en place l'Environnement Kubernetes Local :**
-    -   Installer et configurer **Kind** ou **Minikube**.
 
--   **Écrire les Manifestes Kubernetes :**
+-   **Écrire les Manifestes complets :**
     -   Créer les fichiers `Deployment`, `Service`, `ConfigMap`, `Secret` pour chaque microservice.
-    -   Nginx comme point d'entrée pour le trafic externe.
 
 -   **Gérer les Environnements (`staging` vs. `production`) :**
     -   Mettre en place **Kustomize** pour gérer les variations de configuration.
@@ -77,7 +103,7 @@
 
 ---
 
-#### **Phase 5 : Expansion des Capacités de l'Agent**
+#### **Phase 6 : Expansion des Capacités de l'Agent**
 
 *Objectif : Enrichir l'agent avec de nouvelles compétences et sources d'information.*
 
@@ -85,7 +111,7 @@
     -   Intégrer un outil **Web Search** (ex: `Tavily`).
 
 -   **Diversifier les Sources de Données :**
-    -   Ajouter l'ingestion depuis des **URLs**.
+    -   Ajouter l'ingestion depuis des URLs, Google Drive, Slack...
     -   gestion des images (**OCR** pour extraire le texte des images, description d'image etc.)
 
 -   **(Avancé) Implémenter le Mode Haute Précision :**
