@@ -1,6 +1,8 @@
 .env
 data_backup/
 data/*.pdf
+data/*.md
+data/*.docx
 
 src/api/pyproject.toml
 src/api/__pycache__/

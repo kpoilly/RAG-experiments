@@ -1,4 +1,4 @@
-SERVICES ?= api rag-core llm-gateway
+SERVICES ?= api rag-core llm-gateway streamlit-ui
 ifeq ($(SERVICE),)
   TARGET_SERVICES := $(SERVICES)
 else
@@ -14,23 +14,61 @@ else
 	GPU_STATUS := "GPU"
 endif
 
-SERVICES_FOLDERS := rag_core llm_gateway api
+SERVICES_FOLDERS := rag_core llm_gateway api streamlit_ui
 CONFIG_FILES := pyproject.toml
 
-.PHONY: all up build sync-configs ingest stop down-clean clean start-chat logs-rag logs-llm lint format
+.PHONY: all up build sync-configs ingest stop down-clean clean cli logs-rag logs-llm lint format ui
 
 # --- MAIN ---
-all: build up start-chat
+all: build up ui
 
 up:
 	@echo "========================================================"
-	@echo "Starting with: $(GPU_STATUS)"
+	@echo "🚀 Starting all services with $(GPU_STATUS) in detached mode..."
 	@echo "========================================================"
 	docker compose $(COMPOSE_FILES) up -d
 
 build: sync-configs
+	@echo "🚀 Building all services..."
 	docker compose $(COMPOSE_FILES) build
 
+ingest:
+	@echo "🔄 Ingesting new documents into RAG..."
+	curl -X POST http://localhost:8001/ingest 
+
+down:
+	docker compose down
+	@echo "🛑 All services have been stopped."
+
+cli:
+	@echo "🚀 Accessing API service CLI..."
+	docker compose exec -it api python main.py
+
+ui:
+	@echo "🌍 Opening Streamlit UI in browser at http://localhost:8501..."
+	@sh -c ' \
+			case "`uname -s`" in \
+				Linux*) \
+					if grep -q -i Microsoft /proc/version; then \
+						explorer.exe http://localhost:8501 || true; \
+					else \
+						xdg-open http://localhost:8501 || true; \
+					fi \
+					;; \
+				Darwin*) \
+					open http://localhost:8501 || true; \
+					;; \
+				CYGWIN*|MINGW*|MSYS*) \
+					start http://localhost:8501 || true; \
+					;; \
+				*) \
+					echo "Could not detect OS, please open http://localhost:8501 manually."; \
+					;; \
+			esac \
+		'
+
+
+#--- DEV ---
 sync-configs:
 	@for service in $(SERVICES_FOLDERS); do \
 		for config_file in $(CONFIG_FILES); do \
@@ -38,21 +76,12 @@ sync-configs:
 		done; \
 	done
 
-ingest:
-	@echo "Ingesting new documents..."
-	curl -X POST http://localhost:8001/ingest 
-
-down:
-	docker compose down
-
 down-clean:
 	docker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
 
 docker-clean:
 	docker system prune -a --volumes -f
-
-start-chat:
-	docker compose exec -it api python main.py
 
 clean:
 	@for service in $(SERVICES_FOLDERS); do \
@@ -70,6 +99,7 @@ logs-rag:
 logs-llm:
 	docker compose logs llm-gateway -f
 
+
 # --- QUALITY & TESTING ---
 lint:
 	@echo "===== CHECKING CODE QUALITY FOR $(TARGET_SERVICES) ====="
@@ -84,6 +114,7 @@ format:
 		echo "--- Formatting $$service ---"; \
 		docker compose run --rm $$service sh -c "ruff check /app/ --fix; black /app/"; \
 	done
+
 
 # --- GIT ---
 push: format
