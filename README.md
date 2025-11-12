@@ -101,8 +101,8 @@ This single command will perform all the necessary steps. Build all the Docker i
     *   You can reopen the interface at any time with `make ui`
 
 3.   **Using the CLI:**
-   *   You can also use the CLI interface directly in your terminal.
-   *   Open a new chat with the CLI by using `make cli` 
+      *   You can also use the **CLI interface** directly in your terminal.
+      *   Open a new chat with the CLI by using `make cli` 
 
 5.  **Stopping the Service:**
     ```bash
