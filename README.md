@@ -98,8 +98,18 @@ This single command will perform all the necessary steps. Build all the Docker i
 2.  **Using the Interface:**
     *   The main page provides a **chat interface** to interact with the assistant.
     *   The **"Document Management"** panel on the right allows you to **upload** new files or **remove** existing ones. Uploading or removing documents will automatically trigger a re-ingestion process to update the assistant's knowledge base.
+    *   You can reopen the interface at any time with `make ui`
 
-3.  **Stopping the Service:**
+3.   **Using the CLI:**
+    *   You can also use the CLI interface directly in your terminal.
+    *   Open a new chat with the CLI by using `make cli` 
+
+4.  **Stopping the Service:**
     ```bash
     make down
     ```
+
+### Preview Screenshots
+
+<img width="1908" height="898" alt="image" src="https://github.com/user-attachments/assets/8b1c48f8-7481-418f-ad10-ceb1dbdaf1e1" />
+
