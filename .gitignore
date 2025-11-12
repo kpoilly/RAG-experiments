@@ -1,4 +1,5 @@
 .env
+data_backup/
 data/*.pdf
 
 src/api/pyproject.toml
