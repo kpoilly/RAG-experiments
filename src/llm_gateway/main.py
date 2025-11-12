@@ -1,9 +1,8 @@
 import os
-import httpx
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
-
 
 LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL")
 app = FastAPI(title="LLM Gateway Facade")
@@ -30,7 +29,7 @@ async def chat(request: Request):
 
     client = httpx.AsyncClient()
     url = f"{LITELLM_PROXY_URL}/chat/completions"
-    
+
     request_body = await request.json()
 
     async def stream_proxy():
@@ -39,7 +38,4 @@ async def chat(request: Request):
             async for chunk in proxy_response.aiter_bytes():
                 yield chunk
 
-    return StreamingResponse(
-        stream_proxy(),
-        media_type="text/event-stream"
-    )
+    return StreamingResponse(stream_proxy(), media_type="text/event-stream")
