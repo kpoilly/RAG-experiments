@@ -1,4 +1,4 @@
-SERVICES ?= api rag-core llm-gateway streamlit-ui
+SERVICES ?= cli rag-core llm-gateway streamlit-ui
 ifeq ($(SERVICE),)
   TARGET_SERVICES := $(SERVICES)
 else
@@ -14,7 +14,7 @@ else
 	GPU_STATUS := "GPU"
 endif
 
-SERVICES_FOLDERS := rag_core llm_gateway api streamlit_ui
+SERVICES_FOLDERS := rag_core llm_gateway cli streamlit_ui
 CONFIG_FILES := pyproject.toml
 
 .PHONY: all up build sync-configs ingest stop down-clean clean cli logs-rag logs-llm lint format ui
@@ -34,7 +34,7 @@ build: sync-configs
 
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
-	curl -X POST http://localhost:8001/ingest 
+	curl -X POST http://localhost/api/ingest 
 
 down:
 	docker compose down
@@ -42,27 +42,29 @@ down:
 
 cli:
 	@echo "🚀 Accessing API service CLI..."
-	docker compose exec -it api python main.py
+	@docker compose exec -it cli python main.py
 
 ui:
-	@echo "🌍 Opening Streamlit UI in browser at http://localhost:8501..."
+	@echo "🔄 Waiting for Streamlit to start..."
+	@sleep 5
+	@echo "🌍 Opening Streamlit UI in browser at http://localhost..."
 	@sh -c ' \
 			case "`uname -s`" in \
 				Linux*) \
 					if grep -q -i Microsoft /proc/version; then \
-						explorer.exe http://localhost:8501 || true; \
+						explorer.exe http://localhost || true; \
 					else \
-						xdg-open http://localhost:8501 || true; \
+						xdg-open http://localhost || true; \
 					fi \
 					;; \
 				Darwin*) \
-					open http://localhost:8501 || true; \
+					open http://localhost || true; \
 					;; \
 				CYGWIN*|MINGW*|MSYS*) \
-					start http://localhost:8501 || true; \
+					start http://localhost || true; \
 					;; \
 				*) \
-					echo "Could not detect OS, please open http://localhost:8501 manually."; \
+					echo "Could not detect OS, please open http://localhost manually."; \
 					;; \
 			esac \
 		'

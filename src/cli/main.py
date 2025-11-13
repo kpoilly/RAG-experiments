@@ -1,7 +1,8 @@
 import json
 import logging
+import os
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import requests
 
@@ -10,8 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 # --- Config ---
-RAG_CORE_URL = "http://rag-core:8001/"
-CHAT_URL = f"{RAG_CORE_URL}/chat"
+API_URL = os.getenv("API_URL", "http://nginx/api")
+CHAT_URL = f"{API_URL}/chat"
+HEALTH_URL = f"{API_URL}/health"
+
 STARTUP_TIMEOUT = 180
 
 chat_history: List[Dict[str, str]] = []
@@ -22,7 +25,7 @@ def wait_rag():
     start_time = time.time()
     while time.time() - start_time < STARTUP_TIMEOUT:
         try:
-            response = requests.get(RAG_CORE_URL + "/health")
+            response = requests.get(HEALTH_URL)
             if response.status_code == 200:
                 logger.info("RAG is ready.")
                 return True
@@ -36,6 +39,29 @@ def wait_rag():
         time.sleep(20)
     logger.error("Timeout reached. RAG Core service did not start up in time.")
     return False
+
+
+def _parse_sse(line: str) -> Optional[str]:
+    """
+    Parses a single line of a Server-Sent Event (SSE) stream and returns the content.
+    Returns None if the line is not valid data.
+    """
+    if not line.startswith("data:"):
+        return None
+
+    json_str = line[5:].lstrip()
+
+    if not json_str or json_str == "[DONE]":
+        return None
+
+    try:
+        data = json.loads(json_str)
+        delta = data.get("choices", [{}])[0].get("delta", {})
+        content = delta.get("content")
+        return content
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to decode JSON chunk in SSE stream: {json_str}")
+        return None
 
 
 def run_chatbot_cli():
@@ -71,23 +97,23 @@ def run_chatbot_cli():
 
                 full_response = ""
                 print("\n\033[31mMichel\033[0m: ", end="", flush=True)
-                for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+
+                buffer = ""
+                for chunk in response.iter_content(chunk_size=1024, decode_unicode=True):
                     if chunk:
-                        for line in chunk.splitlines():
-                            if line.startswith("data: "):
-                                data_str = line[5:].lstrip()
-                                if data_str == "[DONE]":
-                                    break
-                                try:
-                                    data = json.loads(data_str)
-                                    delta = data.get("choices", [{}])[0].get("delta", {})
-                                    content = delta.get("content", "")
-                                    if content:
-                                        print(content, end="", flush=True)
-                                        full_response += content
-                                except json.JSONDecodeError:
-                                    logger.error(f"Failed to decode JSON: {data_str}")
-                                    continue
+                        buffer += chunk
+
+                        while "\n\n" in buffer:
+                            message, buffer = buffer.split("\n\n", 1)
+                            content = _parse_sse(message)
+                            if content:
+                                full_response += content
+                                print(content, end="", flush=True)
+
+                final_content = _parse_sse(buffer.strip())
+                if final_content:
+                    full_response += final_content
+                    print(final_content, end="", flush=True)
 
                 print("\n")
                 if full_response:

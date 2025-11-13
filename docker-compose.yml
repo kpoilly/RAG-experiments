@@ -1,15 +1,37 @@
 services:
-  api:
+  cli:
     build:
-      context: src/api
-    container_name: api
+      context: src/cli
+    container_name: cli
     stdin_open: true
     tty: true
     environment:
-      - RAG_CORE_HOST=rag-core
+      - API_URL=http://nginx/api
       - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
     depends_on:
-      - rag-core
+      rag-core:
+          condition: service_healthy
+    networks:
+      - rag_network
+
+  streamlit-ui:
+    build:
+      context: src/streamlit_ui
+    container_name: streamlit_ui
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - API_URL=http://nginx/api
+      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
+      - LLM_MODEL=${LLM_MODEL}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - RERANKER_MODEL=${RERANKER_MODEL}
+      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
+    depends_on:
+      rag-core:
+          condition: service_healthy
     networks:
       - rag_network
     
@@ -18,8 +40,6 @@ services:
       context: src/rag_core
     container_name: rag_core
     restart: unless-stopped
-    ports:
-      - "8001:8001"
     volumes:
       - ./data:/app/src/data
     environment:
@@ -43,6 +63,12 @@ services:
     depends_on:
       - postgres
       - llm-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     networks:
       - rag_network
   
@@ -51,10 +77,8 @@ services:
       context: src/llm_gateway
     container_name: llm_gateway
     restart: unless-stopped
-    ports:
-      - "8002:8002"
     environment:
-      - LITELLM_PROXY_URL=http://litellm-proxy:8003
+      - LITELLM_PROXY_URL=http://litellm-proxy:8001
     depends_on:
       - litellm-proxy
     networks:
@@ -71,7 +95,7 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
     networks:
       - rag_network
-    command: ["--config", "/app/config.yaml", "--port", "8003"]
+    command: ["--config", "/app/config.yaml", "--port", "8001"]
 
   redis:
     image: redis:8.4-rc1-alpine3.22
@@ -111,26 +135,17 @@ services:
     depends_on:
       - postgres
 
-  streamlit-ui:
-    build:
-      context: src/streamlit_ui
-    container_name: streamlit_ui
+  nginx:
+    image: nginx:1.29.3-alpine
+    container_name: nginx
     restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "80:80"
     volumes:
-      - ./data:/app/data
-    environment:
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
-      - LLM_MODEL=${LLM_MODEL}
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - RERANKER_MODEL=${RERANKER_MODEL}
-      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
-    depends_on:
-      - rag-core
+      - ./deployments/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     networks:
       - rag_network
+
 
 volumes:
   postgres_data:
