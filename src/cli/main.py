@@ -1,6 +1,6 @@
-import os
 import json
 import logging
+import os
 import time
 from typing import Dict, List, Optional
 
@@ -48,12 +48,12 @@ def _parse_sse(line: str) -> Optional[str]:
     """
     if not line.startswith("data:"):
         return None
-    
+
     json_str = line[5:].lstrip()
-    
+
     if not json_str or json_str == "[DONE]":
         return None
-        
+
     try:
         data = json.loads(json_str)
         delta = data.get("choices", [{}])[0].get("delta", {})
@@ -62,7 +62,6 @@ def _parse_sse(line: str) -> Optional[str]:
     except json.JSONDecodeError:
         logger.warning(f"Failed to decode JSON chunk in SSE stream: {json_str}")
         return None
-
 
 
 def run_chatbot_cli():
@@ -104,13 +103,13 @@ def run_chatbot_cli():
                     if chunk:
                         buffer += chunk
 
-                        while '\n\n' in buffer:
-                            message, buffer = buffer.split('\n\n', 1)
+                        while "\n\n" in buffer:
+                            message, buffer = buffer.split("\n\n", 1)
                             content = _parse_sse(message)
                             if content:
                                 full_response += content
                                 print(content, end="", flush=True)
-                        
+
                 final_content = _parse_sse(buffer.strip())
                 if final_content:
                     full_response += final_content
