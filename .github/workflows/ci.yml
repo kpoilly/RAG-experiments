@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false 
       matrix:
-        service: [rag-core, llm-gateway, api, streamlit-ui]
+        service: [rag-core, llm-gateway]
 
     steps:
       - name: Checkout Code
