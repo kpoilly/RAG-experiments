@@ -8,10 +8,9 @@
 
 -   **Configuration dynamique via l'UI :**
     -   Modifier l'endpoint /chat pour accepter des paramètres optionnels (strict_mode, reranker_threshold).
-    -   Permettre à l'UI Streamlit de surcharger ces paramètres pour la session en cours.
 
 -   **Mieux gérer l'historique :**
-    - Implémenter une stratégie de fenêtre glissante ("sliding window") pour ne conserver que les N derniers échanges et éviter de dépasser la limite de contexte du LLM.
+    -   Implémenter une stratégie de fenêtre glissante ("sliding window") pour ne conserver que les N derniers échanges et éviter de dépasser la limite de contexte du LLM.
 
 -   **Améliorer la Résilience du Pipeline :**
     -   Mettre en place une dégradation gracieuse : si un composant optionnel (ex: query_expansion, reranker) échoue, l'application doit continuer à fonctionner sans lui et logger un avertissement.
@@ -29,7 +28,7 @@
 *Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
 
 -   **Passer à une Architecture "API-First" :**
-    -   Refactorer l'endpoint /ingest pour le rendre indépendant du système de fichiers local (accepter l'upload de fichiers, des URLs...).
+    -   Refactoriser l'endpoint /ingest pour accepter l'upload de fichiers, des URLs...
     -   Mettre à jour l'UI Streamlit pour qu'elle utilise les nouveaux endpoints API.
 
 -   **Architecture Multi-Tenant et Sécurité :**
@@ -53,7 +52,7 @@
 
 ---
 
-#### **Phase 3 : Monitoring, Évaluation et Optimisation du RAG**
+#### **Phase 3 : Monitoring et Évaluation**
 
 *Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
@@ -72,7 +71,7 @@
 
 -   **Passage au Stockage Cloud :**
     -   Remplacer le volume local /data par un bucket de stockage objet (ex: Cloudflare R2, Google Cloud Storage).
-    -   Mettre en placeodifier l'UI et l'ingestion pour uploader/lire les fichiers depuis ce bucket.
+    -   Modifier l'UI et l'ingestion pour uploader/lire les fichiers depuis ce bucket.
 
 -   **Héberger la Base de Données :**
     -   Migrer la base de données PostgreSQL vers un service managé (ex: Supabase, Cloud SQL).

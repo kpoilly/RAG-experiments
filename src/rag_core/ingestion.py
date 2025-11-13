@@ -225,7 +225,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         total_chunks = len(new_documents_to_add)
 
     logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new pages indexed. Total chunks in DB: {total_chunks}")
-    return total_chunks
+    return total_chunks + len(hashes_to_rm)
 
 
 if __name__ == "__main__":

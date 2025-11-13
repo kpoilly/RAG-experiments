@@ -22,7 +22,7 @@ DATA_PATH = "/app/data"
 def get_current_documents():
     """get current document filenames in the data directory."""
     try:
-        return sorted([f for f in os.listdir(DATA_PATH) if os.path.isfile(os.path.join(DATA_PATH, f))])
+        return sorted([f for f in os.listdir(DATA_PATH) if os.path.isfile(os.path.join(DATA_PATH, f)) and f.lower().endswith((".pdf", ".docx", ".md"))])
     except FileNotFoundError:
         st.error(f"Data directory not found at {DATA_PATH}")
         return []

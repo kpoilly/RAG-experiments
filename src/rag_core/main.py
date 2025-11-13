@@ -55,7 +55,6 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
     """
     logger.info(f"Starting ingestion for path: {data_path}")
     indexed_count = await asyncio.to_thread(process_and_index_documents, data_path)
-    await build_retriever()
     if indexed_count > 0:
         logger.info("Ingestion completed successfully.")
         return IngestionResponse(indexed_chunks=indexed_count, status="success")

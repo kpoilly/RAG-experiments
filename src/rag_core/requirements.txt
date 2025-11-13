@@ -1,5 +1,4 @@
 sentence-transformers==5.1.1
-rank-bm25==0.2.2
 
 langchain-classic==1.0.0
 langchain-core==1.0.4
@@ -13,9 +12,8 @@ sqlalchemy==2.0.44
 pydantic==2.11.10
 pydantic-settings==2.11.0
 
-unstructured==0.18.18
+unstructured[docx, markdown]==0.18.18
 pypdf==6.1.1
-Markdown==3.10
 
 uvicorn==0.37.0
 fastapi==0.118.0
