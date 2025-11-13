@@ -101,9 +101,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     """
     global _LLM_QUERY_GEN
     if _LLM_QUERY_GEN is None:
-        logger.info("Initializing LLM query generator...")
         _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
-        logger.info("LLM query generator initialized.")
     return _LLM_QUERY_GEN
 
 
@@ -160,16 +158,204 @@ def build_prompt_with_context(query: str, context: List[str], metadatas: List[Di
     return system_instruction, messages
 
 
-async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+async def expand_query(query: str, history: List[Dict[str, str]]) -> List[str]:
     """
-    Execute the whole RAG flow: Retrieval, Context Building and LLm call.
+    Expands the original query into multiple related queries using a language model.
 
     Args:
-        query: user's query.
-        history: chat history.
+        query: The user's original query.
+        history: The chat history.
 
     Returns:
-        A dict containing LLM's answer and the retrieval's metadata.
+        A list of queries, with the original query always as the first element.
+        Returns [query] if expansion fails.
+    """
+    query_expansion_chain = get_query_expansion_chain()
+    if query_expansion_chain is None:
+        logger.error("Cannot retrieve query expansion chain. Using original query.")
+        return [query]
+
+    try:
+        history_str = format_history_for_prompt(history)
+        gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
+        expanded_queries = gen_exp_queries.queries if hasattr(gen_exp_queries, "queries") else []
+        logger.info(f"Generated {len(expanded_queries)} expanded queries: {expanded_queries}")
+        return [query] + expanded_queries
+    except Exception as e:
+        logger.warning(f"Query expansion failed: {e}. Using original query.")
+        return [query]
+
+
+async def retrieve_and_deduplicate_documents(retriever: ParentDocumentRetriever, queries: List[str]) -> List:
+    """
+    Retrieves documents for multiple queries in parallel and removes duplicates.
+
+    Args:
+        retriever: The document retriever instance.
+        queries: A list of queries to retrieve documents for.
+
+    Returns:
+        A list of unique documents.
+    """
+    tasks = [retriever.ainvoke(q) for q in queries]
+    nested_docs = await asyncio.gather(*tasks)
+    
+    flat_list = [doc for sublist in nested_docs for doc in sublist]
+    
+    seen_contents = set()
+    unique_docs = []
+    for doc in flat_list:
+        if doc.page_content not in seen_contents:
+            seen_contents.add(doc.page_content)
+            unique_docs.append(doc)
+            
+    logger.info(f"Retrieved {len(unique_docs)} unique document chunks.")
+    return unique_docs
+
+
+def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCrossEncoder]) -> List:
+    """
+    Reranks a list of documents based on relevance to the query.
+
+    Args:
+        query: The user's query.
+        docs: The list of documents to rerank.
+        reranker: The reranker model instance.
+
+    Returns:
+        The sorted and filtered list of documents. Returns original docs if reranker is unavailable.
+    """
+    if not reranker or not docs:
+        return docs
+
+    MAX_DOCS_TO_RERANK = 15
+    docs_to_rerank = docs[:MAX_DOCS_TO_RERANK]
+    if len(docs) > MAX_DOCS_TO_RERANK:
+        logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")
+
+    logger.info(f"Reranking documents... (Threshold: {env.RERANKER_THRESHOLD})")
+    pairs = [(query, doc.page_content) for doc in docs_to_rerank]
+    scores = reranker.score(pairs)
+    
+    reranked_results = sorted(zip(docs_to_rerank, scores), key=lambda x: x[1], reverse=True)
+    filtered_results = [result for result in reranked_results if result[1] > env.RERANKER_THRESHOLD]
+
+    if filtered_results:
+        final_docs = [doc for doc, score in filtered_results]
+        logger.info(f"{len(final_docs)} documents passed the reranker threshold of {env.RERANKER_THRESHOLD}.")
+    elif reranked_results:
+        final_docs = [reranked_results[0][0]]
+        logger.warning(
+            f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
+            f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
+        )
+    else:
+        final_docs = []
+
+    return final_docs
+
+
+def assemble_context(
+    query: str, history: List[Dict[str, str]], docs: List
+) -> Tuple[List[str], List[Dict[str, str]], int]:
+    """
+    Assembles the context for the LLM, respecting the token limit.
+
+    Args:
+        query: The user's query.
+        history: The chat history.
+        docs: The final list of documents to include in the context.
+
+    Returns:
+        A tuple containing:
+        - The list of context strings.
+        - A unique list of source metadata dictionaries.
+        - The total number of tokens in the assembled context.
+    """
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    prompt_template_tokens = len(tokenizer.encode(
+        SYSTEM_PROMPTS["instructions"]
+        .replace("{context}", "")
+        .replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])
+    ))
+    query_tokens = len(tokenizer.encode(query))
+    history_tokens = sum(len(tokenizer.encode(msg.get("content", ""))) for msg in history)
+    
+    current_tokens = prompt_template_tokens + query_tokens + history_tokens
+    
+    context_texts = []
+    source_metadatas = []
+    
+    for doc in docs:
+        doc_tokens = len(tokenizer.encode(doc.page_content))
+        if current_tokens + doc_tokens > env.MAX_CONTEXT_TOKENS:
+            logger.info("Reached max context tokens. Stopping context assembly.")
+            break
+            
+        current_tokens += doc_tokens
+        context_texts.append(doc.page_content.replace("\udcc3", " ").replace("\xa0", " ").strip())
+        source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
+
+    unique_metadatas = [dict(t) for t in {tuple(d.items()) for d in source_metadatas}]
+
+    if not context_texts:
+        logger.warning("No relevant documents were added to the context.")
+        
+    return context_texts, unique_metadatas, current_tokens
+
+
+async def stream_llm_response(
+    query: str,
+    history: List[Dict[str, str]],
+    context_texts: List[str],
+    unique_metadatas: List[Dict[str, str]],
+    token_count: int,
+) -> AsyncGenerator[str, None]:
+    """
+    Constructs the final prompt, calls the LLM, and streams the response.
+
+    Args:
+        query: The user's query.
+        history: The chat history.
+        context_texts: The assembled context from documents.
+        unique_metadatas: The metadata of the context documents.
+        token_count: The total token count for logging.
+
+    Yields:
+        JSON strings representing chunks of the LLM's response or an error.
+    """
+    _, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
+    logging.info(f"Final prompt constructed ({token_count} tokens). Invoking LLM...")
+
+    try:
+        request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, stream=True)
+        gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
+        
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", gateway_url, json=request_data.model_dump()) as response:
+                response.raise_for_status()
+                async for text_chunk in response.aiter_text():
+                    yield text_chunk
+        logger.info("LLM stream completed.")
+        
+    except httpx.RequestError as e:
+        logger.error(f"Request failed: {e}")
+        yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+        yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+
+
+async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+    """
+    Executes the entire RAG flow by orchestrating calls to specialized functions.
+
+    Args:
+        query: The user's query.
+        history: The chat history.
+
+    Yields:
+        A stream of JSON strings containing the LLM's answer or an error.
     """
     logger.info(f"Starting RAG flow for query: {query[:50]}...")
 
@@ -179,116 +365,11 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
         yield json.dumps({"type": "error", "content": "System Error: Error connecting to DB."}) + "\n"
         return
 
-    # --- Contextual Query Expansion ---
-    query_expansion_chain = get_query_expansion_chain()
-    if query_expansion_chain is None:
-        logger.error("Cannot retrieve query expansion chain. Using original query.")
-        all_retrieved_docs = await retriever.ainvoke(query)
-
-    else:
-        try:
-            history_str = format_history_for_prompt(history)
-            gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
-
-            expanded_queries = gen_exp_queries.queries if hasattr(gen_exp_queries, "queries") else []
-            logger.info(f"Generated {len(expanded_queries)} expanded queries for retrieval : {expanded_queries}")
-        except Exception as e:
-            logger.warning(f"Query expansion failed: {e}. Using original query.")
-            expanded_queries = []
-
-        expanded_queries.insert(0, query)
-
-        # --- Parallel Multi-Query Retrieval ---
-        tasks = [retriever.ainvoke(q) for q in expanded_queries]
-        all_retrieved_docs = await asyncio.gather(*tasks)
-
-    flat_list = [doc for sublist in all_retrieved_docs for doc in sublist]
-    seen_contents = set()
-    unique_docs = []
-    for doc in flat_list:
-        if doc.page_content not in seen_contents:
-            seen_contents.add(doc.page_content)
-            unique_docs.append(doc)
-    retrieved_docs = unique_docs
-    logger.info(f"Retrieved {len(retrieved_docs)} chunks of documents.")
-
-    # --- Reranking ---
-    MAX_DOCS_TO_RERANK = 15
-    if len(retrieved_docs) > MAX_DOCS_TO_RERANK:
-        retrieved_docs = retrieved_docs[:MAX_DOCS_TO_RERANK]
-        logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")
-
-    if reranker is not None and retrieved_docs:
-        logger.info(f"Reranking documents... (Threshold: {env.RERANKER_THRESHOLD}, Device: {reranker.model_kwargs.get('device', 'cpu')})")
-        pairs = [(query, doc.page_content) for doc in retrieved_docs]
-        scores = reranker.score(pairs)
-        reranked_results = sorted(zip(retrieved_docs, scores), key=lambda x: x[1], reverse=True)
-
-        final_docs = []
-        if reranked_results:
-            filtered_results = [result for result in reranked_results if result[1] > env.RERANKER_THRESHOLD]
-
-            if filtered_results:
-                final_docs = [dpc for dpc, score in filtered_results]
-                logger.info(f"{len(final_docs)} documents passed the reranker threshold of {env.RERANKER_THRESHOLD}.")
-            else:
-                final_docs = [reranked_results[0][0]]
-                logger.warning(
-                    f"No documents met the threshold of {env.RERANKER_THRESHOLD}. " f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
-                )
-
-        retrieved_docs = final_docs
-
-    # --- Context Assembly ---
-    tokenizer = tiktoken.get_encoding("cl100k_base")
-    context_texts = []
-    source_metadatas = []
-    current_tokens = 0
-
-    for message in history:
-        message_tokens = len(tokenizer.encode(message.get("content", "")))
-        current_tokens += message_tokens
-    current_tokens += len(tokenizer.encode(query))
-    current_tokens += len(
-        tokenizer.encode(
-            SYSTEM_PROMPTS["instructions"]
-            .replace("{context}", "")
-            .replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])
-        )
-    )
-
-    for doc in retrieved_docs:
-        doc_tokens = len(tokenizer.encode(doc.page_content))
-        if current_tokens + doc_tokens <= env.MAX_CONTEXT_TOKENS:
-            current_tokens += doc_tokens
-            source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
-            context_texts.append(doc.page_content.replace("\udcc3", " ").replace("\xa0", " ").strip())
-        else:
-            logger.info("Reached max context tokens. Stopping context assembly.")
-            break
-
-    if not context_texts:
-        logger.warning("No relevant documents found.")
-    unique_metadatas = []
-    for metadata in source_metadatas:
-        if metadata not in unique_metadatas:
-            unique_metadatas.append(metadata)
-
-    _, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
-    logging.info(f"Final prompt constructed ({current_tokens} tokens). Invoking LLM...")
-    try:
-        request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, stream=True)
-        gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", gateway_url, json=request_data.model_dump()) as response:
-                response.raise_for_status()
-                async for text_chunk in response.aiter_text():
-                    yield text_chunk
-        logger.info("RAG flow completed.")
-
-    except httpx.RequestError as e:
-        logger.error(f"Request failed: {e}")
-        yield json.dumps({"type": "error", "content": str(e)}) + "\n"
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+    expanded_queries = await expand_query(query, history)
+    retrieved_docs = await retrieve_and_deduplicate_documents(retriever, expanded_queries)
+    final_docs = rerank_documents(query, retrieved_docs, reranker)
+    
+    context_texts, unique_metadatas, token_count = assemble_context(query, history, final_docs)
+    async for chunk in stream_llm_response(query, history, context_texts, unique_metadatas, token_count):
+        yield chunk
+    logger.info("RAG flow finished.")

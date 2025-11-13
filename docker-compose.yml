@@ -23,15 +23,13 @@ services:
       - ./data:/app/data
     environment:
       - API_URL=http://nginx/api
+      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
       - LLM_STRICT_RAG=${LLM_STRICT_RAG}
       - LLM_MODEL=${LLM_MODEL}
       - GROQ_API_KEY=${GROQ_API_KEY}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - RERANKER_MODEL=${RERANKER_MODEL}
       - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
-    depends_on:
-      rag-core:
-          condition: service_healthy
     networks:
       - rag_network
     
