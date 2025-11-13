@@ -1,7 +1,7 @@
 services:
-  api:
+  cli:
     volumes:
-      - ./src/api:/app
+      - ./src/cli:/app
 
   rag-core:
     volumes:

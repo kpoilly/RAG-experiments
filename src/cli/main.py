@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 import time
@@ -10,8 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 # --- Config ---
-RAG_CORE_URL = "http://rag-core:8001/"
-CHAT_URL = f"{RAG_CORE_URL}/chat"
+API_URL = os.getenv("API_URL", "http://nginx/api")
+CHAT_URL = f"{API_URL}/chat"
+HEALTH_URL = f"{API_URL}/health"
+
 STARTUP_TIMEOUT = 180
 
 chat_history: List[Dict[str, str]] = []
@@ -22,7 +25,7 @@ def wait_rag():
     start_time = time.time()
     while time.time() - start_time < STARTUP_TIMEOUT:
         try:
-            response = requests.get(RAG_CORE_URL + "/health")
+            response = requests.get(HEALTH_URL)
             if response.status_code == 200:
                 logger.info("RAG is ready.")
                 return True
