@@ -143,9 +143,6 @@ services:
       - "80:80"
     volumes:
       - ./deployments/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      rag-core:
-          condition: service_healthy
     networks:
       - rag_network
 

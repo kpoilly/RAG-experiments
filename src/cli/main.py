@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import requests
 
@@ -41,6 +41,30 @@ def wait_rag():
     return False
 
 
+def _parse_sse(line: str) -> Optional[str]:
+    """
+    Parses a single line of a Server-Sent Event (SSE) stream and returns the content.
+    Returns None if the line is not valid data.
+    """
+    if not line.startswith("data:"):
+        return None
+    
+    json_str = line[5:].lstrip()
+    
+    if not json_str or json_str == "[DONE]":
+        return None
+        
+    try:
+        data = json.loads(json_str)
+        delta = data.get("choices", [{}])[0].get("delta", {})
+        content = delta.get("content")
+        return content
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to decode JSON chunk in SSE stream: {json_str}")
+        return None
+
+
+
 def run_chatbot_cli():
     """
     Run the chatbot CLI.
@@ -74,23 +98,23 @@ def run_chatbot_cli():
 
                 full_response = ""
                 print("\n\033[31mMichel\033[0m: ", end="", flush=True)
-                for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+
+                buffer = ""
+                for chunk in response.iter_content(chunk_size=1024, decode_unicode=True):
                     if chunk:
-                        for line in chunk.splitlines():
-                            if line.startswith("data: "):
-                                data_str = line[5:].lstrip()
-                                if data_str == "[DONE]":
-                                    break
-                                try:
-                                    data = json.loads(data_str)
-                                    delta = data.get("choices", [{}])[0].get("delta", {})
-                                    content = delta.get("content", "")
-                                    if content:
-                                        print(content, end="", flush=True)
-                                        full_response += content
-                                except json.JSONDecodeError:
-                                    logger.error(f"Failed to decode JSON: {data_str}")
-                                    continue
+                        buffer += chunk
+
+                        while '\n\n' in buffer:
+                            message, buffer = buffer.split('\n\n', 1)
+                            content = _parse_sse(message)
+                            if content:
+                                full_response += content
+                                print(content, end="", flush=True)
+                        
+                final_content = _parse_sse(buffer.strip())
+                if final_content:
+                    full_response += final_content
+                    print(final_content, end="", flush=True)
 
                 print("\n")
                 if full_response:

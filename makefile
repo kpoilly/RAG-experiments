@@ -45,6 +45,8 @@ cli:
 	@docker compose exec -it cli python main.py
 
 ui:
+	@echo "🔄 Waiting for Streamlit to start..."
+	@sleep 5
 	@echo "🌍 Opening Streamlit UI in browser at http://localhost..."
 	@sh -c ' \
 			case "`uname -s`" in \
