@@ -46,25 +46,25 @@ cli:
 
 ui:
 	@echo "🔄 Waiting for Streamlit to start..."
-	@sleep 5
-	@echo "🌍 Opening Streamlit UI in browser at http://localhost..."
+	@sleep 10
+	@echo "🌍 Opening Streamlit UI in browser at http://localhost/..."
 	@sh -c ' \
 			case "`uname -s`" in \
 				Linux*) \
 					if grep -q -i Microsoft /proc/version; then \
-						explorer.exe http://localhost || true; \
+						explorer.exe http://localhost/ || true; \
 					else \
-						xdg-open http://localhost || true; \
+						xdg-open http://localhost/ || true; \
 					fi \
 					;; \
 				Darwin*) \
-					open http://localhost || true; \
+					open http://localhost/ || true; \
 					;; \
 				CYGWIN*|MINGW*|MSYS*) \
-					start http://localhost || true; \
+					start http://localhost/ || true; \
 					;; \
 				*) \
-					echo "Could not detect OS, please open http://localhost manually."; \
+					echo "Could not detect OS, please open http://localhost/ manually."; \
 					;; \
 			esac \
 		'
