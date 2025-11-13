@@ -21,7 +21,6 @@
 
 -   **Refactorisation et "Code Polishing" :**
     -   Centraliser tous les hyperparamètres du RAG (chunk_size, k, threshold...) dans le fichier config.py.
-    -   Découper les fonctions monolithiques (orchestrate_rag_flow) en plus petites fonctions testables.
 
 ---
 
@@ -31,7 +30,6 @@
 
 -   **Passer à une Architecture "API-First" :**
     -   Refactorer l'endpoint /ingest pour le rendre indépendant du système de fichiers local (accepter l'upload de fichiers, des URLs...).
-    -   Refactorer le service d'ingestion (ingestion.py) pour traiter des données en mémoire.
     -   Mettre à jour l'UI Streamlit pour qu'elle utilise les nouveaux endpoints API.
 
 -   **Architecture Multi-Tenant et Sécurité :**
@@ -111,6 +109,8 @@
 
 -   **Ajouter des Outils Externes :**
     -   Intégrer un outil **Web Search** (ex: `Tavily`).
+    -   Outil de génération de document pdf.
+    -   Outil de génération de présentation Google Slides.
 
 -   **Diversifier les Sources de Données :**
     -   Ajouter l'ingestion depuis des URLs, Google Drive, Slack...
