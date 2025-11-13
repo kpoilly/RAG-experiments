@@ -7,12 +7,15 @@ import streamlit as st
 
 # --- Config ---
 
-RAG_CORE_URL = os.getenv("RAG_CORE_URL", "http://rag-core:8001")
+API_URL = os.getenv("API_URL", "http://nginx/api")
+CHAT_URL = f"{API_URL}/chat"
+INGEST_URL = f"{API_URL}/ingest"
+HEALTH_URL = f"{API_URL}/health"
+
 DATA_PATH = "/app/data"
 
 
 # --- Utils ---
-
 
 @st.cache_data(ttl=10)
 def get_current_documents():
@@ -27,7 +30,7 @@ def get_current_documents():
 def trigger_ingestion():
     """Call the RAG Core ingestion endpoint to process documents."""
     try:
-        response = requests.post(f"{RAG_CORE_URL}/ingest")
+        response = requests.post(INGEST_URL)
         response.raise_for_status()
         return True, response.json()
     except requests.RequestException as e:
@@ -89,7 +92,7 @@ if page == "💬 Chat":
                     try:
                         api_history = [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.messages]
                         request_payload = {"query": prompt, "history": api_history}
-                        with requests.post(f"{RAG_CORE_URL}/chat", json=request_payload, stream=True, timeout=120) as response:
+                        with requests.post(CHAT_URL, json=request_payload, stream=True, timeout=120) as response:
                             response.raise_for_status()
                             for line in response.iter_lines():
                                 decoded_line = line.decode("utf-8")

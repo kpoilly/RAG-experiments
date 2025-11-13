@@ -25,17 +25,14 @@
 
 ---
 
-#### **Phase 2 : MLOps & Fondations de Production**
+#### **Phase 2 : MLOps & Architecture API-First**
 
-*Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et l'observabilité du projet.*
+*Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
 
--   **Mettre en place les Tests (`pytest`) :**
-    -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
-    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
-
--   **Construire la Pipeline de CI/CD (GitHub Actions) :**
-    -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
-    -   Préparer un squelette de workflow de **CD** pour le déploiement.
+-   **Passer à une Architecture "API-First" :**
+    -   Refactorer l'endpoint /ingest pour le rendre indépendant du système de fichiers local (accepter l'upload de fichiers, des URLs...).
+    -   Refactorer le service d'ingestion (ingestion.py) pour traiter des données en mémoire.
+    -   Mettre à jour l'UI Streamlit pour qu'elle utilise les nouveaux endpoints API.
 
 -   **Architecture Multi-Tenant et Sécurité :**
     -   Ajouter la validation du type de fichier avec `python-magic`.
@@ -46,6 +43,15 @@
         -   Permettre aux utilisateurs de stocker leur propre clé API de manière sécurisée (chiffrée en base de données).
         -   Modifier le llm-gateway pour qu'il transmette la clé de l'utilisateur au Proxy LiteLLM pour chaque requête.
         -   Ajouter une logique de limitation d'usage (ex: nombre de documents, nombre de requêtes par mois) pour chaque utilisateur.
+
+-   **Mettre en place les Tests (`pytest`) :**
+    -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
+    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
+
+-   **Construire la Pipeline de CI/CD (GitHub Actions) :**
+    -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
+    -   Préparer un squelette de workflow de **CD** pour le déploiement.
+
 
 ---
 
@@ -72,10 +78,6 @@
 
 -   **Héberger la Base de Données :**
     -   Migrer la base de données PostgreSQL vers un service managé (ex: Supabase, Cloud SQL).
-
--   **Point d'Entrée Réseau (Reverse Proxy) :**
-    -   Intégrer Nginx dans docker-compose comme point d'entrée unique.
-    -   Configurer Nginx pour la terminaison SSL/TLS (HTTPS) et le routage vers le service UI.
 
 -   **Préparation pour Kubernetes :**
     -   Installer et configurer **Kind** ou **Minikube**.
