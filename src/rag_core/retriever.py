@@ -199,16 +199,16 @@ async def retrieve_and_deduplicate_documents(retriever: ParentDocumentRetriever,
     """
     tasks = [retriever.ainvoke(q) for q in queries]
     nested_docs = await asyncio.gather(*tasks)
-    
+
     flat_list = [doc for sublist in nested_docs for doc in sublist]
-    
+
     seen_contents = set()
     unique_docs = []
     for doc in flat_list:
         if doc.page_content not in seen_contents:
             seen_contents.add(doc.page_content)
             unique_docs.append(doc)
-            
+
     logger.info(f"Retrieved {len(unique_docs)} unique document chunks.")
     return unique_docs
 
@@ -236,7 +236,7 @@ def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCross
     logger.info(f"Reranking documents... (Threshold: {env.RERANKER_THRESHOLD})")
     pairs = [(query, doc.page_content) for doc in docs_to_rerank]
     scores = reranker.score(pairs)
-    
+
     reranked_results = sorted(zip(docs_to_rerank, scores), key=lambda x: x[1], reverse=True)
     filtered_results = [result for result in reranked_results if result[1] > env.RERANKER_THRESHOLD]
 
@@ -246,8 +246,7 @@ def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCross
     elif reranked_results:
         final_docs = [reranked_results[0][0]]
         logger.warning(
-            f"No documents met the threshold of {env.RERANKER_THRESHOLD}. "
-            f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
+            f"No documents met the threshold of {env.RERANKER_THRESHOLD}. " f"Falling back to the single best document with score {reranked_results[0][1]:.4f}."
         )
     else:
         final_docs = []
@@ -255,9 +254,7 @@ def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCross
     return final_docs
 
 
-def assemble_context(
-    query: str, history: List[Dict[str, str]], docs: List
-) -> Tuple[List[str], List[Dict[str, str]], int]:
+def assemble_context(query: str, history: List[Dict[str, str]], docs: List) -> Tuple[List[str], List[Dict[str, str]], int]:
     """
     Assembles the context for the LLM, respecting the token limit.
 
@@ -273,25 +270,27 @@ def assemble_context(
         - The total number of tokens in the assembled context.
     """
     tokenizer = tiktoken.get_encoding("cl100k_base")
-    prompt_template_tokens = len(tokenizer.encode(
-        SYSTEM_PROMPTS["instructions"]
-        .replace("{context}", "")
-        .replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])
-    ))
+    prompt_template_tokens = len(
+        tokenizer.encode(
+            SYSTEM_PROMPTS["instructions"]
+            .replace("{context}", "")
+            .replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])
+        )
+    )
     query_tokens = len(tokenizer.encode(query))
     history_tokens = sum(len(tokenizer.encode(msg.get("content", ""))) for msg in history)
-    
+
     current_tokens = prompt_template_tokens + query_tokens + history_tokens
-    
+
     context_texts = []
     source_metadatas = []
-    
+
     for doc in docs:
         doc_tokens = len(tokenizer.encode(doc.page_content))
         if current_tokens + doc_tokens > env.MAX_CONTEXT_TOKENS:
             logger.info("Reached max context tokens. Stopping context assembly.")
             break
-            
+
         current_tokens += doc_tokens
         context_texts.append(doc.page_content.replace("\udcc3", " ").replace("\xa0", " ").strip())
         source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
@@ -300,7 +299,7 @@ def assemble_context(
 
     if not context_texts:
         logger.warning("No relevant documents were added to the context.")
-        
+
     return context_texts, unique_metadatas, current_tokens
 
 
@@ -330,14 +329,14 @@ async def stream_llm_response(
     try:
         request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, stream=True)
         gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
-        
+
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", gateway_url, json=request_data.model_dump()) as response:
                 response.raise_for_status()
                 async for text_chunk in response.aiter_text():
                     yield text_chunk
         logger.info("LLM stream completed.")
-        
+
     except httpx.RequestError as e:
         logger.error(f"Request failed: {e}")
         yield json.dumps({"type": "error", "content": str(e)}) + "\n"
@@ -368,7 +367,7 @@ async def orchestrate_rag_flow(query: str, history: List[Dict[str, str]]) -> Asy
     expanded_queries = await expand_query(query, history)
     retrieved_docs = await retrieve_and_deduplicate_documents(retriever, expanded_queries)
     final_docs = rerank_documents(query, retrieved_docs, reranker)
-    
+
     context_texts, unique_metadatas, token_count = assemble_context(query, history, final_docs)
     async for chunk in stream_llm_response(query, history, context_texts, unique_metadatas, token_count):
         yield chunk
