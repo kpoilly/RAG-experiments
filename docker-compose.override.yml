@@ -10,3 +10,7 @@ services:
   llm-gateway:
     volumes:
       - ./src/llm_gateway:/app
+
+  streamlit-ui:
+    volumes:
+      - ./src/streamlit_ui:/app

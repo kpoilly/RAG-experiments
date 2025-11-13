@@ -1,10 +1,9 @@
-import os
 import json
+import os
 import time
 
-import streamlit as st
 import requests
-
+import streamlit as st
 
 # --- Config ---
 
@@ -14,6 +13,7 @@ DATA_PATH = "/app/data"
 
 # --- Utils ---
 
+
 @st.cache_data(ttl=10)
 def get_current_documents():
     """get current document filenames in the data directory."""
@@ -22,6 +22,7 @@ def get_current_documents():
     except FileNotFoundError:
         st.error(f"Data directory not found at {DATA_PATH}")
         return []
+
 
 def trigger_ingestion():
     """Call the RAG Core ingestion endpoint to process documents."""
@@ -35,13 +36,10 @@ def trigger_ingestion():
 
 # --- Init ---
 
-st.set_page_config(
-    page_title="Conversational RAG Assistant",
-    page_icon="🤖",
-    layout="wide"
-)
+st.set_page_config(page_title="Conversational RAG Assistant", page_icon="🤖", layout="wide")
 
-st.markdown("""
+st.markdown(
+    """
     <style>
         .block-container {
             padding-top: 1rem; /* Réduit l'espace en haut de la page */
@@ -50,7 +48,9 @@ st.markdown("""
             padding-top: 0rem; /* Réduit l'espace au-dessus du titre */
         }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.title("RAG")
@@ -78,7 +78,7 @@ if page == "💬 Chat":
 
         if prompt := st.chat_input("Ask a question about your documents..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
-            
+
             with chat_container:
                 with st.chat_message("user"):
                     st.markdown(prompt)
@@ -87,10 +87,7 @@ if page == "💬 Chat":
                     message_placeholder = st.empty()
                     full_response = ""
                     try:
-                        api_history = [
-                            {"role": msg["role"], "content": msg["content"]} 
-                            for msg in st.session_state.messages
-                        ]
+                        api_history = [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.messages]
                         request_payload = {"query": prompt, "history": api_history}
                         with requests.post(f"{RAG_CORE_URL}/chat", json=request_payload, stream=True, timeout=120) as response:
                             response.raise_for_status()
@@ -119,25 +116,20 @@ if page == "💬 Chat":
 
     with col_docs:
         st.header("📄 Documents")
-        
+
         st.subheader("Current Documents")
         with st.expander("Show/Hide documents", expanded=False):
             st.write(get_current_documents() or ["No documents found."])
 
         st.subheader("Add Documents")
         with st.form("upload_form", clear_on_submit=True):
-            uploaded_files = st.file_uploader(
-                "Upload files...", 
-                accept_multiple_files=True, 
-                type=['pdf', 'md', 'docx'], 
-                label_visibility="collapsed"
-            )
+            uploaded_files = st.file_uploader("Upload files...", accept_multiple_files=True, type=["pdf", "md", "docx"], label_visibility="collapsed")
             submitted = st.form_submit_button("Add")
             if submitted and uploaded_files:
                 for uploaded_file in uploaded_files:
                     with open(os.path.join(DATA_PATH, uploaded_file.name), "wb") as f:
                         f.write(uploaded_file.getbuffer())
-                
+
                 with st.spinner("Processing documents... This may take a few minutes."):
                     success, _ = trigger_ingestion()
 
@@ -148,7 +140,6 @@ if page == "💬 Chat":
                     st.error("❌ Ingestion failed.")
                 time.sleep(2)
                 st.rerun()
-
 
         st.subheader("Remove Documents")
         docs_to_delete = st.multiselect("Select documents to remove:", get_current_documents())
@@ -163,18 +154,24 @@ if page == "💬 Chat":
 
 elif page == "⚙️ Settings":
     st.title("⚙️ Application Settings")
-    st.info("These settings are read from the environment variables at startup. To change them, please update your `.env` file and restart the Docker services with `docker-compose up --build`.")
+    st.info(
+        "These settings are read from the environment variables at startup. To change them, please update your `.env`\
+              file and restart the Docker services with `docker-compose up --build`."
+    )
 
     st.subheader("RAG Behavior")
-    st.text_input("Strict RAG Mode", value=os.getenv('LLM_STRICT_RAG', 'Not Set'), disabled=True)
-    st.text_input("Reranker Threshold", value=os.getenv('RERANKER_THRESHOLD', 'Not Set'), disabled=True)
+    st.text_input("Strict RAG Mode", value=os.getenv("LLM_STRICT_RAG", "Not Set"), disabled=True)
+    st.text_input("Reranker Threshold", value=os.getenv("RERANKER_THRESHOLD", "Not Set"), disabled=True)
 
     st.subheader("Models")
-    st.text_input("LLM Model", value=os.getenv('LLM_MODEL', 'Not Set'), disabled=True)
-    st.text_input("Embedding Model", value=os.getenv('EMBEDDING_MODEL', 'Not Set'), disabled=True)
-    st.text_input("Reranker Model", value=os.getenv('RERANKER_MODEL', 'Not Set'), disabled=True)
+    st.text_input("LLM Model", value=os.getenv("LLM_MODEL", "Not Set"), disabled=True)
+    st.text_input("Embedding Model", value=os.getenv("EMBEDDING_MODEL", "Not Set"), disabled=True)
+    st.text_input("Reranker Model", value=os.getenv("RERANKER_MODEL", "Not Set"), disabled=True)
 
 elif page == "ℹ️ Info":
     st.title("ℹ️ About This Project")
-    st.info("This is a boilerplate for a production-ready RAG conversational assistant. It uses a Parent Document Retrieval strategy with a PostgreSQL+PGVector backend, and a provider-agnostic LLM Gateway powered by LiteLLM.")
+    st.info(
+        "This is a boilerplate for a production-ready RAG conversational assistant. It uses a Parent Document Retrieval strategy with a PostgreSQL+PGVector backend,\
+              and a provider-agnostic LLM Gateway powered by LiteLLM."
+    )
     st.markdown("For more details, check out the [GitHub repository](https://github.com/kpoilly/RAG-experiments).")
