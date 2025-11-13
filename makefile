@@ -34,7 +34,7 @@ build: sync-configs
 
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
-	curl -X POST http://localhost:8001/ingest 
+	curl -X POST http://localhost/api/ingest 
 
 down:
 	docker compose down
