@@ -189,9 +189,9 @@ elif page == "⚙️ Settings":
     st.session_state.llm_temperature = st.slider(label="LLM Temperature", min_value=0.0, max_value=2.0, step=0.05, value=st.session_state.llm_temperature, width=500)
     st.session_state.rerank_threshold = st.slider(label="Reranker Threshold", min_value=0.0, max_value=1.0, step=0.05, value=st.session_state.rerank_threshold, width=500)
     st.text_input("Chunk Size (Parent)", value=os.getenv("CHUNK_SIZE_P", "Not Set"), disabled=True)
-    st.text_input("Overlap (Parent)", value=os.getenv("OVERLAP_P", "Not Set"), disabled=True)
+    st.text_input("Overlap (Parent)", value=os.getenv("CHUNK_OVERLAP_P", "Not Set"), disabled=True)
     st.text_input("Chunk Size (Child)", value=os.getenv("CHUNK_SIZE_C", "Not Set"), disabled=True)
-    st.text_input("Overlap (Child)", value=os.getenv("OVERLAP_C", "Not Set"), disabled=True)
+    st.text_input("Overlap (Child)", value=os.getenv("CHUNK_OVERLAP_C", "Not Set"), disabled=True)
 
 elif page == "ℹ️ Info":
     st.title("ℹ️ About This Project")

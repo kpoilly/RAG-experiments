@@ -4,7 +4,6 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
-import tiktoken
 from langchain_classic.retrievers import ParentDocumentRetriever
 from langchain_classic.storage import EncoderBackedStore
 from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
@@ -19,7 +18,7 @@ from langchain_postgres.vectorstores import PGVector
 from config import settings as env
 from ingestion import get_embeddings
 from models import ExpandedQueries, LLMRequest
-from utils import format_history_for_prompt, value_deserializer, value_serializer
+from utils import count_tokens, format_history_for_prompt, truncate_history, value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -130,34 +129,6 @@ def get_query_expansion_chain() -> Optional[RunnableSequence]:
 
 
 # --- RAG flow ---
-def build_prompt_with_context(query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, Any]]]:
-    """
-    Build the final prompt to send to the LLM, including RAG context and history.
-
-    Args:
-        query: user's query.
-        context: Chunks of documents retrieved.
-        history: chat history.
-
-    Returns:
-        A Tuple with the system instruction and the list of final messages.
-    """
-
-    context_map = []
-    for i, (text_chunk) in enumerate(context):
-        metadata = metadatas[i] if i < len(metadatas) else {"source": "N/A", "page": "N/A"}
-        context_map.append(f"Content: {text_chunk} (Source: {metadata['source']} [Page {metadata['page']}])")
-    context = "\n\n".join(context_map)
-
-    template = SYSTEM_PROMPTS["instructions"]
-    system_instruction = template.format(context=context, strict_rule=SYSTEM_PROMPTS["strict_rule_true"] if env.LLM_STRICT_RAG else SYSTEM_PROMPTS["strict_rule_false"])
-    messages = [{"role": "system", "content": system_instruction}]
-    for message in history:
-        messages.append(message)
-    messages.append({"role": "user", "content": query})
-    return system_instruction, messages
-
-
 async def expand_query(query: str, history: List[Dict[str, str]]) -> List[str]:
     """
     Expands the original query into multiple related queries using a language model.
@@ -254,62 +225,107 @@ def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCross
     return final_docs
 
 
-def assemble_context(query: str, history: List[Dict[str, str]], docs: List, strict: bool = env.LLM_STRICT_RAG) -> Tuple[List[str], List[Dict[str, str]], int]:
+def build_context_from_docs(docs: List, context_budget: int) -> Tuple[List[str], List[Dict[str, str]]]:
     """
-    Assembles the context for the LLM, respecting the token limit.
-
-    Args:
-        query: The user's query.
-        history: The chat history.
-        docs: The final list of documents to include in the context.
-
-    Returns:
-        A tuple containing:
-        - The list of context strings.
-        - A unique list of source metadata dictionaries.
-        - The total number of tokens in the assembled context.
+    Build the context string and metadata from documents within a token budget.
     """
-    if strict is None:
-        strict = env.LLM_STRICT_RAG
-
-    logging.info(f"Assembling context... (strict rag: {strict})")
-    tokenizer = tiktoken.get_encoding("cl100k_base")
-    prompt_template_tokens = len(
-        tokenizer.encode(
-            SYSTEM_PROMPTS["instructions"]
-            .replace("{context}", "")
-            .replace("{strict_rule}", SYSTEM_PROMPTS["strict_rule_true"] if strict else SYSTEM_PROMPTS["strict_rule_false"])
-        )
-    )
-    query_tokens = len(tokenizer.encode(query))
-    history_tokens = sum(len(tokenizer.encode(msg.get("content", ""))) for msg in history)
-
-    current_tokens = prompt_template_tokens + query_tokens + history_tokens
-
     context_texts = []
     source_metadatas = []
+    current_context_tokens = 0
 
     for doc in docs:
-        doc_tokens = len(tokenizer.encode(doc.page_content))
-        if current_tokens + doc_tokens > env.LLM_MAX_CONTEXT_TOKENS:
-            logger.info("Reached max context tokens. Stopping context assembly.")
+        doc_tokens = count_tokens(doc.page_content)
+        if current_context_tokens + doc_tokens > context_budget:
+            logger.info("Reached RAG context token budget. Stopping context assembly.")
             break
 
-        current_tokens += doc_tokens
+        current_context_tokens += doc_tokens
         context_texts.append(doc.page_content.replace("\udcc3", " ").replace("\xa0", " ").strip())
         source_metadatas.append({"source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")})
 
     unique_metadatas = [dict(t) for t in {tuple(d.items()) for d in source_metadatas}]
+    return context_texts, unique_metadatas
 
+
+def build_prompt_with_context(
+    query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]], strict_rule: str
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """
+    Build the final prompt to send to the LLM, including RAG context and history.
+
+    Args:
+        query: user's query.
+        context: Chunks of documents retrieved.
+        history: chat history.
+
+    Returns:
+        A Tuple with the system instruction and the list of final messages.
+    """
+
+    context_map = []
+    for i, (text_chunk) in enumerate(context):
+        metadata = metadatas[i] if i < len(metadatas) else {"source": "N/A", "page": "N/A"}
+        context_map.append(f"Content: {text_chunk} (Source: {metadata['source']} [Page {metadata['page']}])")
+    context = "\n\n".join(context_map)
+
+    template = SYSTEM_PROMPTS["instructions"]
+    system_instruction = template.format(context=context, strict_rule=strict_rule)
+    messages = [{"role": "system", "content": system_instruction}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": query})
+
+    return system_instruction, messages
+
+
+def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, strict: bool) -> Tuple[List[Dict[str, Any]], int]:
+    """
+    Assembles the final prompt for the LLM, managing token budgets for context and history.
+
+    Args:
+        query: The user's query.
+        history: The chat history.
+        docs: The retrieved and reranked documents.
+        strict: The strict RAG mode flag.
+
+    Returns:
+        A tuple containing:
+        - The final list of messages for the LLM API.
+        - The total number of tokens in the final prompt.
+    """
+    # Defining budgets
+    RESPONSE_BUDGET = int(env.LLM_MAX_CONTEXT_TOKENS * 0.1)
+    CONTEXT_BUDGET = int(env.LLM_MAX_CONTEXT_TOKENS * 0.6)
+    SAFETY_MARGIN = 0.95
+
+    # Calculating token counts
+    query_tokens = count_tokens(query)
+    strict_rule = SYSTEM_PROMPTS["strict_rule_true"] if strict else SYSTEM_PROMPTS["strict_rule_false"]
+    prompt_template = SYSTEM_PROMPTS["instructions"]
+    prompt_template_tokens = count_tokens(prompt_template + strict_rule)
+
+    # Truncate history if necessary to fit budget
+    history_budget = (env.LLM_MAX_CONTEXT_TOKENS * SAFETY_MARGIN) - (query_tokens + prompt_template_tokens + CONTEXT_BUDGET + RESPONSE_BUDGET)
+    final_history = truncate_history(history, history_budget)
+    history_tokens = sum(count_tokens(message.get("content", "")) for message in final_history)
+
+    # Build context from documents
+    context_texts, unique_metadatas = build_context_from_docs(docs, CONTEXT_BUDGET)
+    context_tokens = sum(count_tokens(text) for text in context_texts)
     if not context_texts:
-        logger.warning("No relevant documents were added to the context.")
+        logger.warning("No relevant documents were added to the final context.")
 
-    return context_texts, unique_metadatas, current_tokens
+    # Assemble final prompt
+    system_instructions, messages = build_prompt_with_context(query, context_texts, unique_metadatas, final_history, strict_rule)
+    total_tokens = query_tokens + history_tokens + context_tokens + prompt_template_tokens
+    logger.info(
+        f"Final prompt assembled. Tokens - Total: {total_tokens}, Query: {query_tokens}, "
+        f"History: {history_tokens}, Context: {context_tokens}, Template: {prompt_template_tokens}"
+    )
+
+    return messages, total_tokens
 
 
-async def stream_llm_response(
-    query: str, history: List[Dict[str, str]], context_texts: List[str], unique_metadatas: List[Dict[str, str]], token_count: int, temp: float = env.LLM_TEMPERATURE
-) -> AsyncGenerator[str, None]:
+async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None) -> AsyncGenerator[str, None]:
     """
     Constructs the final prompt, calls the LLM, and streams the response.
 
@@ -323,19 +339,15 @@ async def stream_llm_response(
     Yields:
         JSON strings representing chunks of the LLM's response or an error.
     """
-    if temp is None:
-        temp = env.LLM_TEMPERATURE
-
-    _, messages = build_prompt_with_context(query, context_texts, unique_metadatas, history)
-    logging.info(f"Final prompt constructed ({token_count} tokens). Invoking LLM...")
+    temp = temp if temp is not None else env.LLM_TEMPERATURE
+    logger.info(f"Invoking LLM... (model: {env.LLM_MODEL}, temp: {temp}, tokens: {token_count})")
 
     try:
         request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, temperature=temp, stream=True)
+        request_payload = request_data.model_dump(exclude_none=True)
         gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
-
-        logger.info(f"Sending request to {gateway_url} (model: {env.LLM_MODEL}, temp: {temp})")
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", gateway_url, json=request_data.model_dump()) as response:
+            async with client.stream("POST", gateway_url, json=request_payload) as response:
                 response.raise_for_status()
                 async for text_chunk in response.aiter_text():
                     yield text_chunk
@@ -362,19 +374,22 @@ async def orchestrate_rag_flow(
     Yields:
         A stream of JSON strings containing the LLM's answer or an error.
     """
-    logger.info(f"Starting RAG flow for query: {query[:50]}...")
+    strict_mode = strict if strict is not None else env.LLM_STRICT_RAG
+    logger.info(f"Starting RAG flow for query: {query[:50]}... (strict mode: {strict_mode}))")
 
     retriever, reranker = await get_retriever()
     if retriever is None:
         logger.error("Cannot retrieve retriever.")
-        yield json.dumps({"type": "error", "content": "System Error: Error connecting to DB."}) + "\n"
+        yield json.dumps({"type": "error", "content": "System Error: Retriever not available."}) + "\n"
         return
 
     expanded_queries = await expand_query(query, history)
     retrieved_docs = await retrieve_and_deduplicate_documents(retriever, expanded_queries)
     final_docs = rerank_documents(query, retrieved_docs, reranker, rerank_threshold)
 
-    context_texts, unique_metadatas, token_count = assemble_context(query, history, final_docs, strict)
-    async for chunk in stream_llm_response(query, history, context_texts, unique_metadatas, token_count, temp):
+    messages, token_count = build_final_prompt(query, history, final_docs, strict_mode)
+
+    async for chunk in stream_llm_response(messages, token_count, temp):
         yield chunk
+
     logger.info("RAG flow finished.")

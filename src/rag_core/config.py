@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
     LLM_TEMPERATURE: float = 0.3
     LLM_MAX_CONTEXT_TOKENS: int = 30000
-    LLM_STRICT_RAG: bool = True
+    LLM_STRICT_RAG: bool = False
 
     # --- Embedding & Reranking Models ---
     EMBEDDING_MODEL: str = "intfloat/multilingual-e5-small"

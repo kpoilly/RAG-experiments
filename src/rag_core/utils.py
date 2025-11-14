@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict, List
 
 import httpx
+import tiktoken
 from langchain_classic.load import dumps, loads
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -75,3 +76,37 @@ def value_serializer(value: Any) -> bytes:
 
 def value_deserializer(data: bytes) -> Any:
     return loads(json.loads(data.decode("utf-8")))
+
+
+try:
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+except Exception:
+    tokenizer = tiktoken.encoding_for_model("gpt-4")
+
+
+def count_tokens(text: str) -> int:
+    """
+    Count the number of tokens in a text.
+    """
+    return len(tokenizer.encode(text))
+
+
+def truncate_history(history: List[Dict[str, str]], max_tokens: int) -> List[Dict[str, str]]:
+    """
+    Truncate history to stay within the context window.
+    """
+    if sum(count_tokens(message.get("content", "")) for message in history) <= max_tokens:
+        return history
+
+    current_tokens = 0
+    truncated_history = []
+
+    for message in reversed(history):
+        message_tokens = count_tokens(message.get("content", ""))
+        if (current_tokens + message_tokens) <= max_tokens:
+            truncated_history.insert(0, message)
+            current_tokens += message_tokens
+        else:
+            break
+
+    return truncated_history
