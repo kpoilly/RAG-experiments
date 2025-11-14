@@ -66,7 +66,7 @@ async def ingest(data_path: str = os.getenv("DATA_PATH", "/app/src/data")):
 async def generate(request: GenerationRequest):
     try:
         formated_query = re.sub(r"(\b[ldjstnmc]|qu)'", r"\1 ", request.query.lower())
-        response_generator = orchestrate_rag_flow(formated_query, request.history)
+        response_generator = orchestrate_rag_flow(formated_query, request.history, request.temperature, request.strict_rag, request.rerank_threshold)
         return StreamingResponse(content=response_generator, media_type="text/event-stream")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")

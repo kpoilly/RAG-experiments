@@ -28,6 +28,8 @@ up:
 	@echo "========================================================"
 	docker compose $(COMPOSE_FILES) up -d
 
+re: down up ui
+
 build: sync-configs
 	@echo "🚀 Building all services..."
 	docker compose $(COMPOSE_FILES) build
@@ -46,7 +48,7 @@ cli:
 
 ui:
 	@echo "🔄 Waiting for Streamlit to start..."
-	@sleep 10
+	@sleep 5
 	@echo "🌍 Opening Streamlit UI in browser at http://localhost/..."
 	@sh -c ' \
 			case "`uname -s`" in \

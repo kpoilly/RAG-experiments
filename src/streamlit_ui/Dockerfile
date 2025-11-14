@@ -5,6 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY pyproject.toml /app/pyproject.toml
 COPY app.py .
 
 EXPOSE 8501

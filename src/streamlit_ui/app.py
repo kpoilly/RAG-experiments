@@ -14,7 +14,6 @@ HEALTH_URL = f"{API_URL}/health"
 
 DATA_PATH = "/app/data"
 
-
 # --- Utils ---
 
 
@@ -65,6 +64,12 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "upload_processed" not in st.session_state:
     st.session_state.upload_processed = False
+if "llm_temperature" not in st.session_state:
+    st.session_state.llm_temperature = float(os.getenv("LLM_TEMPERATURE", 0.3))
+if "llm_strict_rag" not in st.session_state:
+    st.session_state.llm_strict_rag = os.getenv("LLM_STRICT_RAG", "True").lower() == "true"
+if "rerank_threshold" not in st.session_state:
+    st.session_state.rerank_threshold = float(os.getenv("RERANKER_THRESHOLD", 0.4))
 
 
 # --- Main Page ---
@@ -92,7 +97,13 @@ if page == "💬 Chat":
                     full_response = ""
                     try:
                         api_history = [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.messages]
-                        request_payload = {"query": prompt, "history": api_history}
+                        request_payload = {
+                            "query": prompt,
+                            "history": api_history,
+                            "temperature": st.session_state.llm_temperature,
+                            "strict_rag": st.session_state.llm_strict_rag,
+                            "rerank_threshold": st.session_state.rerank_threshold,
+                        }
                         with requests.post(CHAT_URL, json=request_payload, stream=True, timeout=120) as response:
                             response.raise_for_status()
                             for line in response.iter_lines():
@@ -163,14 +174,24 @@ elif page == "⚙️ Settings":
               file and restart the Docker services with `docker-compose up --build`."
     )
 
-    st.subheader("RAG Behavior")
-    st.text_input("Strict RAG Mode", value=os.getenv("LLM_STRICT_RAG", "Not Set"), disabled=True)
-    st.text_input("Reranker Threshold", value=os.getenv("RERANKER_THRESHOLD", "Not Set"), disabled=True)
-
     st.subheader("Models")
     st.text_input("LLM Model", value=os.getenv("LLM_MODEL", "Not Set"), disabled=True)
     st.text_input("Embedding Model", value=os.getenv("EMBEDDING_MODEL", "Not Set"), disabled=True)
     st.text_input("Reranker Model", value=os.getenv("RERANKER_MODEL", "Not Set"), disabled=True)
+
+    st.subheader("RAG Behavior")
+    st.session_state.llm_strict_rag = st.toggle(
+        "Strict RAG Mode",
+        value=st.session_state.llm_strict_rag,
+        help="If enabled, \
+            the assistant is strictly forbidden from using any knowledge outside of the provided documents.",
+    )
+    st.session_state.llm_temperature = st.slider(label="LLM Temperature", min_value=0.0, max_value=2.0, step=0.05, value=st.session_state.llm_temperature, width=500)
+    st.session_state.rerank_threshold = st.slider(label="Reranker Threshold", min_value=0.0, max_value=1.0, step=0.05, value=st.session_state.rerank_threshold, width=500)
+    st.text_input("Chunk Size (Parent)", value=os.getenv("CHUNK_SIZE_P", "Not Set"), disabled=True)
+    st.text_input("Overlap (Parent)", value=os.getenv("OVERLAP_P", "Not Set"), disabled=True)
+    st.text_input("Chunk Size (Child)", value=os.getenv("CHUNK_SIZE_C", "Not Set"), disabled=True)
+    st.text_input("Overlap (Child)", value=os.getenv("OVERLAP_C", "Not Set"), disabled=True)
 
 elif page == "ℹ️ Info":
     st.title("ℹ️ About This Project")

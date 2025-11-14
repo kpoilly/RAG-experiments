@@ -12,11 +12,16 @@ class Settings(BaseSettings):
     # --- LLM & Gateway Settings ---
     LLM_MODEL: str = "groq/llama-3.1-8b-instant"
     LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
-    MAX_CONTEXT_TOKENS: int = 30000
+    LLM_TEMPERATURE: float = 0.3
+    LLM_MAX_CONTEXT_TOKENS: int = 30000
     LLM_STRICT_RAG: bool = True
 
     # --- Embedding & Reranking Models ---
     EMBEDDING_MODEL: str = "intfloat/multilingual-e5-small"
+    CHUNK_SIZE_P: int = 1500
+    CHUNK_OVERLAP_P: int = 200
+    CHUNK_SIZE_C: int = 300
+    CHUNK_OVERLAP_C: int = 50
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     RERANKER_THRESHOLD: float = 0.4
 

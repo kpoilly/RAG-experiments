@@ -7,7 +7,10 @@ services:
     tty: true
     environment:
       - API_URL=http://nginx/api
-      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
+      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
+    depends_on:
+      rag-core:
+        condition: service_healthy
     networks:
       - rag_network
 
@@ -20,16 +23,17 @@ services:
       - ./data:/app/data
     environment:
       - API_URL=http://nginx/api
-      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
+      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
       - LLM_MODEL=${LLM_MODEL}
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - RERANKER_MODEL=${RERANKER_MODEL}
       - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
-    depends_on:
-      rag-core:
-          condition: service_healthy
+      - CHUNK_SIZE_P=${CHUNK_SIZE_P}
+      - OVERLAP_P=${OVERLAP_P}
+      - CHUNK_SIZE_C=${CHUNK_SIZE_C}
+      - OVERLAP_C=${OVERLAP_C}
     networks:
       - rag_network
     
@@ -48,10 +52,15 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - COLLECTION_NAME=${COLLECTION_NAME}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - CHUNK_SIZE_P=${CHUNK_SIZE_P}
+      - OVERLAP_P=${OVERLAP_P}
+      - CHUNK_SIZE_C=${CHUNK_SIZE_C}
+      - OVERLAP_C=${OVERLAP_C}
       - LLM_MODEL=${LLM_MODEL}
-      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS}
+      - LLM_MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
       - LLM_STRICT_RAG=${LLM_STRICT_RAG}
       - LLM_GATEWAY_URL=http://llm-gateway:8002
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE}
       - RERANKER_MODEL=${RERANKER_MODEL}
       - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
       - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2}

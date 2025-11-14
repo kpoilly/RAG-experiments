@@ -6,9 +6,6 @@
 
 *Objectif : Transformer le projet en un outil fonctionnel  à utiliser en local, avec une gestion simple des documents et un comportement robuste face aux erreurs.*
 
--   **Configuration dynamique via l'UI :**
-    -   Modifier l'endpoint /chat pour accepter des paramètres optionnels (strict_mode, reranker_threshold).
-
 -   **Mieux gérer l'historique :**
     -   Implémenter une stratégie de fenêtre glissante ("sliding window") pour ne conserver que les N derniers échanges et éviter de dépasser la limite de contexte du LLM.
 
@@ -18,9 +15,6 @@
         -   Ajouter un endpoint /models au llm-gateway pour exposer les capacités des modèles (ex: max_tokens).
         -   Au démarrage du rag-core, appeler cet endpoint pour récupérer dynamiquement la context_window du LLM configuré.
 
--   **Refactorisation et "Code Polishing" :**
-    -   Centraliser tous les hyperparamètres du RAG (chunk_size, k, threshold...) dans le fichier config.py.
-
 ---
 
 #### **Phase 2 : MLOps & Architecture API-First**
@@ -28,8 +22,7 @@
 *Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
 
 -   **Passer à une Architecture "API-First" :**
-    -   Refactoriser l'endpoint /ingest pour accepter l'upload de fichiers, des URLs...
-    -   Mettre à jour l'UI Streamlit pour qu'elle utilise les nouveaux endpoints API.
+    -   Refactoriser l'endpoint /ingest pour accepter l'upload de fichiers, des URLs... depuis l'API.
 
 -   **Architecture Multi-Tenant et Sécurité :**
     -   Ajouter la validation du type de fichier avec `python-magic`.
