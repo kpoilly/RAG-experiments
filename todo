@@ -101,6 +101,3 @@
 -   **Diversifier les Sources de Données :**
     -   Ajouter l'ingestion depuis des URLs, Google Drive, Slack...
     -   gestion des images (**OCR** pour extraire le texte des images, description d'image etc.)
-
--   **Implémenter le Mode Haute Précision :**
-    -   Ajouter la logique de **RAG-Fusion** comme une option configurable.
