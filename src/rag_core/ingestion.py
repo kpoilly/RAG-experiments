@@ -200,8 +200,8 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         child_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C)
         logger.info(
             f"Splitters initialized. \
-(Parent Settings: s={env.CHUNK_SIZE_P}, o={env.CHUNK_OVERLAP_P}\
-Child Settings: s={env.CHUNK_SIZE_C}, o={env.CHUNK_OVERLAP_C})"
+(Parent Settings: size={env.CHUNK_SIZE_P}, overlap={env.CHUNK_OVERLAP_P}, \
+Child Settings: size={env.CHUNK_SIZE_C}, overlap={env.CHUNK_OVERLAP_C})"
         )
 
         retriever = ParentDocumentRetriever(

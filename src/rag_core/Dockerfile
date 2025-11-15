@@ -14,6 +14,7 @@ COPY models.py /app/models.py
 COPY config.py /app/config.py
 COPY main.py /app/main.py
 
+RUN pip install --no-cache-dir markdown==3.10
 RUN apt-get update && \
     apt-get install -y curl && \
     apt-get clean && \

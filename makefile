@@ -28,10 +28,10 @@ up:
 	@echo "========================================================"
 	docker compose $(COMPOSE_FILES) up -d
 
-re: down up ui
+re: down all
 
 build: sync-configs
-	@echo "🚀 Building all services..."
+	@echo "🔄 Building all services..."
 	docker compose $(COMPOSE_FILES) build
 
 ingest:
@@ -49,27 +49,7 @@ cli:
 ui:
 	@echo "🔄 Waiting for Streamlit to start..."
 	@sleep 5
-	@echo "🌍 Opening Streamlit UI in browser at http://localhost/..."
-	@sh -c ' \
-			case "`uname -s`" in \
-				Linux*) \
-					if grep -q -i Microsoft /proc/version; then \
-						explorer.exe http://localhost/ || true; \
-					else \
-						xdg-open http://localhost/ || true; \
-					fi \
-					;; \
-				Darwin*) \
-					open http://localhost/ || true; \
-					;; \
-				CYGWIN*|MINGW*|MSYS*) \
-					start http://localhost/ || true; \
-					;; \
-				*) \
-					echo "Could not detect OS, please open http://localhost/ manually."; \
-					;; \
-			esac \
-		'
+	@$(MAKE) --no-print-directory open URL=http://localhost/
 
 
 #--- DEV ---
@@ -80,12 +60,11 @@ sync-configs:
 		done; \
 	done
 
-down-clean:
-	docker compose down -v
-	@echo "🛑 All services have been stopped and volumes removed."
+prometheus:
+	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
 
-docker-clean:
-	docker system prune -a --volumes -f
+grafana:
+	@$(MAKE) --no-print-directory open URL=http://localhost/grafana/
 
 clean:
 	@for service in $(SERVICES_FOLDERS); do \
@@ -94,6 +73,44 @@ clean:
 		rm -rf src/$$service/.ruff_cache; \
 		rm -rf src/$$service/.pytest_cache; \
 	done
+
+down-clean:
+	docker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
+
+docker-clean:
+	docker system prune -a --volumes -f
+
+
+open:
+	@if [ -z "$(URL)" ]; then \
+		echo "🔴 Error: URL argument is missing."; \
+		echo "Usage: make open URL=<your_url>"; \
+		exit 1; \
+	fi
+
+	@echo "🌍 Opening $(URL) in browser..."
+	@sh -c ' \
+			URL_TO_OPEN="$(URL)"; \
+			case "`uname -s`" in \
+				Linux*) \
+					if grep -q -i Microsoft /proc/version; then \
+						explorer.exe "$$URL_TO_OPEN" || true; \
+					else \
+						xdg-open "$$URL_TO_OPEN" || true; \
+					fi \
+					;; \
+				Darwin*) \
+					open "$$URL_TO_OPEN" || true; \
+					;; \
+				CYGWIN*|MINGW*|MSYS*) \
+					start "$$URL_TO_OPEN" || true; \
+					;; \
+				*) \
+					echo "Could not detect OS, please open "$$URL_TO_OPEN" manually."; \
+					;; \
+			esac \
+		'
 
 
 #--- LOGS ---
