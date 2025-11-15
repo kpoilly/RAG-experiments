@@ -34,7 +34,6 @@ The core of the system is enhancing information retrieval for the LLM.
 
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
-
 | **User Interface** | Streamlit | Provides an interactive web UI for chat and document management. |
 | **LLM Orchestration** | LiteLLM Proxy | Central hub for LLM routing, fallback, caching, and rate limiting. |
 | **LLM & Inference** | Any LiteLLM Provider (e.g., Groq, OpenAI, Anthropic, etc.) | Ultra-fast response generation and reasoning. |
