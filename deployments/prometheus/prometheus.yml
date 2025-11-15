@@ -16,3 +16,8 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["rag-core-api:8001"]
+
+  - job_name: "postgres"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["pg-exporter:9187"]

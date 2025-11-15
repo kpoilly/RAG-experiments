@@ -123,10 +123,24 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/
+      - ./deployments/postgres/init-exporter-permissions.sh:/docker-entrypoint-initdb.d/init-exporter-permissions.sh
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+    networks:
+      - rag_network
+
+  pg-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: pg_exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable
+    depends_on:
+      - postgres
     networks:
       - rag_network
   
@@ -141,6 +155,8 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin
     depends_on:
       - postgres
+    networks:
+      - rag_network
 
   nginx:
     image: nginx:1.29.3-alpine
@@ -184,9 +200,9 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      # - ./deployments/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      # - ./deployments/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      # - ./deployments/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./deployments/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./deployments/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployments/grafana/dashboards:/var/lib/grafana/dashboards
     environment:
       - GF_SERVER_ROOT_URL=http://localhost/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
