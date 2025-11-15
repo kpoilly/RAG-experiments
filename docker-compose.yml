@@ -116,13 +116,13 @@ services:
       - rag_network
 
   postgres:
-    image: ankane/pgvector:latest
+    image: pgvector/pgvector:pg18-trixie
     container_name: postgres_db
     restart: unless-stopped
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
