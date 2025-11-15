@@ -101,3 +101,7 @@
 -   **Diversifier les Sources de Données :**
     -   Ajouter l'ingestion depuis des URLs, Google Drive, Slack...
     -   gestion des images (**OCR** pour extraire le texte des images, description d'image etc.)
+
+-   **Retrieval filtré :**
+    -   Ingestion : Plusieurs vector store (1 par thème des doucments). Au moment de l'ingestion, appel LLM pour déterminer le thème du nouveau doc, si dispo parmis la liste -> ajout au vector store en question, sinon, création d'un nouveau. (Voir simplifier, sans appel LLM, un endpoint qui permet d'ingérer plusieurs documents dans un nouveau vector store avec thème donné manuellement, oui ça peut tout casser si le user fait n'importe quoi mais bon ce serait super utile pour moi.)
+    -   Retrieval : Utiliser la requête du query expander (opti de coûts et de requêtes) pour demander de choisir le thème le plus pertinent pour la query parmis la liste de vector store dispo (si aucune alors connaissances du llm pour répondre) pour choisir dans quel vector store aller chercher l'info (gros gain de qualité de réponse potentiel si plusieurs documents sur sujets variés).
