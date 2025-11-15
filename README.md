@@ -131,6 +131,4 @@ This single command builds and starts all services (RAG Core, LiteLLM Proxy, Str
 
 <img width="1908" height="898" alt="image" src="https://github.com/user-attachments/assets/8b1c48f8-7481-418f-ad10-ceb1dbdaf1e1" />
 
-<img width="2185" height="1101" alt="image" src="https://github.com/user-attachments/assets/9601aab8-68be-46ed-861d-1d130e822b2b" />
-
-
+<img width="2198" height="1166" alt="image" src="https://github.com/user-attachments/assets/0ed09652-0a6f-464c-a266-210288f98e86" />
