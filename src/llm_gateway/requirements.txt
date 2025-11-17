@@ -1,7 +1,0 @@
-httpx==0.28.1
-fastapi==0.118.0
-uvicorn==0.37.0
-
-pytest==8.4.2
-black==25.9.0
-ruff==0.14.1

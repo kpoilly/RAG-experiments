@@ -1,24 +1,24 @@
-FROM python:3.12-slim
+# Builder Stage
+FROM ghcr.io/astral-sh/uv:0.9.9-python3.12-bookworm-slim AS builder
 
 WORKDIR /app
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-dev
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev
 
-COPY pyproject.toml /app/pyproject.toml
-COPY prompts/ /app/prompts/
-COPY ingestion.py /app/ingestion.py
-COPY retriever.py /app/retriever.py
-COPY utils.py /app/utils.py
-COPY models.py /app/models.py
-COPY config.py /app/config.py
-COPY main.py /app/main.py
 
-RUN pip install --no-cache-dir markdown==3.10
-RUN apt-get update && \
-    apt-get install -y curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Runner Stage
+FROM python:3.12-slim-bookworm AS runner
+
+COPY --from=builder /app /app
+ENV PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
 
 EXPOSE 8001
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

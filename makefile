@@ -15,12 +15,11 @@ else
 endif
 
 SERVICES_FOLDERS := rag_core llm_gateway cli streamlit_ui
-CONFIG_FILES := pyproject.toml
 
-.PHONY: all up build sync-configs ingest stop down-clean clean cli logs-rag logs-llm lint format ui
+.PHONY: all up build ingest stop down-clean clean cli logs-rag logs-llm lint format ui
 
 # --- MAIN ---
-all: build up ui
+all: build up
 
 up:
 	@echo "========================================================"
@@ -30,7 +29,7 @@ up:
 
 re: down all
 
-build: sync-configs
+build:
 	@echo "🔄 Building all services..."
 	docker compose $(COMPOSE_FILES) build
 
@@ -53,13 +52,6 @@ ui:
 
 
 #--- DEV ---
-sync-configs:
-	@for service in $(SERVICES_FOLDERS); do \
-		for config_file in $(CONFIG_FILES); do \
-			cp $$config_file src/$$service/$$config_file; \
-		done; \
-	done
-
 prometheus:
 	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
 
@@ -68,7 +60,6 @@ grafana:
 
 clean:
 	@for service in $(SERVICES_FOLDERS); do \
-		rm -f src/$$service/pyproject.toml; \
 		rm -rf src/$$service/__pycache__; \
 		rm -rf src/$$service/.ruff_cache; \
 		rm -rf src/$$service/.pytest_cache; \
@@ -80,7 +71,6 @@ down-clean:
 
 docker-clean:
 	docker system prune -a --volumes -f
-
 
 open:
 	@if [ -z "$(URL)" ]; then \

@@ -4,12 +4,9 @@ data/*.pdf
 data/*.md
 data/*.docx
 
-src/cli/pyproject.toml
 src/cli/__pycache__/
 src/cli/.ruff_cache/
-src/rag_core/pyproject.toml
 src/rag_core/__pycache__/
 src/rag_core/.ruff_cache/
-src/llm_gateway/pyproject.toml
 src/llm_gateway/__pycache__/
 src/llm_gateway/.ruff_cache/

@@ -1,3 +1,18 @@
+[project]
+name = "cli"
+version = "0.1.0"
+description = "cli to use the project from a terminal."
+authors = [{ name = "Kilyan"}]
+requires-python = ">=3.12"
+dependencies = [
+    "requests==2.32.5",
+
+    # Testing and Linting
+    "pytest==8.4.2",
+    "black==25.9.0",
+    "ruff==0.14.1"
+]
+
 [tool.black]
 line-length = 170
 

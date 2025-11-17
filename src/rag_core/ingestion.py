@@ -196,8 +196,8 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=embedder)
         sql_store = SQLStore(db_url=env.DB_URL, namespace=f"{collection_name}_parents")
         store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
-        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P)
-        child_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C)
+        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P, separators=['\n#', '\n##', '\n\n\n'])
+        child_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C, separators=['\n\n', '\n###', '\n'])
         logger.info(
             f"Splitters initialized. \
 (Parent Settings: size={env.CHUNK_SIZE_P}, overlap={env.CHUNK_OVERLAP_P}, \
