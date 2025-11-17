@@ -98,19 +98,24 @@ name = "cli"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "requests" },
+]
+
+[package.optional-dependencies]
+dev = [
     { name = "black" },
     { name = "pytest" },
-    { name = "requests" },
     { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "black", specifier = "==25.9.0" },
-    { name = "pytest", specifier = "==8.4.2" },
+    { name = "black", marker = "extra == 'dev'", specifier = "==25.9.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.2" },
     { name = "requests", specifier = "==2.32.5" },
-    { name = "ruff", specifier = "==0.14.1" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.14.1" },
 ]
+provides-extras = ["dev"]
 
 [[package]]
 name = "click"

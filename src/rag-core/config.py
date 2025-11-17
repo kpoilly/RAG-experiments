@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # --- LLM & Gateway Settings ---
     LLM_MODEL: str = "groq/meta-llama/llama-4-scout-17b-16e-instruct"
     LLM_SIDE_MODEL: str = "groq/llama-3.1-8b-instant"
-    LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
+    llm-gateway_URL: str = "http://llm-gateway:8002"
     LLM_TEMPERATURE: float = 0.3
     LLM_MAX_CONTEXT_TOKENS: int = 30000
     LLM_STRICT_RAG: bool = False

@@ -14,12 +14,14 @@ else
 	GPU_STATUS := "GPU"
 endif
 
-SERVICES_FOLDERS := rag_core llm_gateway cli streamlit_ui
-
 .PHONY: all up build ingest stop down-clean clean cli logs-rag logs-llm lint format ui uv-lock open prometheus grafana push
 
 # --- MAIN ---
-all: uv-lock build up
+all: build up
+
+build: uv-lock
+	@echo "🔄 Building all services..."
+	docker compose $(COMPOSE_FILES) build
 
 up:
 	@echo "========================================================"
@@ -27,19 +29,15 @@ up:
 	@echo "========================================================"
 	docker compose $(COMPOSE_FILES) up -d
 
-re: down all
+down:
+	docker compose down
+	@echo "🛑 All services have been stopped."
 
-build:
-	@echo "🔄 Building all services..."
-	docker compose $(COMPOSE_FILES) build
+re: down all
 
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
 	curl -X POST http://localhost/api/ingest 
-
-down:
-	docker compose down
-	@echo "🛑 All services have been stopped."
 
 cli:
 	@echo "🚀 Accessing API service CLI..."
@@ -52,26 +50,26 @@ ui:
 
 
 #--- DEV ---
-prometheus:
-	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
-
-grafana:
-	@$(MAKE) --no-print-directory open URL=http://localhost/grafana/
+down-clean:
+	docker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
 
 clean:
-	@for service in $(SERVICES_FOLDERS); do \
+	@for service in $(TARGET_SERVICES); do \
 		rm -rf src/$$service/__pycache__; \
 		rm -rf src/$$service/.ruff_cache; \
 		rm -rf src/$$service/.pytest_cache; \
 		rm -rf src/$$service/.venv; \
 	done
 
-down-clean:
-	docker compose down -v
-	@echo "🛑 All services have been stopped and volumes removed."
-
 docker-clean:
 	docker system prune -a --volumes -f
+
+prometheus:
+	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
+
+grafana:
+	@$(MAKE) --no-print-directory open URL=http://localhost/grafana/
 
 open:
 	@if [ -z "$(URL)" ]; then \
@@ -102,9 +100,9 @@ open:
 					;; \
 			esac \
 		'
-	
+
 uv-lock:
-	@for service in $(SERVICES_FOLDERS); do \
+	@for service in $(TARGET_SERVICES); do \
 		uv lock --directory src/$$service/; \
 	done
 
@@ -122,14 +120,28 @@ lint:
 	@echo "===== CHECKING CODE QUALITY FOR $(TARGET_SERVICES) ====="
 	@for service in $(TARGET_SERVICES); do \
 		echo "--- Linting $$service ---"; \
-		docker compose run --rm $$service sh -c "ruff check /app/ && black --check /app/"; \
+		echo "Building linter image for $$service..."; \
+		docker build \
+			--target linter \
+			--tag $$service-linter \
+			./src/$$service; \
+		echo "Running checks in a temporary container..."; \
+		docker run --rm $$service-linter sh -c "ruff check . && black --check ."; \
 	done
 
 format:
 	@echo "===== FORMATTING CODE FOR $(TARGET_SERVICES) ====="
 	@for service in $(TARGET_SERVICES); do \
 		echo "--- Formatting $$service ---"; \
-		docker compose run --rm $$service sh -c "ruff check /app/ --fix; black /app/"; \
+		echo "Building linter image for $$service..."; \
+		docker build \
+			--target linter \
+			--tag $$service-linter \
+			./src/$$service; \
+		echo "Applying fixes in a temporary container..."; \
+		docker run --rm \
+			-v ./src/$$service:/app \
+			$$service-linter sh -c "ruff check . --fix && black ."; \
 	done
 
 

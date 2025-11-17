@@ -1,19 +1,20 @@
 [project]
-name = "llm-gateway"
+name = "streamlit-ui"
 version = "0.1.0"
-description = "Manages interactions with LLMs, powered by LiteLLM proxy."
+description = "UI with streamlit to use the project."
 authors = [{ name = "Kilyan"}]
 requires-python = ">=3.12"
 dependencies = [
- # API Framework
-    "httpx==0.28.1",
-    "fastapi==0.118.0",
-    "uvicorn==0.37.0",
+    "streamlit==1.51.0",
+    "requests==2.32.5",
+]
 
+[project.optional-dependencies]
+dev = [
     # Testing and Linting
     "pytest==8.4.2",
     "black==25.9.0",
-    "ruff==0.14.1"
+    "ruff==0.14.1",
 ]
 
 [tool.black]

@@ -100,7 +100,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     """
     global _LLM_QUERY_GEN
     if _LLM_QUERY_GEN is None:
-        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
+        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_MODEL, openai_api_base=env.llm-gateway_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
     return _LLM_QUERY_GEN
 
 
@@ -345,7 +345,7 @@ async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, 
     try:
         request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, temperature=temp, stream=True)
         request_payload = request_data.model_dump(exclude_none=True)
-        gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
+        gateway_url = env.llm-gateway_URL + "/chat/completions"
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", gateway_url, json=request_payload) as response:
                 response.raise_for_status()

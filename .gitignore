@@ -6,7 +6,9 @@ data/*.docx
 
 src/cli/__pycache__/
 src/cli/.ruff_cache/
-src/rag_core/__pycache__/
-src/rag_core/.ruff_cache/
-src/llm_gateway/__pycache__/
-src/llm_gateway/.ruff_cache/
+src/cli/__pycache__/
+src/cli/.ruff_cache/
+src/rag-core/__pycache__/
+src/rag-core/.ruff_cache/
+src/llm-gateway/__pycache__/
+src/llm-gateway/.ruff_cache/

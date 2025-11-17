@@ -13,8 +13,8 @@ services:
 
   streamlit-ui:
     build:
-      context: src/streamlit_ui
-    container_name: streamlit_ui
+      context: src/streamlit-ui
+    container_name: streamlit-ui
     restart: unless-stopped
     volumes:
       - ./data:/app/data
@@ -36,8 +36,8 @@ services:
     
   rag-core:
     build:
-      context: src/rag_core
-    container_name: rag_core
+      context: src/rag-core
+    container_name: rag-core
     restart: unless-stopped
     volumes:
       - ./data:/app/src/data
@@ -57,7 +57,7 @@ services:
       - LLM_SIDE_MODEL=${LLM_SIDE_MODEL}
       - LLM_MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
       - LLM_STRICT_RAG=${LLM_STRICT_RAG}
-      - LLM_GATEWAY_URL=http://llm-gateway:8002
+      - llm-gateway_URL=http://llm-gateway:8002
       - LLM_TEMPERATURE=${LLM_TEMPERATURE}
       - RERANKER_MODEL=${RERANKER_MODEL}
       - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
@@ -73,8 +73,8 @@ services:
   
   llm-gateway:
     build:
-      context: src/llm_gateway
-    container_name: llm_gateway
+      context: src/llm-gateway
+    container_name: llm-gateway
     restart: unless-stopped
     environment:
       - LITELLM_PROXY_URL=http://litellm-proxy:8003

@@ -154,23 +154,28 @@ name = "llm-gateway"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "black" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "black" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "black", specifier = "==25.9.0" },
+    { name = "black", marker = "extra == 'dev'", specifier = "==25.9.0" },
     { name = "fastapi", specifier = "==0.118.0" },
     { name = "httpx", specifier = "==0.28.1" },
-    { name = "pytest", specifier = "==8.4.2" },
-    { name = "ruff", specifier = "==0.14.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.14.1" },
     { name = "uvicorn", specifier = "==0.37.0" },
 ]
+provides-extras = ["dev"]
 
 [[package]]
 name = "mypy-extensions"
