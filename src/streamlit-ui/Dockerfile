@@ -3,8 +3,9 @@ FROM ghcr.io/astral-sh/uv:0.9.9-python3.12-bookworm-slim AS linter
 
 WORKDIR /app
 COPY pyproject.toml .
-RUN uv pip install .[dev] --no-deps
-
+RUN uv venv && \
+    uv pip install .[dev]
+ENV PATH="/app/.venv/bin:$PATH"
 COPY . .
 
 
