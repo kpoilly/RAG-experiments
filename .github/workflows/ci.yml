@@ -27,9 +27,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.service }}-
 
-      - name: Build image for ${{ matrix.service }}
-        run: docker compose build ${{ matrix.service }}
-
       - name: Lint ${{ matrix.service }}
         run: make lint SERVICE=${{ matrix.service }}
 
