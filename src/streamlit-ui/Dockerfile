@@ -1,11 +1,15 @@
 # ========== linter ==========
 FROM ghcr.io/astral-sh/uv:0.9.9-python3.12-bookworm-slim AS linter
+ENV UV_COMPILE_BYTECODE=1
 
 WORKDIR /app
-COPY pyproject.toml .
-RUN uv venv && \
-    uv pip install .[dev]
-ENV PATH="/app/.venv/bin:$PATH"
+
+ENV UV_PROJECT_ENVIRONMENT=/opt/dev-venv
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --only-group dev --no-install-project
+ENV PATH="/opt/dev-venv/bin:$PATH"
+
 COPY . .
 
 
