@@ -10,6 +10,8 @@
     -   Parents: \n# \n## \n\n\n
     -   Childs: \n\n \n### \n " "
     -   Potentiellement ajuster taille des chunks.
+-   **Multi-staging sur les dockerfiles :**
+    -   Utiliser uv et pyproject.toml
 -   **Gestion dynamique du contexte LLM :**
     -   Ajouter un endpoint /models au llm-gateway pour exposer les capacités des modèles (ex: max_tokens).
     -   Au démarrage du rag-core, appeler cet endpoint pour récupérer dynamiquement la context_window du LLM configuré.
