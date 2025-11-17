@@ -5,12 +5,12 @@ services:
 
   rag-core:
     volumes:
-      - ./src/rag_core:/app
+      - ./src/rag-core:/app
 
   llm-gateway:
     volumes:
-      - ./src/llm_gateway:/app
+      - ./src/llm-gateway:/app
 
   streamlit-ui:
     volumes:
-      - ./src/streamlit_ui:/app
+      - ./src/streamlit-ui:/app

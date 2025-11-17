@@ -71,7 +71,7 @@ These variables control the behavior of the RAG pipeline and database connection
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| **LLM_MODEL** | `groq/llama-3.1-8b-instant` | Name of the LLM model to call via the gateway, or its **alias** as defined in `litellm_config.yaml`. |
+| **LLM_MODEL** | `groq/meta-llama/llama-4-scout-17b-16e-instruct` | Name of the LLM model to call via the gateway, or its **alias** as defined in `litellm_config.yaml`. |
 | **LLM_TEMPERATURE** | `0.3` | Temperature setting for the generated answer. |
 | **LLM_MAX_CONTEXT_TOKENS** | `30000` | Maximum context size (in tokens) that the LLM can accept. **Important**: This value is used to determine the maximum number of document chunks (`CHUNK_SIZE`) to include in the prompt. | Limits the amount of document content sent to the LLM to prevent context overflow. |
 | **LLM_STRICT_RAG** | `False` | Determines whether the model can use its internal knowledge. | If **`True`**, the system instruction **forces** the model to respond ONLY with the provided context. If it cannot find the answer, it must explicitly state so (Strict RAG mode). If **`False`** (Relaxed RAG mode), the model is allowed to use its general knowledge when the context is insufficient. **WARNING**: Setting this to `False` may lead to answers that are not 100% faithful to the document and potentially increase the risk of **hallucinations**. |

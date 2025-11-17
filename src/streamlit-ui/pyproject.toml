@@ -1,10 +1,11 @@
 [project]
-name = "cli"
+name = "streamlit-ui"
 version = "0.1.0"
-description = "cli to use the project from a terminal."
+description = "UI with streamlit to use the project."
 authors = [{ name = "Kilyan"}]
 requires-python = ">=3.12"
 dependencies = [
+    "streamlit==1.51.0",
     "requests==2.32.5",
 ]
 

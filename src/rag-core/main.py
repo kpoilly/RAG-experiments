@@ -4,7 +4,7 @@ import logging
 import os
 import re
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from ingestion import process_and_index_documents
@@ -45,6 +45,11 @@ async def health():
     """
     Health check.
     """
+    if not app.state.rad_ready:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "error", "reason": "RAG components are not ready yet.", "error": app.state.startup_error},
+        )
     return {"status": "ok"}
 
 
