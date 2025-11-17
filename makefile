@@ -16,10 +16,10 @@ endif
 
 SERVICES_FOLDERS := rag_core llm_gateway cli streamlit_ui
 
-.PHONY: all up build ingest stop down-clean clean cli logs-rag logs-llm lint format ui
+.PHONY: all up build ingest stop down-clean clean cli logs-rag logs-llm lint format ui uv-lock open prometheus grafana push
 
 # --- MAIN ---
-all: build up
+all: uv-lock build up
 
 up:
 	@echo "========================================================"
@@ -63,6 +63,7 @@ clean:
 		rm -rf src/$$service/__pycache__; \
 		rm -rf src/$$service/.ruff_cache; \
 		rm -rf src/$$service/.pytest_cache; \
+		rm -rf src/$$service/.venv; \
 	done
 
 down-clean:
@@ -101,6 +102,11 @@ open:
 					;; \
 			esac \
 		'
+	
+uv-lock:
+	@for service in $(SERVICES_FOLDERS); do \
+		uv lock --directory src/$$service/; \
+	done
 
 
 #--- LOGS ---
