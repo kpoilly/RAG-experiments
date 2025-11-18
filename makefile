@@ -33,7 +33,9 @@ down:
 	docker compose down
 	@echo "🛑 All services have been stopped."
 
-re: down all
+re: down up
+
+rebuild: down all
 
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
@@ -44,8 +46,6 @@ cli:
 	@docker compose exec -it cli python main.py
 
 ui:
-	@echo "🔄 Waiting for Streamlit to start..."
-	@sleep 5
 	@$(MAKE) --no-print-directory open URL=http://localhost/
 
 
@@ -73,6 +73,9 @@ grafana:
 
 minio:
 	@$(MAKE) --no-print-directory open URL=http://localhost/minio/
+
+pgadmin:
+	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
 
 open:
 	@if [ -z "$(URL)" ]; then \

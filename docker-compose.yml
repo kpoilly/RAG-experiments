@@ -8,9 +8,6 @@ services:
     environment:
       - API_URL=http://nginx/api
       - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
-    depends_on:
-      rag-core:
-        condition: service_healthy
     networks:
       - rag_network
 
@@ -152,6 +149,7 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
       - MINIO_BROWSER_REDIRECT_URL=http://localhost/minio
+      - MINIO_SERVER_URL=http://localhost/minio
     networks:
       - rag_network
     command: server /data --console-address ":9001"
@@ -200,11 +198,10 @@ services:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     restart: unless-stopped
-    ports:
-      - "8011:8011"
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@admin.com
       - PGADMIN_DEFAULT_PASSWORD=admin
+      - SCRIPT_NAME=/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
@@ -220,8 +217,6 @@ services:
     volumes:
       - ./deployments/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      streamlit-ui:
-        condition: service_started
       rag-core:
         condition: service_healthy
     networks:
@@ -243,13 +238,6 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.external-url=http://localhost/prometheus'
-    depends_on:
-      rag-core:
-        condition: service_healthy
-      llm-gateway:
-        condition: service_healthy
-      pg-exporter:
-        condition: service_started
     networks:
       - rag_network
 
@@ -278,11 +266,6 @@ services:
         condition: service_started
     networks:
       - rag_network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
 volumes:
   postgres_data:
