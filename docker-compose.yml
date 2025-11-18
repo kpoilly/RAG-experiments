@@ -8,6 +8,9 @@ services:
     environment:
       - API_URL=http://nginx/api
       - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
+    depends_on:
+      rag-core:
+        condition: service_healthy
     networks:
       - rag_network
 
@@ -70,11 +73,20 @@ services:
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
       - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT}
     depends_on:
-      - postgres
-      - llm-gateway
-      - minio
+      postgres:
+        condition: service_healthy
+      llm-gateway:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - rag_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8001/health\"); r.raise_for_status()'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   
   llm-gateway:
     build:
@@ -84,9 +96,16 @@ services:
     environment:
       - LITELLM_PROXY_URL=http://litellm-proxy:8003
     depends_on:
-      - litellm-proxy
+      litellm-proxy:
+        condition: service_started
     networks:
       - rag_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8002/health\"); r.raise_for_status()'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   litellm-proxy:
     image: ghcr.io/berriai/litellm:v1.79.1-stable
@@ -98,7 +117,8 @@ services:
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - rag_network
     command: ["--config", "/app/config.yaml", "--port", "8003"]
@@ -113,6 +133,11 @@ services:
       - redis_data:/data
     networks:
       - rag_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   
   minio:
     image: minio/minio:latest
@@ -151,6 +176,11 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     networks:
       - rag_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   pg-exporter:
     image: prometheuscommunity/postgres-exporter:latest
@@ -161,7 +191,8 @@ services:
     environment:
       - DATA_SOURCE_NAME=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - rag_network
   
@@ -175,7 +206,8 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@admin.com
       - PGADMIN_DEFAULT_PASSWORD=admin
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - rag_network
 
@@ -188,10 +220,10 @@ services:
     volumes:
       - ./deployments/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - streamlit-ui
-      - rag-core
-      - prometheus
-      - grafana
+      streamlit-ui:
+        condition: service_started
+      rag-core:
+        condition: service_healthy
     networks:
       - rag_network
   
@@ -211,12 +243,20 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.external-url=http://localhost/prometheus'
+    depends_on:
+      rag-core:
+        condition: service_healthy
+      llm-gateway:
+        condition: service_healthy
+      pg-exporter:
+        condition: service_started
     networks:
       - rag_network
 
   grafana:
     image: grafana/grafana:main-ubuntu
     container_name: grafana
+    restart: always
     ports:
       - "3000:3000"
     volumes:
@@ -234,10 +274,15 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
     depends_on:
-      - prometheus
-    restart: always
+      prometheus:
+        condition: service_started
     networks:
       - rag_network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_data:
