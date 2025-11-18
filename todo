@@ -57,7 +57,7 @@
 *Objectif : Préparer et maîtriser le déploiement de l'application sur une infrastructure cloud scalable.*
 
 -   **Passage au Stockage Cloud :**
-    -   Remplacer le volume local /data par un bucket de stockage objet (ex: Cloudflare R2, Google Cloud Storage).
+    -   Remplacer le volume local /data par un bucket de stockage objet (ex: Cloudflare R2, Google Cloud Storage, ou au moins Minio).
     -   Modifier l'UI et l'ingestion pour uploader/lire les fichiers depuis ce bucket.
 
 -   **Héberger la Base de Données :**
