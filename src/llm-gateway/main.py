@@ -1,7 +1,7 @@
 import os
 
 import httpx
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL")
@@ -39,6 +39,7 @@ async def chat(request: Request):
                 yield chunk
 
     return StreamingResponse(stream_proxy(), media_type="text/event-stream")
+
 
 @app.get("/model/info")
 async def model_info():

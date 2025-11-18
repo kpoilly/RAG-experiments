@@ -5,14 +5,13 @@ import os
 import re
 
 import httpx
-
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from config import settings as env
 from ingestion import process_and_index_documents
 from models import GenerationRequest, IngestionResponse
 from retriever import build_retriever, init_components, orchestrate_rag_flow
-from config import settings as env
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -39,13 +38,21 @@ async def startup_event():
             all_models_info = response.json()
 
             models_list = all_models_info.get("data", [])
-            model_config = next((model for model in models_list if (
-                model.get("model_name") == env.LLM_MODEL or 
-                model.get("litellm_params", {}).get("model") == env.LLM_MODEL or 
-                model.get("model_info", {}).get("key") == env.LLM_MODEL)), None)
+            model_config = next(
+                (
+                    model
+                    for model in models_list
+                    if (
+                        model.get("model_name") == env.LLM_MODEL
+                        or model.get("litellm_params", {}).get("model") == env.LLM_MODEL
+                        or model.get("model_info", {}).get("key") == env.LLM_MODEL
+                    )
+                ),
+                None,
+            )
 
             context_window = None
-            if model_config :
+            if model_config:
                 context_window = model_config.get("model_info", {}).get("max_input_tokens")
             if context_window is None:
                 logger.warning(f"Context window info not found for model {env.LLM_MODEL}. Using default value: {env.LLM_MAX_CONTEXT_TOKENS}.")
