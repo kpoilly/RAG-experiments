@@ -8,8 +8,6 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 
 The goal of this system is to be architected as a robust, scalable, and observable pipeline designed for modern, cloud-native workloads.
 
-***Note on Smart & Dynamic Ingestion:*** *The document indexing process runs **automatically when the RAG service starts**. It can also be triggered at any time via the Streamlit UI or the API endpoint (`/ingest`). This allows you to update your reference documents in real-time by adding or removing them from the `data/` folder or the UI. The assistant will benefit from the new knowledge without any service interruption.*
-
 
 1.  **Cloud-Agnostic Object Storage:** Document storage is fully decoupled from the application logic. The system uses a **MinIO** server for local development, which emulates the **S3 API**. This ensures that the application is "Cloud-Ready" and can be seamlessly deployed to any major cloud provider (AWS S3, Google Cloud Storage, Azure Blob Storage, Cloudflare R2...) by simply changing environment variables.
 
