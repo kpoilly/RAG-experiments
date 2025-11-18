@@ -10,7 +10,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --only-group dev --no-install-project
 ENV PATH="/opt/dev-venv/bin:$PATH"
 
-COPY . .
+COPY models.py .
+COPY utils.py .
+COPY config.py .
+COPY main.py .
+COPY ingestion.py .
+COPY retriever.py .
 
 
 # ========== builder ==========

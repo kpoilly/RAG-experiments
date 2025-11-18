@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from urllib.parse import quote
 
 import requests
 import streamlit as st
@@ -8,33 +9,24 @@ import streamlit as st
 # --- Config ---
 
 API_URL = os.getenv("API_URL", "http://nginx/api")
-CHAT_URL = f"{API_URL}/chat"
-INGEST_URL = f"{API_URL}/ingest"
 HEALTH_URL = f"{API_URL}/health"
+DOCUMENTS_URL = f"{API_URL}/documents"
+CHAT_URL = f"{API_URL}/chat"
 
-DATA_PATH = "/app/data"
 
 # --- Utils ---
 
 
 @st.cache_data(ttl=10)
 def get_current_documents():
-    """get current document filenames in the data directory."""
+    """get current document filenames."""
     try:
-        return sorted([f for f in os.listdir(DATA_PATH) if os.path.isfile(os.path.join(DATA_PATH, f)) and f.lower().endswith((".pdf", ".docx", ".md"))])
-    except FileNotFoundError:
-        st.error(f"Data directory not found at {DATA_PATH}")
-        return []
-
-
-def trigger_ingestion():
-    """Call the RAG Core ingestion endpoint to process documents."""
-    try:
-        response = requests.post(INGEST_URL)
+        response = requests.get(DOCUMENTS_URL)
         response.raise_for_status()
-        return True, response.json()
+        return response.json()
     except requests.RequestException as e:
-        return False, str(e)
+        st.error(f"Error fetching document list: {e}")
+        return []
 
 
 # --- Init ---
@@ -141,31 +133,37 @@ if page == "💬 Chat":
             uploaded_files = st.file_uploader("Upload files...", accept_multiple_files=True, type=["pdf", "md", "docx"], label_visibility="collapsed")
             submitted = st.form_submit_button("Add")
             if submitted and uploaded_files:
-                for uploaded_file in uploaded_files:
-                    with open(os.path.join(DATA_PATH, uploaded_file.name), "wb") as f:
-                        f.write(uploaded_file.getbuffer())
+                with st.spinner("Uploading and processing documents..."):
+                    for uploaded_file in uploaded_files:
+                        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                        try:
+                            response = requests.post(DOCUMENTS_URL, files=files)
+                            response.raise_for_status()
+                        except requests.RequestException as e:
+                            st.error(f"Failed to process {uploaded_file.name}: {e.response.text if e.response else e}")
 
-                with st.spinner("Processing documents... This may take a few minutes."):
-                    success, _ = trigger_ingestion()
-
+                st.success("Documents processed successfully!")
                 st.cache_data.clear()
-                if success:
-                    st.success("✅ Ingestion successful!")
-                else:
-                    st.error("❌ Ingestion failed.")
-                time.sleep(2)
+                time.sleep(1)
                 st.rerun()
 
         st.subheader("Remove Documents")
         docs_to_delete = st.multiselect("Select documents to remove:", get_current_documents())
         if st.button("Remove Selected", type="primary"):
-            if docs_to_delete:
+            with st.spinner("Removing documents..."):
                 for doc_name in docs_to_delete:
-                    os.remove(os.path.join(DATA_PATH, doc_name))
-                with st.spinner("Updating knowledge base..."):
-                    trigger_ingestion()
-                st.cache_data.clear()
-                st.rerun()
+                    try:
+                        # UN SEUL APPEL pour supprimer et ré-indexer
+                        delete_url = f"{DOCUMENTS_URL}/{quote(doc_name)}"
+                        response = requests.delete(delete_url)
+                        response.raise_for_status()
+                    except requests.RequestException as e:
+                        st.error(f"Failed to remove {doc_name}: {e}")
+
+            st.success("Documents removed successfully!")
+            st.cache_data.clear()
+            time.sleep(1)
+            st.rerun()
 
 elif page == "⚙️ Settings":
     st.title("⚙️ Application Settings")

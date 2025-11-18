@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     RERANKER_THRESHOLD: float = 0.4
 
-    # --- Database & Data Path Settings ---
+    # --- Database & Data Storage Settings ---
     DB_HOST: str = "postgres"
     DB_PORT: int = 5432
     DB_NAME: str = "rag_db"
@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     DB_URL: str = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
     COLLECTION_NAME: str = "rag_documents"
-    DATA_PATH: str = "/app/src/data"
+
+    S3_ENDPOINT_URL: str = "http://minio:9000"
+    S3_ACCESS_KEY_ID: str = "minioadmin"
+    S3_SECRET_ACCESS_KEY: str = "minio123"
+    S3_BUCKET_NAME: str = "rag-documents"
 
 
 settings = Settings()
