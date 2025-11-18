@@ -58,6 +58,7 @@
 
 -   **Passage au Stockage Cloud :**
     -   Remplacer le volume local /data par un bucket de stockage objet (ex: Cloudflare R2, Google Cloud Storage, ou au moins Minio).
+    -   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
     -   Modifier l'UI et l'ingestion pour uploader/lire les fichiers depuis ce bucket.
 
 -   **Héberger la Base de Données :**
