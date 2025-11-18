@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 from typing import Any, Dict, List
@@ -110,3 +111,38 @@ def truncate_history(history: List[Dict[str, str]], max_tokens: int) -> List[Dic
             break
 
     return truncated_history
+
+
+# --- Haching and files ID ---
+def calculate_file_hash(file_path: str) -> str:
+    """
+    Calculate the hash of a file for stable ID.
+    """
+    hasher = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as file:
+            while True:
+                chunk = file.read(4096)
+                if not chunk:
+                    break
+                hasher.update(chunk)
+        return hasher.hexdigest()
+    except Exception as e:
+        logger.error(f"Failed to hash file {file_path}: {e}")
+        return ""
+
+
+def calculate_file_hash_from_stream(file_stream) -> str:
+    """Calculate the hash of a file from a stream for stable ID."""
+    hasher = hashlib.sha256()
+    while True:
+        chunk = file_stream.read(4096)
+        if not chunk:
+            break
+        hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def create_chunk_id(doc_hash: str, chunk_index: int) -> str:
+    """Create a stable ID for a chunk."""
+    return f"{doc_hash}_{chunk_index}"

@@ -48,6 +48,10 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - COLLECTION_NAME=${COLLECTION_NAME}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - CHUNK_SIZE_P=${CHUNK_SIZE_P}
       - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P}
@@ -68,6 +72,7 @@ services:
     depends_on:
       - postgres
       - llm-gateway
+      - minio
     networks:
       - rag_network
   
@@ -108,6 +113,28 @@ services:
       - redis_data:/data
     networks:
       - rag_network
+  
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BROWSER_REDIRECT_URL=http://localhost/minio
+    networks:
+      - rag_network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   postgres:
     image: pgvector/pgvector:pg18-trixie
@@ -217,6 +244,7 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+  minio_data:
 
 networks:
   rag_network:

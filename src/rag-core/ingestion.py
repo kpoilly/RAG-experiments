@@ -1,9 +1,9 @@
-import glob
-import hashlib
 import logging
 import os
+import tempfile
 from typing import Optional
 
+import boto3
 import psycopg
 import torch
 from langchain_classic.retrievers import ParentDocumentRetriever
@@ -15,7 +15,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres.vectorstores import PGVector
 
 from config import settings as env
-from utils import value_deserializer, value_serializer
+from utils import calculate_file_hash_from_stream, value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,6 +49,13 @@ def initialize_database():
         raise
 
 
+def get_s3_client():
+    """
+    Create a boto3 client for Minio/S3
+    """
+    return boto3.client("s3", endpoint_url=env.S3_ENDPOINT_URL, aws_access_key_id=env.S3_ACCESS_KEY_ID, aws_secret_access_key=env.S3_SECRET_ACCESS_KEY)
+
+
 _EMBEDDER: Optional[HuggingFaceEmbeddings] = None
 
 
@@ -67,30 +74,6 @@ def get_embeddings():
     return _EMBEDDER
 
 
-# --- Haching and files ID ---
-def calculate_file_hash(file_path: str) -> str:
-    """
-    Calculate the hash of a file for stable ID.
-    """
-    hasher = hashlib.sha256()
-    try:
-        with open(file_path, "rb") as file:
-            while True:
-                chunk = file.read(4096)
-                if not chunk:
-                    break
-                hasher.update(chunk)
-        return hasher.hexdigest()
-    except Exception as e:
-        logger.error(f"Failed to hash file {file_path}: {e}")
-        return ""
-
-
-def create_chunk_id(doc_hash: str, chunk_index: int) -> str:
-    """Create a stable ID for a chunk."""
-    return f"{doc_hash}_{chunk_index}"
-
-
 # --- Ingestion ---
 def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     """
@@ -101,22 +84,31 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
     Returns:
         total number of indexed documents.
     """
-    logger.info(f"Starting ingestion from {data_dir}...")
+    logger.info(f"Starting ingestion from S3 bucket: {env.S3_BUCKET_NAME}...")
     initialize_database()
 
-    supported_extensions = ["*.pdf", "*.docx", "*.md"]
-    files = []
-    for ext in supported_extensions:
-        files.extend(glob.glob(os.path.join(data_dir, ext)))
-    if not files:
-        logger.error(f"No files found in {data_dir}")
-        hashes_to_rm = ["%"]
-
+    s3_client = get_s3_client()
     collection_name = env.COLLECTION_NAME
 
-    existing_hashes = set()
-    current_hashes = {calculate_file_hash(path): path for path in files if calculate_file_hash(path)}
+    try:
+        s3_client.head_bucket(Bucket=env.S3_BUCKET_NAME)
+        logger.info(f"Bucket {env.S3_BUCKET_NAME} exists.")
+    except s3_client.exceptions.ClientError:
+        logger.error(f"Bucket {env.S3_BUCKET_NAME} does not exist.")
+        s3_client.create_bucket(Bucket=env.S3_BUCKET_NAME)
 
+    current_hashes = {}
+    try:
+        response = s3_client.list_objects_v2(Bucket=env.S3_BUCKET_NAME)
+        for obj in response.get("Contents", []):
+            file_obj = s3_client.get_object(Bucket=env.S3_BUCKET_NAME, Key=obj["Key"])
+            file_stream = file_obj["Body"]
+            current_hashes[calculate_file_hash_from_stream(file_stream)] = obj["Key"]
+    except Exception as e:
+        logger.error(f"Failed to list or hash objects in S3 bucket: {e}")
+        return 0
+
+    existing_hashes = set()
     try:
         with psycopg.connect(env.DB_URL.replace("+psycopg", "")) as conn:
             with conn.cursor() as cur:
@@ -132,9 +124,7 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
                     logger.warning("The embedding table does not exist yet. Proceeding with empty database.")
 
                 hashes_to_rm = existing_hashes - set(current_hashes.keys())
-
-                if not files:
-                    hashes_to_rm = existing_hashes
+                hashes_to_add = set(current_hashes.keys()) - existing_hashes
 
                 if hashes_to_rm:
                     logger.info(f"Found {len(hashes_to_rm)} documents to remove.")
@@ -168,27 +158,38 @@ def process_and_index_documents(data_dir: str = "/app/src/data") -> int:
         return 0
 
     new_documents_to_add = []
-    for doc_hash, path in current_hashes.items():
-        if doc_hash not in existing_hashes:
-            try:
-                logger.info(f"Preparing new/modified document for indexing: {os.path.basename(path)}")
-                if path.endswith(".pdf"):
-                    loader = PyPDFLoader(path)
-                elif path.endswith(".docx"):
-                    loader = UnstructuredWordDocumentLoader(path)
-                elif path.endswith(".md"):
-                    loader = UnstructuredMarkdownLoader(path)
-                else:
-                    logger.warning(f"Unsupported file type for {path}, skipping.")
+    if hashes_to_add:
+        logger.info(f"Found {len(hashes_to_add)} new documents to add.")
+        loader_map = {
+            ".pdf": PyPDFLoader,
+            ".docx": UnstructuredWordDocumentLoader,
+            ".md": UnstructuredMarkdownLoader,
+        }
+        allowed_extensions = set(loader_map.keys())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for doc_hash in hashes_to_add:
+                file_key = current_hashes[doc_hash]
+                # Filetype validation
+                file_ext = os.path.splitext(file_key)[1].lower()
+                if file_ext not in allowed_extensions:
+                    logger.warning(f"Unsupported file type for '{file_key}' in S3 bucket, skipping.")
                     continue
+                local_file_path = os.path.join(temp_dir, file_key.replace("/", "_"))
 
-                loaded_pages = loader.load()
-                for page in loaded_pages:
-                    page.metadata["document_hash"] = doc_hash
-                new_documents_to_add.extend(loaded_pages)
+                try:
+                    logger.info(f"Downloading new/modified document for indexing: {file_key}...")
+                    s3_client.download_file(env.S3_BUCKET_NAME, file_key, local_file_path)
+                    loader_class = loader_map[file_ext]
+                    loader = loader_class(local_file_path)
 
-            except Exception as e:
-                logger.error(f"Error preparing document {path} for indexing: {e}")
+                    loaded_pages = loader.load()
+                    for page in loaded_pages:
+                        page.metadata["document_hash"] = doc_hash
+                    new_documents_to_add.extend(loaded_pages)
+
+                except Exception as e:
+                    logger.error(f"Error processing document {file_key}: {e}")
 
     if new_documents_to_add:
         logger.info(f"Adding {len(new_documents_to_add)} new pages to the database...")
@@ -230,7 +231,7 @@ Child Settings: size={env.CHUNK_SIZE_C}, overlap={env.CHUNK_OVERLAP_C})"
         total_chunks = len(new_documents_to_add)
 
     logger.info(f"Ingestion Sync Complete. {len(new_documents_to_add)} new pages indexed. Total chunks in DB: {total_chunks}")
-    return total_chunks + len(hashes_to_rm)
+    return total_chunks
 
 
 if __name__ == "__main__":

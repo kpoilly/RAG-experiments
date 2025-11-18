@@ -71,6 +71,9 @@ prometheus:
 grafana:
 	@$(MAKE) --no-print-directory open URL=http://localhost/grafana/
 
+minio:
+	@$(MAKE) --no-print-directory open URL=http://localhost/minio/
+
 open:
 	@if [ -z "$(URL)" ]; then \
 		echo "🔴 Error: URL argument is missing."; \
