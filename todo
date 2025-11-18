@@ -20,9 +20,6 @@
 
 *Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
 
--   **Passer à une Architecture "API-First" :**
-    -   Refactoriser l'endpoint /ingest pour accepter l'upload de fichiers, des URLs... depuis l'API.
-
 -   **Sécurité :**
     -   Ajouter la validation du type de fichier avec `python-magic`.
     -   Gestion des Utilisateurs : Mettre en place un système d'authentification de base (ex: JWT) pour identifier les utilisateurs.
@@ -47,13 +44,7 @@
 
 *Objectif : Préparer et maîtriser le déploiement de l'application sur une infrastructure cloud scalable.*
 
--   **Passage au Stockage Cloud :**
-    -   Remplacer le volume local /data par un bucket de stockage objet (ex: Cloudflare R2, Google Cloud Storage, ou au moins Minio).
-    -   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
-    -   Modifier l'UI et l'ingestion pour uploader/lire les fichiers depuis ce bucket.
-
--   **Héberger la Base de Données :**
-    -   Migrer la base de données PostgreSQL vers un service managé (ex: Supabase, Cloud SQL).
+-   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
 
 -   **Préparation pour Kubernetes :**
     -   Installer et configurer **Kind** ou **Minikube**.
@@ -97,3 +88,5 @@
 -   **Retrieval filtré :**
     -   Ingestion : Plusieurs vector store (1 par thème des doucments). Au moment de l'ingestion, appel LLM pour déterminer le thème du nouveau doc, si dispo parmis la liste -> ajout au vector store en question, sinon, création d'un nouveau. (Voir simplifier, sans appel LLM, un endpoint qui permet d'ingérer plusieurs documents dans un nouveau vector store avec thème donné manuellement, oui ça peut tout casser si le user fait n'importe quoi mais bon ce serait super utile pour moi.)
     -   Retrieval : Utiliser la requête du query expander (opti de coûts et de requêtes) pour demander de choisir le thème le plus pertinent pour la query parmis la liste de vector store dispo (si aucune alors connaissances du llm pour répondre) pour choisir dans quel vector store aller chercher l'info (gros gain de qualité de réponse potentiel si plusieurs documents sur sujets variés).
+
+-   Voir pour passer au Cloud pour le stockage, un changement des logins dans le .env devrait suffir (code S3 ready)
