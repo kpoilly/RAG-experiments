@@ -6,10 +6,12 @@ services:
   rag-core:
     volumes:
       - ./src/rag-core:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
 
   llm-gateway:
     volumes:
       - ./src/llm-gateway:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
 
   streamlit-ui:
     volumes:
