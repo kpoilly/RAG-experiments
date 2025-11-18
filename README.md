@@ -9,7 +9,7 @@ Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Aug
 The goal of this system is to be architected as a robust, scalable, and observable pipeline designed for modern, cloud-native workloads.
 
 
-1.  **Cloud-Agnostic Object Storage:** Document storage is fully decoupled from the application logic. The system uses a **MinIO** server for local development, which emulates the **S3 API**. This ensures that the application is "Cloud-Ready" and can be seamlessly deployed to any major cloud provider (AWS S3, Google Cloud Storage, Azure Blob Storage, Cloudflare R2...) by simply changing environment variables.
+1.  **Cloud-Agnostic Object Storage:** Document storage is fully decoupled from the application logic.The system uses a **MinIO** server for local development, which emulates the **S3 API**. This ensures that the application is "Cloud-Ready" and can be seamlessly deployed to any major cloud provider (AWS S3, Google Cloud Storage, Azure Blob Storage, Cloudflare R2...) by simply changing environment variables.
 
 2.  **Provider-Agnostic LLM Gateway:** At the core is a sophisticated LLM Gateway powered by the **LiteLLM Proxy**. This proxy manages all interactions with large language models, providing:
     *   **Unified API:** An OpenAI-compatible interface for over 100+ LLM providers (Groq, OpenAI, Anthropic, etc.).
@@ -53,7 +53,6 @@ The goal of this system is to be architected as a robust, scalable, and observab
 | **API Services** | FastAPI | High-performance backend for RAG logic and LLM gateway facade. |
 | **Object Storage** | MinIO (S3 API) | Cloud-agnostic storage for raw documents. |
 | **Vector Database** | PostgreSQL + PGVector | Storage, indexing, and vector search for child chunks. |
-| **Reranking & Filtering**| BAAI/bge-reranker-v2-m3 (Cross-Encoder) | Refines search results by calculating a precise relevance score for each document. |
 | **Caching** | Redis | Caches LLM responses to reduce latency and cost. |
 | **RAG Framework** | LangChain | Orchestration of the RAG workflow (PDR, chains, etc.). |
 | **Cloud SDK** | Boto3 | Standard Python SDK for interacting with S3-compatible APIs. |
