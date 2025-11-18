@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     S3_ENDPOINT_URL: str = "http://minio:9000"
     S3_ACCESS_KEY_ID: str = "minioadmin"
-    S3_SECRET_ACCESS_KEY: str = "minio123"
+    S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
 
 
