@@ -36,8 +36,9 @@ The goal of this system is to be architected around a robust, scalable, and obse
     *   **Rapid Development**: Layer caching is optimized for quick rebuilds when only source code changes.
     *   **Efficient Dependency Management**: The project uses uv and pyproject.toml for best-in-class performance during dependency installation.
 
-8. **Deep Observability (In Progress):** The system is being instrumented for comprehensive monitoring using Prometheus & Grafana.
-    *   **Current:** A powerful dashboard is available for monitoring the PostgreSQL database.
+8. **Deep Observability:** The system is deeply instrumented for end-to-end observability, combining metric-based monitoring with detailed tracing:
+    *   **LangSmith:** For tracing, debugging, and evaluating the RAG pipeline. It provides end-to-end visibility into every step of the chain (retrieval, reranking, generation) and tools for running evaluations on key metrics like faithfulness and answer relevance.
+    *   **Prometheus & Grafana:** For real-time metrics, dashboards, and alerting.
     *   **Roadmap:** Future dashboards will provide deep insights into the RAG pipeline (evaluations, performance), the LLM Gateway (token usage, costs, errors), and API metrics (latency, request rates).
 
 ---
@@ -59,7 +60,7 @@ The goal of this system is to be architected around a robust, scalable, and obse
 | **Caching** | Redis | Caches LLM responses to reduce latency and cost. |
 | **RAG Framework** | LangChain | Orchestration of the RAG workflow (PDR, chains, etc.). |
 | **Parsing** | PyPDF, Unstructured | Extraction of text from various file formats (.pdf, .docx, .md). |
-| **Observability** | LangSmith | Tracing, debugging, and evaluating the RAG pipeline. |
+| **Observability** | Prometheus, Grafana, LangSmith | (In progress) Monitoring, tracing, and evaluation of the entire stack. |
 | **Containerization** | Docker, Docker Compose | Container orchestration and reproducible environments. |
 | **Dependency Mgmt.** | `uv`, `pyproject.toml` | High-speed, modern Python package management. |
 
