@@ -1,4 +1,5 @@
 .env
+.env_dev
 data_backup/
 data/*.pdf
 data/*.md

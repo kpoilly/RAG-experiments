@@ -8,7 +8,7 @@ from fastembed.common.model_description import ModelSource, PoolingType
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_core.embeddings import Embeddings
 
-from config import MODELS_CONFIG
+from config import DB_URL, MODELS_CONFIG
 from config import settings as env
 from utils import calculate_file_hash_from_stream
 
@@ -94,7 +94,7 @@ class VectorDBRepository:
     """
 
     def __init__(self):
-        self.db_url = env.DB_URL.replace("+psycopg", "")
+        self.db_url = DB_URL.replace("+psycopg", "")
         self.collection = env.COLLECTION_NAME
         self.docstore_table = "langchain_key_value_stores"
 

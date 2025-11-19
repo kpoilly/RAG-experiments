@@ -11,6 +11,7 @@ from langchain_community.storage import SQLStore
 from langchain_core.documents import Document
 from langchain_postgres.vectorstores import PGVector
 
+from config import DB_URL
 from config import settings as env
 from ingestion_utils import S3Repository, VectorDBRepository, get_embeddings
 from utils import value_deserializer, value_serializer
@@ -22,10 +23,10 @@ logger = logging.getLogger("Ingestion")
 def _build_retriever() -> ParentDocumentRetriever:
     """Configures the Parent Document Retriever (PDR) stack."""
     # Child
-    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=get_embeddings())
+    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=DB_URL, embeddings=get_embeddings())
 
     # Parent
-    sql_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents")
+    sql_store = SQLStore(db_url=DB_URL, namespace=f"{env.COLLECTION_NAME}_parents")
 
     store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
 

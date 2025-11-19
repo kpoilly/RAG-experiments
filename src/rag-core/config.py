@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,7 +27,7 @@ class Settings(BaseSettings):
     CHUNK_SIZE_C: int = 300
     CHUNK_OVERLAP_C: int = 50
     RERANKER_MODEL: str = "jinaai/jina-reranker-v2-base-multilingual"
-    RERANKER_THRESHOLD: float = 0.4
+    RERANKER_THRESHOLD: float = 0.0
 
     # --- Database & Data Storage Settings ---
     DB_HOST: str = "postgres"
@@ -33,7 +35,6 @@ class Settings(BaseSettings):
     DB_NAME: str = "rag_db"
     DB_USER: str = "rag_user"
     DB_PASSWORD: str = "rag_password"
-    DB_URL: str = None
 
     COLLECTION_NAME: str = "rag_documents"
 
@@ -42,15 +43,9 @@ class Settings(BaseSettings):
     S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
 
-    @model_validator(mode="after")
-    def assemble_db_url(self) -> "Settings":
-        if self.DB_URL is None:
-            self.DB_URL = f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}" f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        return self
-
-
 settings = Settings()
 
+DB_URL = f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}" f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
 MODELS_CONFIG = {
     "fast": {"name": "intfloat/multilingual-e5-small", "source": "Xenova/multilingual-e5-small", "dim": 384, "filename": "onnx/model_quantized.onnx"},
