@@ -32,7 +32,7 @@
 
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
-    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
+    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que les endpoints fonctionnent correctement.
 
 -   **Construire la Pipeline de CI/CD (GitHub Actions) :**
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.
@@ -90,3 +90,10 @@
     -   Retrieval : Utiliser la requête du query expander (opti de coûts et de requêtes) pour demander de choisir le thème le plus pertinent pour la query parmis la liste de vector store dispo (si aucune alors connaissances du llm pour répondre) pour choisir dans quel vector store aller chercher l'info (gros gain de qualité de réponse potentiel si plusieurs documents sur sujets variés).
 
 -   Voir pour passer au Cloud pour le stockage, un changement des logins dans le .env devrait suffir (code S3 ready)
+
+
+Updates readme: 
+
+- RAGAS, evaluation runner, scheduler
+- Fastembed au lieu de pytorch, beaucoup plus rapide, attention à la liste des modele (embed et rerank) compatibles.
+- reranker score va maintenant de -5 à 5 (pas sur) donc revoir le threshold

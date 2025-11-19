@@ -15,6 +15,7 @@ COPY utils.py .
 COPY config.py .
 COPY main.py .
 COPY ingestion.py .
+COPY ingestion_utils.py .
 COPY retriever.py .
 
 
@@ -42,6 +43,7 @@ COPY utils.py .
 COPY config.py .
 COPY main.py .
 COPY ingestion.py .
+COPY ingestion_utils.py .
 COPY retriever.py .
 
 EXPOSE 8001

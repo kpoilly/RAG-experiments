@@ -11,11 +11,7 @@ dependencies = [
     "langchain-community==0.4.1",
     "langchain-openai==1.0.2",
     "langchain-postgres==0.0.16",
-    "langchain-huggingface==1.0.1",
-    
-    # Sentence Transformers & Torch
-    "sentence-transformers==5.1.1",
-    "torch==2.8.0",
+    "fastembed==0.7.2",
     
     # Data Handling & Storage
     "boto3==1.40.75",

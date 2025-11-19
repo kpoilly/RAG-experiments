@@ -21,3 +21,8 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["pg-exporter:9187"]
+  
+  - job_name: "rag-evaluation"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["evaluation-runner:8004"]

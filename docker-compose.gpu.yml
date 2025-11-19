@@ -7,3 +7,12 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  evaluation-runner:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

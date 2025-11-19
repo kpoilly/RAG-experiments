@@ -1,0 +1,52 @@
+[project]
+name = "evaluation-runner"
+version = "0.1.0"
+description = "Evaluate the RAG using RAGAS"
+authors = [{ name = "Kilyan"}]
+requires-python = ">=3.12"
+dependencies = [
+    # API Framework
+    "fastapi==0.118.0",
+    "uvicorn==0.37.0",
+
+    # RAGAS
+    "ragas==0.3.9",
+    "datasets==4.4.1",
+
+    "langchain-community==0.4.1",
+    "langchain-openai==1.0.2",
+    "fastembed==0.7.2",
+
+    # Data Handling & Storage
+    "boto3==1.40.75",
+    "unstructured[docx]==0.18.18",
+    "pypdf==6.1.1",
+    "markdown==3.10",
+
+    # Prometheus
+    "prometheus-client==0.23.1",
+    "prometheus-fastapi-instrumentator==7.1.0",
+
+    "pydantic-settings==2.11.0"
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.4.2",
+    "black==25.9.0",
+    "ruff==0.14.1",
+]
+
+[tool.black]
+line-length = 170
+
+[tool.ruff]
+line-length = 170
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+]
