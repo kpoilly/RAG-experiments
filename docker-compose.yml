@@ -39,7 +39,7 @@ services:
     build:
       context: src/rag-core
     container_name: rag-core
-    restart: unless-stopped
+    restart: on-failure:3
     volumes:
       - ./data:/app/src/data
     environment:

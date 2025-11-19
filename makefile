@@ -73,8 +73,8 @@ clean-folders:
 		rm -rf src/$$service/.venv; \
 	done
 
-docker-clean: clean-data
-	docker system prune -a --volumes -f
+docker-nuke: clean-data
+	docker stop $(docker ps -aq) 2>/dev/null; docker rm $(docker ps -aq) 2>/dev/null; docker system prune --all --volumes --force
 
 open:
 	@if [ -z "$(URL)" ]; then \
