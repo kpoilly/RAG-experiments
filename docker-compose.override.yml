@@ -16,3 +16,8 @@ services:
   streamlit-ui:
     volumes:
       - ./src/streamlit-ui:/app
+  
+  evaluation-runner:
+    volumes:
+      - ./src/evaluation-runner:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"]

@@ -120,6 +120,9 @@ logs-rag:
 logs-llm:
 	docker compose logs llm-gateway -f
 
+logs-eval:
+	docker compose logs evaluation-runner -f
+
 
 # --- QUALITY & TESTING ---
 lint:

@@ -1,6 +1,5 @@
 import os
 import logging
-import time
 import requests
 import json
 import tempfile
@@ -10,8 +9,7 @@ import boto3
 
 from datasets import Dataset
 from ragas import evaluate
-from ragas.testset.generator import TestsetGenerator
-from ragas.testset.evolutions import simple, reasoning, multi_context
+from ragas.testset import TestsetGenerator
 from ragas.metrics import (faithfulness, answer_relevancy, context_precision, 
                            context_recall, answer_correctness,)
 
@@ -140,7 +138,7 @@ def run_evaluation_task():
 
         logger.info("Generating synthetic evaluation set from documents...")
         generator = TestsetGenerator.from_langchain(generator_llm, critic_llm, embeddings)
-        testset = generator.generate_with_langchain_docs(documents, test_size=10, distributions={simple: 0.5, reasoning: 0.25, multi_context: 0.25})
+        testset = generator.generate_with_langchain_docs(documents, testset_size=10)
         
         logger.info("Running RAG pipeline for each generated question...")
         results = []

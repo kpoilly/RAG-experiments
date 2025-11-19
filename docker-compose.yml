@@ -230,7 +230,7 @@ services:
       llm-gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8006/health\"); r.raise_for_status()'"]
+      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8004/health\"); r.raise_for_status()'"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -240,7 +240,7 @@ services:
     image: curlimages/curl:latest
     container_name: evaluation-scheduler
     restart: unless-stopped
-    command: sh -c "sleep 60 && while true; do curl -s -X POST http://evaluation-runner:8006/evaluate || echo 'Failed to trigger evaluation run.'; sleep 86400; done"
+    command: sh -c "sleep 60 && while true; do curl -s -X POST http://evaluation-runner:8004/evaluate || echo 'Failed to trigger evaluation run.'; sleep 86400; done"
     networks:
       - rag_network
     depends_on:

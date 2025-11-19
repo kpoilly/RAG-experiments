@@ -10,9 +10,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --only-group dev --no-install-project
 ENV PATH="/opt/dev-venv/bin:$PATH"
 
-COPY main.py .
-COPY evaluate.py .
+COPY config.py .
 COPY metrics.py .
+COPY evaluate.py .
+COPY main.py .
 
 
 # builder
@@ -28,6 +29,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # runner
 FROM python:3.12-slim-bookworm AS runner
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"

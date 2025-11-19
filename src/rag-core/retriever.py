@@ -211,6 +211,7 @@ def rerank_documents(query: str, docs: List, reranker: Optional[TextCrossEncoder
 
     try:
         scores = list(reranker.rerank(query=query, documents=docs_content))
+        logging.info(f"Reranker scores: {scores}")
         doc_scores_pairs = list(zip(docs_to_rerank, scores))
         sorted_pairs = sorted(doc_scores_pairs, key=lambda x: x[1], reverse=True)
 
