@@ -5,33 +5,28 @@ else
   TARGET_SERVICES := $(SERVICE)
 endif
 
-COMPOSE_FILES := -f docker-compose.yml -f docker-compose.override.yml
-HAS_NVIDIA := $(shell which nvidia-smi 2>/dev/null)
-ifeq ($(HAS_NVIDIA),)
-	GPU_STATUS := "CPU"
-else
-	COMPOSE_FILES += -f docker-compose.gpu.yml
-	GPU_STATUS := "GPU"
-endif
+.PHONY: all build up down clean-data re rebuild ingest eval cli ui \
+prometheus grafana minio pgadmin dev clean-folders docker-clean \
+open uv-lock logs-rag logs-llm logs-eval lint format push
 
-.PHONY: all up build ingest stop down-clean clean cli logs-rag logs-llm lint format ui uv-lock open prometheus grafana push
 
 # --- MAIN ---
 all: build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
-	docker compose $(COMPOSE_FILES) build
+	docker compose -f docker-compose.yml build
 
 up:
-	@echo "========================================================"
-	@echo "🚀 Starting all services with $(GPU_STATUS) in detached mode..."
-	@echo "========================================================"
-	docker compose $(COMPOSE_FILES) up -d
+	docker compose -f docker-compose.yml up -d
 
 down:
 	docker compose down
 	@echo "🛑 All services have been stopped."
+
+clean-data:
+	ocker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
 
 re: down up
 
@@ -65,11 +60,10 @@ pgadmin:
 	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
 
 #--- DEV ---
-down-clean:
-	docker compose down -v
-	@echo "🛑 All services have been stopped and volumes removed."
+dev:
+	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
 
-clean:
+clean-folders:
 	@for service in $(TARGET_SERVICES); do \
 		rm -rf src/$$service/__pycache__; \
 		rm -rf src/$$service/.ruff_cache; \

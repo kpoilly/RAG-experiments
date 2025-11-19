@@ -6,13 +6,10 @@
 
 *Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
--   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
-    -   Intégrer RAGAS (Golden Dataset, évaluations).
-    -   Stratégie d'évaluations (schedulées ?)
-
 -   **Monitoring et Analyse de la Latence :**
     -   Mettre en place **Prometheus/Grafana/Loki**.
     -   Metrics des APIs rag-core (metrics rag), et llm-gateway (metrics llm)
+    -   Dashboard grafana associés, pour chaque services aussi, se servir des metrics RAGAS également
 
 ---
 
@@ -90,11 +87,3 @@
     -   Retrieval : Utiliser la requête du query expander (opti de coûts et de requêtes) pour demander de choisir le thème le plus pertinent pour la query parmis la liste de vector store dispo (si aucune alors connaissances du llm pour répondre) pour choisir dans quel vector store aller chercher l'info (gros gain de qualité de réponse potentiel si plusieurs documents sur sujets variés).
 
 -   Voir pour passer au Cloud pour le stockage, un changement des logins dans le .env devrait suffir (code S3 ready)
-
-
-Updates readme: 
-
-- RAGAS, evaluation runner, scheduler (custom testset car celui de RAGAS' est très (trop) exigeant niveai format)
-- Fastembed au lieu de pytorch, beaucoup plus rapide, modeles quantizés, attention à la liste des modele (embed et rerank) compatibles.
-- reranker score va maintenant de -5 à 5 (pas sur) donc revoir le threshold
-- LLM_SIDE_MODEL, EVAL_TESTSET_SIZE dans le .env

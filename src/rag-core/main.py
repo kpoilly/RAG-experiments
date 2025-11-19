@@ -80,8 +80,8 @@ async def health():
     """
     if not app.state.rad_ready:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"status": "error", "reason": "RAG components are not ready yet.", "error": app.state.startup_error})
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"status": "error", "reason": "RAG components are not ready yet.", "error": app.state.startup_error}
+        )
     return {"status": "ok"}
 
 
@@ -161,16 +161,8 @@ async def ingest():
 async def generate(request: GenerationRequest):
     try:
         formated_query = re.sub(r"(\b[ldjstnmc]|qu)'", r"\1 ", request.query.lower())
-        response_generator = orchestrate_rag_flow(
-            formated_query, 
-            request.history, 
-            request.temperature, 
-            request.strict_rag, 
-            request.rerank_threshold)
+        response_generator = orchestrate_rag_flow(formated_query, request.history, request.temperature, request.strict_rag, request.rerank_threshold)
         return StreamingResponse(content=response_generator, media_type="text/event-stream")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
-        return StreamingResponse(
-            content=json.dumps({"type": "error", "content": str(e)}), 
-            media_type="application/jsonlines", 
-            status_code=500)
+        return StreamingResponse(content=json.dumps({"type": "error", "content": str(e)}), media_type="application/jsonlines", status_code=500)

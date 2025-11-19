@@ -28,22 +28,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 MODELS_CONFIG = {
-    "fast": {
-        "name": "intfloat/multilingual-e5-small",
-        "source": "Xenova/multilingual-e5-small",
-        "dim": 384,
-        "filename": "onnx/model_quantized.onnx"
-    },
-    "optimal": {
-        "name": "intfloat/multilingual-e5-base",
-        "source": "Xenova/multilingual-e5-base",
-        "dim": 768,
-        "filename": "onnx/model_quantized.onnx"
-    },
-    "quality": {
-        "name": "intfloat/multilingual-e5-large",
-        "source": "Xenova/multilingual-e5-large",
-        "dim": 1024,
-        "filename": "onnx/model_quantized.onnx"
-    }
+    "fast": {"name": "intfloat/multilingual-e5-small", "source": "Xenova/multilingual-e5-small", "dim": 384, "filename": "onnx/model_quantized.onnx"},
+    "optimal": {"name": "intfloat/multilingual-e5-base", "source": "Xenova/multilingual-e5-base", "dim": 768, "filename": "onnx/model_quantized.onnx"},
+    "quality": {"name": "intfloat/multilingual-e5-large", "source": "Xenova/multilingual-e5-large", "dim": 1024, "filename": "onnx/model_quantized.onnx"},
 }

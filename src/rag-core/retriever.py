@@ -44,7 +44,7 @@ def init_components():
     global _RERANKER, _LLM_QUERY_GEN
     logger.info("Initializing Embedder, Reranker and LLM...")
 
-    embedder = get_embeddings()
+    get_embeddings()
 
     if _RERANKER is None:
         logger.info(f"Initializing reranker model... ({env.RERANKER_MODEL})")
@@ -100,7 +100,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     """
     global _LLM_QUERY_GEN
     if _LLM_QUERY_GEN is None:
-        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
+        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_SIDE_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
     return _LLM_QUERY_GEN
 
 
@@ -335,7 +335,6 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
     )
 
     return messages, total_tokens, context_texts, unique_metadatas
-
 
 
 async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None) -> AsyncGenerator[str, None]:

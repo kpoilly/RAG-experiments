@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,7 +19,7 @@ class Settings(BaseSettings):
     LLM_STRICT_RAG: bool = False
 
     # --- Embedding & Reranking Models ---
-    EMBEDDING_MODEL: str = "intfloat/multilingual-e5-large"
+    EMBEDDING_MODEL: str = "optimal"
     CHUNK_SIZE_P: int = 1500
     CHUNK_OVERLAP_P: int = 200
     CHUNK_SIZE_C: int = 300
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
     DB_NAME: str = "rag_db"
     DB_USER: str = "rag_user"
     DB_PASSWORD: str = "rag_password"
-    DB_URL: str = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    DB_URL: str = None
 
     COLLECTION_NAME: str = "rag_documents"
 
@@ -41,27 +42,18 @@ class Settings(BaseSettings):
     S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
 
+    @model_validator(mode="after")
+    def assemble_db_url(self) -> "Settings":
+        if self.DB_URL is None:
+            self.DB_URL = f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}" f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return self
+
 
 settings = Settings()
 
 
 MODELS_CONFIG = {
-    "fast": {
-        "name": "intfloat/multilingual-e5-small",
-        "source": "Xenova/multilingual-e5-small",
-        "dim": 384,
-        "filename": "onnx/model_quantized.onnx"
-    },
-    "optimal": {
-        "name": "intfloat/multilingual-e5-base",
-        "source": "Xenova/multilingual-e5-base",
-        "dim": 768,
-        "filename": "onnx/model_quantized.onnx"
-    },
-    "quality": {
-        "name": "intfloat/multilingual-e5-large",
-        "source": "Xenova/multilingual-e5-large",
-        "dim": 1024,
-        "filename": "onnx/model_quantized.onnx"
-    }
+    "fast": {"name": "intfloat/multilingual-e5-small", "source": "Xenova/multilingual-e5-small", "dim": 384, "filename": "onnx/model_quantized.onnx"},
+    "optimal": {"name": "intfloat/multilingual-e5-base", "source": "Xenova/multilingual-e5-base", "dim": 768, "filename": "onnx/model_quantized.onnx"},
+    "quality": {"name": "intfloat/multilingual-e5-large", "source": "Xenova/multilingual-e5-large", "dim": 1024, "filename": "onnx/model_quantized.onnx"},
 }
