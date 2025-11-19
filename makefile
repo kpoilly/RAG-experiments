@@ -1,37 +1,34 @@
-SERVICES ?= cli rag-core llm-gateway streamlit-ui
+SERVICES ?= cli rag-core llm-gateway streamlit-ui evaluation-runner
 ifeq ($(SERVICE),)
   TARGET_SERVICES := $(SERVICES)
 else
   TARGET_SERVICES := $(SERVICE)
 endif
 
-COMPOSE_FILES := -f docker-compose.yml -f docker-compose.override.yml
-HAS_NVIDIA := $(shell which nvidia-smi 2>/dev/null)
-ifeq ($(HAS_NVIDIA),)
-	GPU_STATUS := "CPU"
-else
-	COMPOSE_FILES += -f docker-compose.gpu.yml
-	GPU_STATUS := "GPU"
-endif
+.PHONY: all build up down clean-data re rebuild ingest eval cli ui \
+prometheus grafana minio pgadmin dev clean-folders docker-clean \
+open uv-lock logs-rag logs-llm logs-eval lint format push
 
-.PHONY: all up build ingest stop down-clean clean cli logs-rag logs-llm lint format ui uv-lock open prometheus grafana push
 
 # --- MAIN ---
 all: build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
-	docker compose $(COMPOSE_FILES) build
+	docker compose -f docker-compose.yml build
 
 up:
-	@echo "========================================================"
-	@echo "🚀 Starting all services with $(GPU_STATUS) in detached mode..."
-	@echo "========================================================"
-	docker compose $(COMPOSE_FILES) up -d
+	@echo "🚀 Starting all services..."
+	docker compose -f docker-compose.yml up -d
+	@echo "✨ All services have been started. Access UI with 'make ui' or at http://localhost/"
 
 down:
 	docker compose down
 	@echo "🛑 All services have been stopped."
+
+clean-data:
+	docker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
 
 re: down up
 
@@ -41,29 +38,16 @@ ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
 	curl -X POST http://localhost/api/ingest 
 
+eval:
+	@echo "📝 Running a RAGAS evaluation..."
+	@docker compose exec -it evaluation-scheduler curl -s -X POST http://evaluation-runner:8004/evaluate
+
 cli:
 	@echo "🚀 Accessing API service CLI..."
 	@docker compose exec -it cli python main.py
 
 ui:
 	@$(MAKE) --no-print-directory open URL=http://localhost/
-
-
-#--- DEV ---
-down-clean:
-	docker compose down -v
-	@echo "🛑 All services have been stopped and volumes removed."
-
-clean:
-	@for service in $(TARGET_SERVICES); do \
-		rm -rf src/$$service/__pycache__; \
-		rm -rf src/$$service/.ruff_cache; \
-		rm -rf src/$$service/.pytest_cache; \
-		rm -rf src/$$service/.venv; \
-	done
-
-docker-clean:
-	docker system prune -a --volumes -f
 
 prometheus:
 	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
@@ -76,6 +60,21 @@ minio:
 
 pgadmin:
 	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
+
+#--- DEV ---
+dev:
+	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+
+clean-folders:
+	@for service in $(TARGET_SERVICES); do \
+		rm -rf src/$$service/__pycache__; \
+		rm -rf src/$$service/.ruff_cache; \
+		rm -rf src/$$service/.pytest_cache; \
+		rm -rf src/$$service/.venv; \
+	done
+
+docker-nuke: clean-data
+	docker stop $(docker ps -aq) 2>/dev/null; docker rm $(docker ps -aq) 2>/dev/null; docker system prune --all --volumes --force
 
 open:
 	@if [ -z "$(URL)" ]; then \
@@ -119,6 +118,9 @@ logs-rag:
 
 logs-llm:
 	docker compose logs llm-gateway -f
+
+logs-eval:
+	docker compose logs evaluation-runner -f
 
 
 # --- QUALITY & TESTING ---

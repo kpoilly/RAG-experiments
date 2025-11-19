@@ -1,4 +1,5 @@
 .env
+.env_dev
 data_backup/
 data/*.pdf
 data/*.md
@@ -12,3 +13,5 @@ src/rag-core/__pycache__/
 src/rag-core/.ruff_cache/
 src/llm-gateway/__pycache__/
 src/llm-gateway/.ruff_cache/
+src/evaluation-runner/__pycache__
+src/evaluation-runner/.ruff_cache/

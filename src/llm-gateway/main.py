@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL")
+LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL", "http://litellm-proxy:8003")
 app = FastAPI(title="LLM Gateway Facade")
 
 

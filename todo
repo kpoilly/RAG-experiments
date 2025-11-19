@@ -6,13 +6,10 @@
 
 *Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
--   **Mettre en place l'Évaluation (`RAGAs`) et l'Observabilité (`LangSmith`) :**
-    -   Intégrer RAGAS (Golden Dataset, évaluations).
-    -   Stratégie d'évaluations (schedulées ?)
-
 -   **Monitoring et Analyse de la Latence :**
     -   Mettre en place **Prometheus/Grafana/Loki**.
     -   Metrics des APIs rag-core (metrics rag), et llm-gateway (metrics llm)
+    -   Dashboard grafana associés, pour chaque services aussi, se servir des metrics RAGAS également
 
 ---
 
@@ -32,7 +29,7 @@
 
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
-    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que l'agent route bien vers le bon "Tool".
+    -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que les endpoints fonctionnent correctement.
 
 -   **Construire la Pipeline de CI/CD (GitHub Actions) :**
     -   Mettre en place le workflow de **CI** qui exécute `lint` et les `tests` en parallèle pour chaque service.

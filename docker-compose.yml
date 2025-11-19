@@ -7,7 +7,7 @@ services:
     tty: true
     environment:
       - API_URL=http://nginx/api
-      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
+      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
     networks:
       - rag_network
 
@@ -20,17 +20,18 @@ services:
       - ./data:/app/data
     environment:
       - API_URL=http://nginx/api
-      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
-      - LLM_MODEL=${LLM_MODEL}
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
-      - LLM_TEMPERATURE=${LLM_TEMPERATURE}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - RERANKER_MODEL=${RERANKER_MODEL}
-      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
-      - CHUNK_SIZE_P=${CHUNK_SIZE_P}
-      - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P}
-      - CHUNK_SIZE_C=${CHUNK_SIZE_C}
-      - CHUNK_OVERLAP_C=${CHUNK_OVERLAP_C}
+      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
+      - LLM_MODEL=${LLM_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
+      - LLM_SIDE_MODEL=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}
+      - LLM_STRICT_RAG=${LLM_STRICT_RAG:-False}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.03}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-optimal}
+      - RERANKER_MODEL=${RERANKER_MODEL:-jinaai/jina-reranker-v2-base-multilingual}
+      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD:-0.0}
+      - CHUNK_SIZE_P=${CHUNK_SIZE_P:-1500}
+      - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P:-200}
+      - CHUNK_SIZE_C=${CHUNK_SIZE_C:-300}
+      - CHUNK_OVERLAP_C=${CHUNK_OVERLAP_C:-50}
     networks:
       - rag_network
     
@@ -38,33 +39,33 @@ services:
     build:
       context: src/rag-core
     container_name: rag-core
-    restart: unless-stopped
+    restart: on-failure:3
     volumes:
       - ./data:/app/src/data
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - COLLECTION_NAME=${COLLECTION_NAME}
-      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
-      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
-      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - CHUNK_SIZE_P=${CHUNK_SIZE_P}
-      - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P}
-      - CHUNK_SIZE_C=${CHUNK_SIZE_C}
-      - CHUNK_OVERLAP_C=${CHUNK_OVERLAP_C}
-      - LLM_MODEL=${LLM_MODEL}
-      - LLM_SIDE_MODEL=${LLM_SIDE_MODEL}
-      - LLM_MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS}
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-rag_db}
+      - DB_USER=${DB_USER:-rag_user}
+      - DB_PASSWORD=${DB_PASSWORD:-rag_password}
+      - COLLECTION_NAME=${COLLECTION_NAME:-rag_documents}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-minioadmin}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-minioadmin}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-rag-documents}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-optimal}
+      - CHUNK_SIZE_P=${CHUNK_SIZE_P:-1500}
+      - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P:-200}
+      - CHUNK_SIZE_C=${CHUNK_SIZE_C:-300}
+      - CHUNK_OVERLAP_C=${CHUNK_OVERLAP_C:-50}
+      - LLM_MODEL=${LLM_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
+      - LLM_SIDE_MODEL=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}
+      - LLM_MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
+      - LLM_STRICT_RAG=${LLM_STRICT_RAG:-False}
       - LLM_GATEWAY_URL=http://llm-gateway:8002
-      - LLM_TEMPERATURE=${LLM_TEMPERATURE}
-      - RERANKER_MODEL=${RERANKER_MODEL}
-      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.03}
+      - RERANKER_MODEL=${RERANKER_MODEL:-jinaai/jina-reranker-v2-base-multilingual}
+      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD:-0.0}
       - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2}
       - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT}
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
@@ -146,8 +147,8 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
       - MINIO_BROWSER_REDIRECT_URL=http://localhost/minio
       - MINIO_SERVER_URL=http://localhost/minio
     networks:
@@ -169,16 +170,17 @@ services:
       - postgres_data:/var/lib/postgresql/
       - ./deployments/postgres/init-exporter-permissions.sh:/docker-entrypoint-initdb.d/init-exporter-permissions.sh
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME:-rag_db}
+      - POSTGRES_USER=${DB_USER:-rag_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-rag_password}
     networks:
       - rag_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rag_user} -d ${DB_NAME:-rag_db}"]
+      interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   pg-exporter:
     image: prometheuscommunity/postgres-exporter:latest
@@ -187,10 +189,10 @@ services:
     ports:
       - "9187:9187"
     environment:
-      - DATA_SOURCE_NAME=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://${DB_USER:-rag_user}:${DB_PASSWORD:-rag_password}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-rag_db}?sslmode=disable
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     networks:
       - rag_network
   
@@ -204,9 +206,56 @@ services:
       - SCRIPT_NAME=/pgadmin
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     networks:
       - rag_network
+  
+  evaluation-runner:
+    build:
+      context: src/evaluation-runner
+    container_name: evaluation-runner
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    environment:
+      - RAG_CORE_URL=http://rag-core:8001
+      - LLM_GATEWAY_URL=http://llm-gateway:8002
+      - GENERATOR_LLM=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}
+      - CRITIC_LLM=${LLM_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
+      - EVAL_TESTSET_SIZE=${EVAL_TESTSET_SIZE:-10}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-optimal}
+      - CHUNK_SIZE=${CHUNK_SIZE_P:-1500}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP_P:-200}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-rag-documents}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-minioadmin}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-minioadmin}
+    networks:
+      - rag_network
+    depends_on:
+      rag-core:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      llm-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8004/health\"); r.raise_for_status()'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  evaluation-scheduler:
+    image: curlimages/curl:latest
+    container_name: evaluation-scheduler
+    restart: unless-stopped
+    # command: sh -c "sleep 60 && while true; do curl -s -X POST http://evaluation-runner:8004/evaluate || echo 'Failed to trigger evaluation run.'; sleep 86400; done"
+    networks:
+      - rag_network
+    depends_on:
+      evaluation-runner:
+        condition: service_healthy
 
   nginx:
     image: nginx:1.29.3-alpine
@@ -258,9 +307,9 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_DASHBOARDS_JSON_ENABLED=true
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER:-rag_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-rag_password}
+      - POSTGRES_DB=${DB_NAME:-rag_db}
     depends_on:
       prometheus:
         condition: service_started

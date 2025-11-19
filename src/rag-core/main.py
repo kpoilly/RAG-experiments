@@ -11,7 +11,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 
 from config import settings as env
-from ingestion import get_s3_client, process_and_index_documents
+from ingestion import process_and_index_documents
+from ingestion_utils import S3Repository
 from models import GenerationRequest, IngestionResponse
 from retriever import build_retriever, init_components, orchestrate_rag_flow
 
@@ -21,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 # --- init ---
 app = FastAPI(title="RAG Core Service")
-
 app.state.rad_ready = False
 app.state.startup_error = None
 
@@ -63,8 +63,7 @@ async def startup_event():
                 logger.info(f"Successfully retrieved and set context window for {env.LLM_MODEL}: {env.LLM_MAX_CONTEXT_TOKENS} tokens.")
             logger.info(f"Context window for {env.LLM_MODEL}: {env.LLM_MAX_CONTEXT_TOKENS} tokens")
 
-        data_path = os.getenv("DATA_PATH", "/app/src/data")
-        await asyncio.to_thread(process_and_index_documents, data_path)
+        await asyncio.to_thread(process_and_index_documents)
         await asyncio.to_thread(init_components)
         await build_retriever()
         app.state.rad_ready = True
@@ -81,8 +80,7 @@ async def health():
     """
     if not app.state.rad_ready:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"status": "error", "reason": "RAG components are not ready yet.", "error": app.state.startup_error},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"status": "error", "reason": "RAG components are not ready yet.", "error": app.state.startup_error}
         )
     return {"status": "ok"}
 
@@ -91,8 +89,8 @@ async def health():
 async def list_documents():
     """Lists all documents currently in the S3 bucket."""
     try:
-        s3_client = get_s3_client()
-        response = s3_client.list_objects_v2(Bucket=env.S3_BUCKET_NAME)
+        s3_repo = S3Repository()
+        response = s3_repo.client.list_objects_v2(Bucket=env.S3_BUCKET_NAME)
         return sorted([obj["Key"] for obj in response.get("Contents", [])])
     except Exception as e:
         logger.error(f"Failed to list documents from S3: {e}", exc_info=True)
@@ -112,8 +110,8 @@ async def upload_document(file: UploadFile = File(...)):
 
     # Upload
     try:
-        s3_client = get_s3_client()
-        s3_client.upload_fileobj(file.file, env.S3_BUCKET_NAME, file.filename)
+        s3_repo = S3Repository()
+        s3_repo.client.upload_fileobj(file.file, env.S3_BUCKET_NAME, file.filename)
         logger.info(f"Successfully uploaded '{file.filename}' to S3.")
     except Exception as e:
         logger.error(f"Failed to upload file to S3: {e}", exc_info=True)
@@ -122,7 +120,6 @@ async def upload_document(file: UploadFile = File(...)):
     # Ingest
     logger.info(f"Triggering ingestion after upload of '{file.filename}'.")
     await asyncio.to_thread(process_and_index_documents)
-
     return {"filename": file.filename, "status": "uploaded_and_ingested"}
 
 
@@ -133,8 +130,8 @@ async def delete_document(document_name: str):
     """
     decoded_doc_name = unquote(document_name)
     try:
-        s3_client = get_s3_client()
-        s3_client.delete_object(Bucket=env.S3_BUCKET_NAME, Key=decoded_doc_name)
+        s3_repo = S3Repository()
+        s3_repo.client.delete_object(Bucket=env.S3_BUCKET_NAME, Key=decoded_doc_name)
         logger.info(f"Successfully deleted '{decoded_doc_name}' from S3.")
     except Exception as e:
         logger.error(f"Failed to delete file from S3: {e}", exc_info=True)
@@ -142,7 +139,6 @@ async def delete_document(document_name: str):
 
     logger.info(f"Triggering ingestion after deletion of '{decoded_doc_name}'.")
     await asyncio.to_thread(process_and_index_documents)
-
     return {"filename": decoded_doc_name, "status": "deleted_and_reindexed"}
 
 

@@ -4,10 +4,10 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 from langchain_classic.retrievers import ParentDocumentRetriever
 from langchain_classic.storage import EncoderBackedStore
 from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.storage import SQLStore
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
@@ -32,7 +32,7 @@ with open("/app/prompts/query_expansion.json", "r") as f:
 
 
 _PDR_RETRIEVER: Optional[ParentDocumentRetriever] = None
-_RERANKER: Optional[HuggingFaceCrossEncoder] = None
+_RERANKER: Optional[TextCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 _QUERY_EXPANSION_CHAIN: Optional[RunnableSequence] = None
 
@@ -44,11 +44,11 @@ def init_components():
     global _RERANKER, _LLM_QUERY_GEN
     logger.info("Initializing Embedder, Reranker and LLM...")
 
-    embedder = get_embeddings()
+    get_embeddings()
 
     if _RERANKER is None:
-        logger.info("Initializing reranker model...")
-        _RERANKER = HuggingFaceCrossEncoder(model_name=env.RERANKER_MODEL, model_kwargs={"device": embedder._client.device, "trust_remote_code": True})
+        logger.info(f"Initializing reranker model... ({env.RERANKER_MODEL})")
+        _RERANKER = TextCrossEncoder(model_name=env.RERANKER_MODEL)
         logger.info("Reranker model loaded.")
 
     if _LLM_QUERY_GEN is None:
@@ -76,7 +76,7 @@ async def build_retriever():
     logger.info("Parent Document Retriever is ready.")
 
 
-async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentRetriever], Optional[HuggingFaceCrossEncoder]]:
+async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentRetriever], Optional[TextCrossEncoder]]:
     """
     Get the ParentDocumentRetriever and Reranker, initializing them if necessary.
 
@@ -100,7 +100,7 @@ def get_llm_query_gen() -> Optional[ChatOpenAI]:
     """
     global _LLM_QUERY_GEN
     if _LLM_QUERY_GEN is None:
-        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
+        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_SIDE_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
     return _LLM_QUERY_GEN
 
 
@@ -184,7 +184,7 @@ async def retrieve_and_deduplicate_documents(retriever: ParentDocumentRetriever,
     return unique_docs
 
 
-def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCrossEncoder] = None, threshold: float = env.RERANKER_THRESHOLD) -> List:
+def rerank_documents(query: str, docs: List, reranker: Optional[TextCrossEncoder] = None, threshold: float = env.RERANKER_THRESHOLD) -> List:
     """
     Reranks a list of documents based on relevance to the query.
 
@@ -207,22 +207,34 @@ def rerank_documents(query: str, docs: List, reranker: Optional[HuggingFaceCross
         logger.info(f"Limiting to top {MAX_DOCS_TO_RERANK} documents for reranking.")
 
     logger.info(f"Reranking documents... (Threshold: {threshold})")
-    pairs = [(query, doc.page_content) for doc in docs_to_rerank]
-    scores = reranker.score(pairs)
+    docs_content = [doc.page_content for doc in docs_to_rerank]
 
-    reranked_results = sorted(zip(docs_to_rerank, scores), key=lambda x: x[1], reverse=True)
-    filtered_results = [result for result in reranked_results if result[1] > threshold]
+    try:
+        scores = list(reranker.rerank(query=query, documents=docs_content))
+        logging.info(f"Reranker scores: {scores}")
+        doc_scores_pairs = list(zip(docs_to_rerank, scores))
+        sorted_pairs = sorted(doc_scores_pairs, key=lambda x: x[1], reverse=True)
 
-    if filtered_results:
-        final_docs = [doc for doc, score in filtered_results]
-        logger.info(f"{len(final_docs)} documents passed the reranker threshold of {threshold}.")
-    elif reranked_results:
-        final_docs = [reranked_results[0][0]]
-        logger.warning(f"No documents met the threshold of {threshold}. " f"Falling back to the single best document with score {reranked_results[0][1]:.4f}.")
-    else:
         final_docs = []
+        for doc, score in sorted_pairs:
+            if score > threshold:
+                doc.metadata["rerank_score"] = score
+                final_docs.append(doc)
 
-    return final_docs
+        if final_docs:
+            logger.info(f"{len(final_docs)} documents passed the reranker threshold of {threshold}.")
+        elif sorted_pairs:
+            best_doc, best_score = sorted_pairs[0]
+            logger.warning(f"No documents met the threshold of {threshold}. Falling back to the single best document with score {best_score:.4f}.")
+            best_doc.metadata["rerank_score"] = best_score
+            final_docs = [best_doc]
+        else:
+            final_docs = []
+
+        return final_docs
+    except Exception as e:
+        logger.warning(f"Reranking failed: {e}. Falling back to original documents.")
+        return docs_to_rerank
 
 
 def build_context_from_docs(docs: List, context_budget: int) -> Tuple[List[str], List[Dict[str, str]]]:
@@ -322,7 +334,7 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
         f"History: {history_tokens}, Context: {context_tokens}, Template: {prompt_template_tokens}"
     )
 
-    return messages, total_tokens
+    return messages, total_tokens, context_texts, unique_metadatas
 
 
 async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None) -> AsyncGenerator[str, None]:
@@ -387,7 +399,11 @@ async def orchestrate_rag_flow(
     retrieved_docs = await retrieve_and_deduplicate_documents(retriever, expanded_queries)
     final_docs = rerank_documents(query, retrieved_docs, reranker, rerank_threshold)
 
-    messages, token_count = build_final_prompt(query, history, final_docs, strict_mode)
+    messages, token_count, context_texts, unique_metadatas = build_final_prompt(query, history, final_docs, strict_mode)
+
+    # We do this because evaluation-runner needs the context texts and metadatas
+    context_payload = {"type": "context", "data": {"texts": context_texts, "metadatas": unique_metadatas}}
+    yield f"data:{json.dumps(context_payload)}\n\n"
 
     async for chunk in stream_llm_response(messages, token_count, temp):
         yield chunk
