@@ -43,9 +43,11 @@ class Settings(BaseSettings):
     S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
 
-settings = Settings()
+    @property
+    def DB_URL(self) -> str:
+        return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
-DB_URL = f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}" f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+settings = Settings()
 
 MODELS_CONFIG = {
     "fast": {"name": "intfloat/multilingual-e5-small", "source": "Xenova/multilingual-e5-small", "dim": 384, "filename": "onnx/model_quantized.onnx"},

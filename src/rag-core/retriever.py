@@ -15,7 +15,6 @@ from langchain_core.runnables import RunnableSequence
 from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
 
-from config import DB_URL
 from config import settings as env
 from ingestion import get_embeddings
 from models import ExpandedQueries, LLMRequest
@@ -69,8 +68,8 @@ async def build_retriever():
     logger.info("Building retriever...")
 
     embedder = get_embeddings()
-    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=DB_URL, embeddings=embedder, async_mode=True)
-    doc_store = SQLStore(db_url=DB_URL, namespace=f"{env.COLLECTION_NAME}_parents", async_mode=True)
+    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
+    doc_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents", async_mode=True)
     store = EncoderBackedStore(doc_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
 
     _PDR_RETRIEVER = ParentDocumentRetriever(vectorstore=vector_store, docstore=store, child_splitter=RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50))

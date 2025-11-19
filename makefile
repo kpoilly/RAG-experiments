@@ -18,7 +18,9 @@ build: uv-lock
 	docker compose -f docker-compose.yml build
 
 up:
+	@echo "🚀 Starting all services..."
 	docker compose -f docker-compose.yml up -d
+	@echo "✨ All services have been started. Access UI with 'make ui' or at http://localhost/"
 
 down:
 	docker compose down

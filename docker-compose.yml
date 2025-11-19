@@ -72,7 +72,7 @@ services:
       - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT}
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       llm-gateway:
         condition: service_healthy
       minio:
@@ -175,6 +175,12 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-rag_password}
     networks:
       - rag_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rag_user} -d ${DB_NAME:-rag_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   pg-exporter:
     image: prometheuscommunity/postgres-exporter:latest
