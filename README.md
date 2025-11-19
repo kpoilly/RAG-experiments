@@ -135,8 +135,8 @@ These variables control the behavior of the RAG pipeline and database connection
 | **S3_BUCKET_NAME** | `rag-documents` | The name of the S3 bucket to store documents. |
 | **DB_HOST** | `postgres` | Hostname of the PostgreSQL service (as defined in `docker-compose.yml`). | Database connection. |
 | **DB_PORT** | `5432` | Listening port of the PostgreSQL service. | Database connection. |
-| **DB_USER** | `user` | Username for connecting to the PostgreSQL database. | Database access. |
-| **DB_PASSWORD** | `password` | Password for connecting to the PostgreSQL database. | Database access. |
+| **DB_USER** | `rag_user` | Username for connecting to the PostgreSQL database. | Database access. |
+| **DB_PASSWORD** | `rag_password` | Password for connecting to the PostgreSQL database. | Database access. |
 | **DB_NAME** | `rag_db` | Name of the database to use within the PostgreSQL instance. | Specifies the target database. |
 | **COLLECTION_NAME** | `rag_documents` | Name of the logical "collection" within PGVector. This isolates the project's documents. | Filters searches to only include documents from this project. |
 
