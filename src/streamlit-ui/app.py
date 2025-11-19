@@ -130,17 +130,16 @@ if page == "💬 Chat":
 
         st.subheader("Add Documents")
         with st.form("upload_form", clear_on_submit=True):
-            uploaded_files = st.file_uploader("Upload files...", accept_multiple_files=True, type=["pdf", "md", "docx"], label_visibility="collapsed")
+            uploaded_file = st.file_uploader("Upload files...", accept_multiple_files=False, type=["pdf", "md", "docx"], label_visibility="collapsed")
             submitted = st.form_submit_button("Add")
-            if submitted and uploaded_files:
+            if submitted and uploaded_file:
                 with st.spinner("Uploading and processing documents..."):
-                    for uploaded_file in uploaded_files:
-                        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                        try:
-                            response = requests.post(DOCUMENTS_URL, files=files)
-                            response.raise_for_status()
-                        except requests.RequestException as e:
-                            st.error(f"Failed to process {uploaded_file.name}: {e.response.text if e.response else e}")
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                    try:
+                        response = requests.post(DOCUMENTS_URL, files=files)
+                        response.raise_for_status()
+                    except requests.RequestException as e:
+                        st.error(f"Failed to process {uploaded_file.name}: {e.response.text if e.response else e}")
 
                 st.success("Documents processed successfully!")
                 st.cache_data.clear()

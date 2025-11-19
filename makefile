@@ -25,7 +25,7 @@ down:
 	@echo "🛑 All services have been stopped."
 
 clean-data:
-	ocker compose down -v
+	docker compose down -v
 	@echo "🛑 All services have been stopped and volumes removed."
 
 re: down up
@@ -71,7 +71,7 @@ clean-folders:
 		rm -rf src/$$service/.venv; \
 	done
 
-docker-clean:
+docker-clean: clean-data
 	docker system prune -a --volumes -f
 
 open:
