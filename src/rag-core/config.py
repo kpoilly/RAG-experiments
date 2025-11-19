@@ -18,12 +18,12 @@ class Settings(BaseSettings):
     LLM_STRICT_RAG: bool = False
 
     # --- Embedding & Reranking Models ---
-    EMBEDDING_MODEL: str = "intfloat/multilingual-e5-small"
+    EMBEDDING_MODEL: str = "intfloat/multilingual-e5-large"
     CHUNK_SIZE_P: int = 1500
     CHUNK_OVERLAP_P: int = 200
     CHUNK_SIZE_C: int = 300
     CHUNK_OVERLAP_C: int = 50
-    RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
+    RERANKER_MODEL: str = "jinaai/jina-reranker-v2-base-multilingual"
     RERANKER_THRESHOLD: float = 0.4
 
     # --- Database & Data Storage Settings ---
@@ -43,3 +43,25 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+MODELS_CONFIG = {
+    "fast": {
+        "name": "intfloat/multilingual-e5-small",
+        "source": "Xenova/multilingual-e5-small",
+        "dim": 384,
+        "filename": "onnx/model_quantized.onnx"
+    },
+    "optimal": {
+        "name": "intfloat/multilingual-e5-base",
+        "source": "Xenova/multilingual-e5-base",
+        "dim": 768,
+        "filename": "onnx/model_quantized.onnx"
+    },
+    "quality": {
+        "name": "intfloat/multilingual-e5-large",
+        "source": "Xenova/multilingual-e5-large",
+        "dim": 1024,
+        "filename": "onnx/model_quantized.onnx"
+    }
+}

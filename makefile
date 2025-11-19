@@ -41,6 +41,10 @@ ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
 	curl -X POST http://localhost/api/ingest 
 
+eval:
+	@echo "📝 Running a RAGAS evaluation..."
+	@docker compose exec -it evaluation-scheduler curl -s -X POST http://evaluation-runner:8004/evaluate
+
 cli:
 	@echo "🚀 Accessing API service CLI..."
 	@docker compose exec -it cli python main.py
@@ -48,6 +52,17 @@ cli:
 ui:
 	@$(MAKE) --no-print-directory open URL=http://localhost/
 
+prometheus:
+	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
+
+grafana:
+	@$(MAKE) --no-print-directory open URL=http://localhost/grafana/
+
+minio:
+	@$(MAKE) --no-print-directory open URL=http://localhost/minio/
+
+pgadmin:
+	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
 
 #--- DEV ---
 down-clean:
@@ -64,18 +79,6 @@ clean:
 
 docker-clean:
 	docker system prune -a --volumes -f
-
-prometheus:
-	@$(MAKE) --no-print-directory open URL=http://localhost/prometheus/
-
-grafana:
-	@$(MAKE) --no-print-directory open URL=http://localhost/grafana/
-
-minio:
-	@$(MAKE) --no-print-directory open URL=http://localhost/minio/
-
-pgadmin:
-	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
 
 open:
 	@if [ -z "$(URL)" ]; then \

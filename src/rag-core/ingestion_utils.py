@@ -1,12 +1,16 @@
 import logging
 import boto3
 import psycopg
-from typing import Set, Dict, Optional, Type
+from typing import Set, Dict, Optional
 
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_core.embeddings import Embeddings
 
+from fastembed import TextEmbedding
+from fastembed.common.model_description import PoolingType, ModelSource
+
 from config import settings as env
+from config import MODELS_CONFIG
 from utils import calculate_file_hash_from_stream
 
 
@@ -14,15 +18,37 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("Ingestion")
 
 
-# --- Singleton for Embeddings ---
+def configure_embedding_model(user_choice: str):
+    """
+    """
+    user_choice = user_choice.lower().strip()
+    if user_choice not in MODELS_CONFIG:
+        logger.info(f"Model '{user_choice}' not an alias.")
+        return user_choice
+
+    config = MODELS_CONFIG[user_choice]
+    logger.info(f"Model config: '{user_choice}' -> {config['name']} (Dim: {config['dim']})")
+
+    TextEmbedding.add_custom_model(
+        model=config["name"], 
+        pooling=PoolingType.MEAN,
+        normalization=True,
+        dim=config["dim"],
+        sources=ModelSource(hf=config["source"]),
+        model_file=config["filename"]
+    )
+    return config["name"]
+
+
 _EMBEDDER: Optional[Embeddings] = None
 
 def get_embeddings() -> Embeddings:
     """Lazy singleton to load the embedding model only once."""
     global _EMBEDDER
     if _EMBEDDER is None:
-        logger.info(f"Initializing embeddings model ({env.EMBEDDING_MODEL})...")
-        _EMBEDDER = FastEmbedEmbeddings(model_name=env.EMBEDDING_MODEL)
+        emb_model = configure_embedding_model(env.EMBEDDING_MODEL)
+        logger.info(f"Initializing embeddings model ({emb_model})...")
+        _EMBEDDER = FastEmbedEmbeddings(model_name=emb_model)
     return _EMBEDDER
 
 

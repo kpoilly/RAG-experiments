@@ -94,6 +94,7 @@
 
 Updates readme: 
 
-- RAGAS, evaluation runner, scheduler
-- Fastembed au lieu de pytorch, beaucoup plus rapide, attention à la liste des modele (embed et rerank) compatibles.
+- RAGAS, evaluation runner, scheduler (custom testset car celui de RAGAS' est très (trop) exigeant niveai format)
+- Fastembed au lieu de pytorch, beaucoup plus rapide, modeles quantizés, attention à la liste des modele (embed et rerank) compatibles.
 - reranker score va maintenant de -5 à 5 (pas sur) donc revoir le threshold
+- LLM_SIDE_MODEL, EVAL_TESTSET_SIZE dans le .env
