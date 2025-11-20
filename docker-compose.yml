@@ -40,9 +40,9 @@ services:
       context: src/rag-core
     container_name: rag-core
     restart: on-failure:3
-    volumes:
-      - ./data:/app/src/data
     environment:
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
       - DB_NAME=${DB_NAME:-rag_db}

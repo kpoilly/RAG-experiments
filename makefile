@@ -10,7 +10,7 @@ prometheus grafana minio pgadmin dev clean-folders docker-clean \
 open uv-lock logs-rag logs-llm logs-eval lint format push
 
 
-# --- MAIN ---
+# --- BUILDING ---
 all: build up
 
 build: uv-lock
@@ -34,9 +34,21 @@ re: down up
 
 rebuild: down all
 
+
+# --- INTERACTIONS ---
+register:
+	@curl -X POST "http://localhost/api/auth/register" \
+	-H "Content-Type: application/json" \
+	-d '{"email": "admin@admin.com", "password": "admin"}'
+
+login:
+	@curl -X POST "http://localhost/api/auth/token" \
+	-H "Content-Type: application/x-www-form-urlencoded" \
+	-d "username=admin@admin.com&password=admin"
+
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
-	curl -X POST http://localhost/api/ingest 
+	curl -X POST http://localhost/api/documents/ingest 
 
 eval:
 	@echo "📝 Running a RAGAS evaluation..."
@@ -61,17 +73,35 @@ minio:
 pgadmin:
 	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
 
+
 #--- DEV ---
-dev:
+SCRIPTS_VENV := scripts/.venv
+SCRIPTS_PYTHON := $(SCRIPTS_VENV)/bin/python
+
+dev: uv-lock
 	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
 
+bootstrap: $(SCRIPTS_VENV)/touchfile
+	@echo "--- Initializing project (secrets, auth token) ---"
+	@$(SCRIPTS_PYTHON) scripts/bootstrap.py
+
+$(SCRIPTS_VENV)/touchfile: scripts/requirements.txt
+	@echo "--- Setting up virtual environment for scripts... ---"
+	@if ! command -v uv > /dev/null; then \
+		echo "uv not found, installing..."; \
+		curl -LsSf https://astral.sh/uv/install.sh | sh; \
+	fi
+	@uv venv $(SCRIPTS_VENV) --python 3.12 --clear -q
+	@uv pip install -p $(SCRIPTS_VENV) -r scripts/requirements.txt -q
+	@touch $(SCRIPTS_VENV)/touchfile
+
+clean-bootstrap:
+	@echo "--- Cleaning bootstrap artifacts ---"
+	@rm -rf $(SCRIPTS_VENV)
+
 clean-folders:
-	@for service in $(TARGET_SERVICES); do \
-		rm -rf src/$$service/__pycache__; \
-		rm -rf src/$$service/.ruff_cache; \
-		rm -rf src/$$service/.pytest_cache; \
-		rm -rf src/$$service/.venv; \
-	done
+	@sudo find . -type d -name "__pycache__" -exec rm -rf {} +
+	@sudo find . -type d -name ".ruff_cache" -exec rm -rf {} +
 
 docker-nuke: clean-data
 	docker stop $(docker ps -aq) 2>/dev/null; docker rm $(docker ps -aq) 2>/dev/null; docker system prune --all --volumes --force
@@ -110,6 +140,9 @@ uv-lock:
 	@for service in $(TARGET_SERVICES); do \
 		uv lock --directory src/$$service/; \
 	done
+
+generate-encrypt:
+	python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 
 #--- LOGS ---
@@ -154,7 +187,7 @@ format:
 
 
 # --- GIT ---
-push: format
+push: format clean-folders
 	git add .
 	git commit -m "$(MSG)"
 	git push origin main

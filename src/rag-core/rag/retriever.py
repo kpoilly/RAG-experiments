@@ -15,10 +15,10 @@ from langchain_core.runnables import RunnableSequence
 from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
 
-from config import settings as env
-from ingestion import get_embeddings
-from models import ExpandedQueries, LLMRequest
-from utils import count_tokens, format_history_for_prompt, truncate_history, value_deserializer, value_serializer
+from .ingestion import get_embeddings
+from core.config import settings as env
+from core.models import ExpandedQueries, LLMRequest
+from utils.utils import count_tokens, format_history_for_prompt, truncate_history, value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

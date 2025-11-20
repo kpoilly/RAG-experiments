@@ -79,6 +79,7 @@ def value_deserializer(data: bytes) -> Any:
     return loads(json.loads(data.decode("utf-8")))
 
 
+# --- Token count and optimizations ---
 try:
     tokenizer = tiktoken.get_encoding("cl100k_base")
 except Exception:

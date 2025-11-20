@@ -43,9 +43,16 @@ class Settings(BaseSettings):
     @property
     def DB_URL(self) -> str:
         return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    
+    # --- Security ---
+    JWT_SECRET_KEY: str
+    ENCRYPTION_KEY: str
 
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
 settings = Settings()
+
 
 MODELS_CONFIG = {
     "fast": {"name": "intfloat/multilingual-e5-small", "source": "Xenova/multilingual-e5-small", "dim": 384, "filename": "onnx/model_quantized.onnx"},

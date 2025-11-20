@@ -10,13 +10,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --only-group dev --no-install-project
 ENV PATH="/opt/dev-venv/bin:$PATH"
 
-COPY models.py .
-COPY utils.py .
-COPY config.py .
-COPY main.py .
-COPY ingestion.py .
-COPY ingestion_utils.py .
-COPY retriever.py .
+COPY . .
 
 
 # ========== builder ==========
@@ -28,7 +22,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-dev -qq
+    uv sync --locked --no-install-project --no-dev
 
 
 # ========== runner ==========
@@ -38,14 +32,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
-COPY models.py .
-COPY utils.py .
-COPY config.py .
-COPY main.py .
-COPY ingestion.py .
-COPY ingestion_utils.py .
-COPY retriever.py .
-COPY ./prompts ./prompts/
+COPY . .
 
 EXPOSE 8001
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

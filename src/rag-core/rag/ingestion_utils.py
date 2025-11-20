@@ -8,9 +8,9 @@ from fastembed.common.model_description import ModelSource, PoolingType
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_core.embeddings import Embeddings
 
-from config import MODELS_CONFIG
-from config import settings as env
-from utils import calculate_file_hash_from_stream
+from core.config import MODELS_CONFIG
+from core.config import settings as env
+from utils.utils import calculate_file_hash_from_stream
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Ingestion")

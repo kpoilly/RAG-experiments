@@ -11,9 +11,9 @@ from langchain_community.storage import SQLStore
 from langchain_core.documents import Document
 from langchain_postgres.vectorstores import PGVector
 
-from config import settings as env
-from ingestion_utils import S3Repository, VectorDBRepository, get_embeddings
-from utils import value_deserializer, value_serializer
+from .ingestion_utils import S3Repository, VectorDBRepository, get_embeddings
+from core.config import settings as env
+from utils.utils import value_deserializer, value_serializer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Ingestion")
