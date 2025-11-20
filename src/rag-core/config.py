@@ -32,7 +32,6 @@ class Settings(BaseSettings):
     DB_NAME: str = "rag_db"
     DB_USER: str = "rag_user"
     DB_PASSWORD: str = "rag_password"
-
     COLLECTION_NAME: str = "rag_documents"
 
     S3_ENDPOINT_URL: str = "http://minio:9000"
@@ -40,10 +39,11 @@ class Settings(BaseSettings):
     S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
 
+    USE_GPU: bool = False
+
     @property
     def DB_URL(self) -> str:
         return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-
 
 settings = Settings()
 

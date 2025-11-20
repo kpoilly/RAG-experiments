@@ -1,0 +1,14 @@
+services:
+  rag-core:
+    build:
+      args:
+        USE_GPU: "true"
+    environment:
+      USE_GPU: "true"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

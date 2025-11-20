@@ -22,13 +22,19 @@ COPY retriever.py .
 # ========== builder ==========
 FROM ghcr.io/astral-sh/uv:0.9.9-python3.12-bookworm-slim AS builder
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
-
+ARG USE_GPU=false
 
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-dev -qq
+    if [ "$USE_GPU" = "true" ]; then \
+        echo "Building for GPU..." && \
+        uv sync --locked --no-install-project --no-dev --extra gpu -qq; \
+    else \
+        echo "Building for CPU..." && \
+        uv sync --locked --no-install-project --no-dev --extra cpu -qq; \
+    fi
 
 
 # ========== runner ==========

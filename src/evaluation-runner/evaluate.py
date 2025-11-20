@@ -112,7 +112,8 @@ def configure_embedding_model(user_choice: str):
     logger.info(f"Model config: '{user_choice}' -> {config['name']} (Dim: {config['dim']})")
 
     TextEmbedding.add_custom_model(
-        model=config["name"], pooling=PoolingType.MEAN, normalization=True, dim=config["dim"], sources=ModelSource(hf=config["source"]), model_file=config["filename"]
+        model=config["name"], pooling=PoolingType.MEAN, normalization=True, dim=config["dim"],
+        sources=ModelSource(hf=config["source"]), model_file=config["filename"]
     )
     env.EMBEDDING_MODEL = config["name"]
 

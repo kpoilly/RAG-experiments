@@ -1,3 +1,18 @@
+HAS_NVIDIA := $(shell command -v nvidia-smi 2> /dev/null)
+ifdef HAS_NVIDIA
+  USE_GPU ?= true
+else
+  USE_GPU ?= false
+endif
+
+COMPOSE_FILES := -f docker-compose.yml
+ifeq ($(USE_GPU),true)
+	COMPOSE_FILES += -f docker-compose.gpu.yml
+	GPU_MSG := "GPU Mode Enabled."
+else
+	GPU_MSG := "CPU Mode."
+endif
+
 SERVICES ?= cli rag-core llm-gateway streamlit-ui evaluation-runner
 ifeq ($(SERVICE),)
   TARGET_SERVICES := $(SERVICES)
@@ -15,11 +30,13 @@ all: build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
-	docker compose -f docker-compose.yml build
+	@echo $(GPU_MSG)
+	docker compose $(COMPOSE_FILES) build
 
 up:
 	@echo "🚀 Starting all services..."
-	docker compose -f docker-compose.yml up -d
+	@echo $(GPU_MSG)
+	docker compose $(COMPOSE_FILES) up -d
 	@echo "✨ All services have been started. Access UI with 'make ui' or at http://localhost/"
 
 down:
@@ -63,7 +80,9 @@ pgadmin:
 
 #--- DEV ---
 dev:
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+	@echo "Starting in DEV mode..."
+	@echo $(GPU_MSG)
+	docker compose $(COMPOSE_FILES) -f docker-compose.override.yml up --build -d
 
 clean-folders:
 	@for service in $(TARGET_SERVICES); do \

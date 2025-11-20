@@ -532,6 +532,27 @@ wheels = [
 ]
 
 [[package]]
+name = "fastembed-gpu"
+version = "0.7.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "loguru" },
+    { name = "mmh3" },
+    { name = "numpy" },
+    { name = "onnxruntime-gpu" },
+    { name = "pillow" },
+    { name = "py-rust-stemmers" },
+    { name = "requests" },
+    { name = "tokenizers" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/71/871e7a1816d838f740c2e8f0264d30148151702a60fd23cd6d2e3a1aa8a2/fastembed_gpu-0.7.2.tar.gz", hash = "sha256:e741efcdbc91c4f3d3a86e3a73c6aa65413512d3bb8a3e3acfd808c60c0c8bad", size = 66726 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/52/c7/e8ee3310c31fbcdc7d32e6483c2190205dc79b2a4b14a199d5454bedab47/fastembed_gpu-0.7.2-py3-none-any.whl", hash = "sha256:b563156e06cbe8952e0016e8aca76ee5cb12b03b4c869c832b258c28fdb3e0e9", size = 105446 },
+]
+
+[[package]]
 name = "filelock"
 version = "3.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1495,6 +1516,26 @@ wheels = [
 ]
 
 [[package]]
+name = "onnxruntime-gpu"
+version = "1.23.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "coloredlogs" },
+    { name = "flatbuffers" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "sympy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/d9/b7140a4f1615195938c7e358c0804bb84271f0d6886b5cbf105c6cb58aae/onnxruntime_gpu-1.23.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4f2d1f720685d729b5258ec1b36dee1de381b8898189908c98cbeecdb2f2b5c2", size = 300509596 },
+    { url = "https://files.pythonhosted.org/packages/87/da/2685c79e5ea587beddebe083601fead0bdf3620bc2f92d18756e7de8a636/onnxruntime_gpu-1.23.2-cp312-cp312-win_amd64.whl", hash = "sha256:fe925a84b00e291e0ad3fac29bfd8f8e06112abc760cdc82cb711b4f3935bd95", size = 244508327 },
+    { url = "https://files.pythonhosted.org/packages/03/05/40d561636e4114b54aa06d2371bfbca2d03e12cfdf5d4b85814802f18a75/onnxruntime_gpu-1.23.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1e8f75af5da07329d0c3a5006087f4051d8abd133b4be7c9bae8cdab7bea4c26", size = 300515567 },
+    { url = "https://files.pythonhosted.org/packages/b6/3b/418300438063d403384c79eaef1cb13c97627042f2247b35a887276a355a/onnxruntime_gpu-1.23.2-cp313-cp313-win_amd64.whl", hash = "sha256:7f1b3f49e5e126b99e23ec86b4203db41c2a911f6165f7624f2bc8267aaca767", size = 244507535 },
+    { url = "https://files.pythonhosted.org/packages/b8/dc/80b145e3134d7eba31309b3299a2836e37c76e4c419a261ad9796f8f8d65/onnxruntime_gpu-1.23.2-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:20959cd4ae358aab6579ab9123284a7b1498f7d51ec291d429a5edc26511306f", size = 300525759 },
+]
+
+[[package]]
 name = "openai"
 version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2157,7 +2198,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "boto3" },
     { name = "fastapi" },
-    { name = "fastembed" },
     { name = "langchain-classic" },
     { name = "langchain-community" },
     { name = "langchain-core" },
@@ -2175,6 +2215,15 @@ dependencies = [
     { name = "uvicorn" },
 ]
 
+[package.optional-dependencies]
+cpu = [
+    { name = "fastembed" },
+]
+gpu = [
+    { name = "fastembed-gpu" },
+    { name = "onnxruntime-gpu" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "black" },
@@ -2186,13 +2235,15 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = "==1.40.75" },
     { name = "fastapi", specifier = "==0.118.0" },
-    { name = "fastembed", specifier = "==0.7.2" },
+    { name = "fastembed", marker = "extra == 'cpu'", specifier = "==0.7.2" },
+    { name = "fastembed-gpu", marker = "extra == 'gpu'", specifier = "==0.7.2" },
     { name = "langchain-classic", specifier = "==1.0.0" },
     { name = "langchain-community", specifier = "==0.4.1" },
     { name = "langchain-core", specifier = "==1.0.4" },
     { name = "langchain-openai", specifier = "==1.0.2" },
     { name = "langchain-postgres", specifier = "==0.0.16" },
     { name = "markdown", specifier = "==3.10" },
+    { name = "onnxruntime-gpu", marker = "extra == 'gpu'", specifier = "==1.23.2" },
     { name = "psycopg", specifier = "==3.2.12" },
     { name = "pydantic", specifier = "==2.11.10" },
     { name = "pydantic-settings", specifier = "==2.11.0" },
@@ -2203,6 +2254,7 @@ requires-dist = [
     { name = "unstructured", extras = ["docx"], specifier = "==0.18.18" },
     { name = "uvicorn", specifier = "==0.37.0" },
 ]
+provides-extras = ["cpu", "gpu"]
 
 [package.metadata.requires-dev]
 dev = [

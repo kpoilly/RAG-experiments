@@ -5,12 +5,11 @@ import boto3
 import psycopg
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
-from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_core.embeddings import Embeddings
 
 from config import MODELS_CONFIG
 from config import settings as env
-from utils import calculate_file_hash_from_stream
+from utils import calculate_file_hash_from_stream, CustomFastEmbedEmbeddings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Ingestion")
@@ -27,7 +26,8 @@ def configure_embedding_model(user_choice: str):
     logger.info(f"Model config: '{user_choice}' -> {config['name']} (Dim: {config['dim']})")
 
     TextEmbedding.add_custom_model(
-        model=config["name"], pooling=PoolingType.MEAN, normalization=True, dim=config["dim"], sources=ModelSource(hf=config["source"]), model_file=config["filename"]
+        model=config["name"], pooling=PoolingType.MEAN, normalization=True,dim=config["dim"],
+        sources=ModelSource(hf=config["source"]), model_file=config["filename"]
     )
     return config["name"]
 
@@ -41,7 +41,7 @@ def get_embeddings() -> Embeddings:
     if _EMBEDDER is None:
         emb_model = configure_embedding_model(env.EMBEDDING_MODEL)
         logger.info(f"Initializing embeddings model ({emb_model})...")
-        _EMBEDDER = FastEmbedEmbeddings(model_name=emb_model)
+        _EMBEDDER = CustomFastEmbedEmbeddings(model_name=emb_model, providers=['CPUExecutionProvider' if not env.USE_GPU else 'CUDAExecutionProvider'])
     return _EMBEDDER
 
 
