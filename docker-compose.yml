@@ -177,7 +177,7 @@ services:
       - rag_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rag_user} -d ${DB_NAME:-rag_db}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
@@ -251,6 +251,7 @@ services:
     container_name: evaluation-scheduler
     restart: unless-stopped
     # command: sh -c "sleep 60 && while true; do curl -s -X POST http://evaluation-runner:8004/evaluate || echo 'Failed to trigger evaluation run.'; sleep 86400; done"
+    command: sh -c "sleep 10000"
     networks:
       - rag_network
     depends_on:
