@@ -155,40 +155,44 @@ class VectorDBRepository:
             logger.warning(f"Embedding table for collection '{self.collection}' does not exist yet.")
         return indexed_files
 
-    def delete_documents(self, hashes: Set[str]) -> None:
+    def delete_documents_by_source(self, source_keys: List[str]) -> None:
         """
-        Atomic deletion of documents (both Parents and Children) based on hash.
+        Atomic deletion of documents (Parents and Children) based on their source filename.
         """
-        if not hashes:
+        if not source_keys:
             return
-        hash_list = list(hashes)
 
-        # Find internal IDs -> Delete Children -> Delete Parents
         q_find_ids = """
             SELECT DISTINCT cmetadata ->> 'doc_id' FROM langchain_pg_embedding
             WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
-            AND cmetadata ->> 'document_hash' = ANY(%s);
+            AND cmetadata ->> 'source' = ANY(%s);
         """
+        
         q_del_vecs = """
             DELETE FROM langchain_pg_embedding
             WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
             AND cmetadata ->> 'doc_id' = ANY(%s);
         """
-        q_del_store = f"DELETE FROM {self.docstore_namespace} WHERE namespace = %s AND key = ANY(%s);"
+        
+        q_del_store = f"""
+            DELETE FROM langchain_key_value_stores
+            WHERE namespace = %s AND key = ANY(%s);
+        """
 
         try:
             with self._get_conn() as conn, conn.cursor() as cur:
-                cur.execute(q_find_ids, (self.collection, hash_list))
+                cur.execute(q_find_ids, (self.collection_name, source_keys))
                 parent_ids = [row[0] for row in cur.fetchall()]
-
                 if parent_ids:
-                    cur.execute(q_del_vecs, (self.collection, parent_ids))
-                    cur.execute(q_del_store, (f"{self.collection}_parents", parent_ids))
-                    logger.info(f"Deleted {len(parent_ids)} documents (Parents & Children).")
+                    cur.execute(q_del_vecs, (self.collection_name, parent_ids))
+                    cur.execute(q_del_store, (self.docstore_namespace, parent_ids))
+                    logger.info(f"Deleted {len(parent_ids)} documents (Parents & Children) associated with {len(source_keys)} source files.")
                 conn.commit()
         except psycopg.Error as e:
             logger.error(f"Delete transaction failed: {e}")
+            conn.rollback()
             raise
+
 
     def count_chunks(self) -> int:
         """Returns total count of vector chunks."""
