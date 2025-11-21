@@ -14,11 +14,14 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSequence
 from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
+from sqlalchemy.orm import Session
 
-from config import settings as env
-from ingestion import get_embeddings
-from models import ExpandedQueries, LLMRequest
-from utils import count_tokens, format_history_for_prompt, truncate_history, value_deserializer, value_serializer
+from core.config import settings as env
+from core.models import ExpandedQueries, LLMRequest
+from database import crud
+from utils.utils import count_tokens, format_history_for_prompt, truncate_history, value_deserializer, value_serializer
+
+from .ingestion import get_embeddings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -27,11 +30,12 @@ logger = logging.getLogger(__name__)
 # --- Init & Component Getters ---
 with open("/app/prompts/system.json", "r") as f:
     SYSTEM_PROMPTS = json.load(f)
+if isinstance(SYSTEM_PROMPTS["instructions"], list):
+    SYSTEM_PROMPTS["instructions"] = "\n".join(SYSTEM_PROMPTS["instructions"])
 with open("/app/prompts/query_expansion.json", "r") as f:
     QUERY_EXP_PROMPTS = json.load(f)
 
 
-_PDR_RETRIEVER: Optional[ParentDocumentRetriever] = None
 _RERANKER: Optional[TextCrossEncoder] = None
 _LLM_QUERY_GEN: Optional[ChatOpenAI] = None
 _QUERY_EXPANSION_CHAIN: Optional[RunnableSequence] = None
@@ -60,38 +64,30 @@ def init_components():
     logger.info("Embedder, Reranker and LLM chain initialized.")
 
 
-async def build_retriever():
+def get_reranker() -> Optional[TextCrossEncoder]:
+    return _RERANKER
+
+
+async def get_retriever_for_user(user_id: str) -> ParentDocumentRetriever:
     """
     Build or refresh the ParentDocumentRetriever.
     """
-    global _PDR_RETRIEVER
-    logger.info("Building retriever...")
+    logger.info(f"Building Parent Document Retriever for user {user_id}...")
+    user_id = user_id.replace("-", "")
+    collection_name = f"user_{user_id}_collection"
+    namespace = f"user_{user_id}_parents"
 
     embedder = get_embeddings()
-    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=embedder, async_mode=True)
-    doc_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents", async_mode=True)
+    vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=embedder, async_mode=True)
+    doc_store = SQLStore(db_url=env.DB_URL, namespace=namespace, async_mode=True)
+    await doc_store.acreate_schema()
     store = EncoderBackedStore(doc_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
 
-    _PDR_RETRIEVER = ParentDocumentRetriever(vectorstore=vector_store, docstore=store, child_splitter=RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50))
+    child_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C, separators=["\n\n", "\n", " "])
+    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P, separators=["\n#", "\n##", "\n\n\n"])
+    retriever = ParentDocumentRetriever(vectorstore=vector_store, docstore=store, child_splitter=child_splitter, parent_splitter=parent_splitter)
     logger.info("Parent Document Retriever is ready.")
-
-
-async def get_retriever(refresh: bool = False) -> Tuple[Optional[ParentDocumentRetriever], Optional[TextCrossEncoder]]:
-    """
-    Get the ParentDocumentRetriever and Reranker, initializing them if necessary.
-
-    Args:
-        refresh: Whether to refresh/rebuild the retriever.
-
-    Returns:
-        A tuple containing the ParentDocumentRetriever and the Reranker.
-    """
-    global _PDR_RETRIEVER, _RERANKER
-
-    if _PDR_RETRIEVER is None:
-        await build_retriever()
-
-    return _PDR_RETRIEVER, _RERANKER
+    return retriever
 
 
 def get_llm_query_gen() -> Optional[ChatOpenAI]:
@@ -374,7 +370,7 @@ async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, 
 
 
 async def orchestrate_rag_flow(
-    query: str, history: List[Dict[str, str]], temp: float = env.LLM_TEMPERATURE, strict: bool = env.LLM_STRICT_RAG, rerank_threshold: float = env.RERANKER_THRESHOLD
+    query: str, user_id: str, db: Session, temp: float = env.LLM_TEMPERATURE, strict: bool = env.LLM_STRICT_RAG, rerank_threshold: float = env.RERANKER_THRESHOLD
 ) -> AsyncGenerator[str, None]:
     """
     Executes the entire RAG flow by orchestrating calls to specialized functions.
@@ -389,11 +385,16 @@ async def orchestrate_rag_flow(
     strict_mode = strict if strict is not None else env.LLM_STRICT_RAG
     logger.info(f"Starting RAG flow for query: {query[:50]}... (strict mode: {strict_mode}))")
 
-    retriever, reranker = await get_retriever()
+    crud.add_message_to_history(db, user_id=user_id, role="user", content=query)
+    db_history = crud.get_history_for_user(db, user_id=user_id)
+    history = [{"role": msg.role, "content": msg.content} for msg in db_history]
+
+    retriever = await get_retriever_for_user(user_id)
     if retriever is None:
         logger.error("Cannot retrieve retriever.")
         yield json.dumps({"type": "error", "content": "System Error: Retriever not available."}) + "\n"
         return
+    reranker = get_reranker()
 
     expanded_queries = await expand_query(query, history)
     retrieved_docs = await retrieve_and_deduplicate_documents(retriever, expanded_queries)
@@ -405,7 +406,20 @@ async def orchestrate_rag_flow(
     context_payload = {"type": "context", "data": {"texts": context_texts, "metadatas": unique_metadatas}}
     yield f"data:{json.dumps(context_payload)}\n\n"
 
+    full_assistant_response = ""
     async for chunk in stream_llm_response(messages, token_count, temp):
+        try:
+            if chunk.startswith("data:"):
+                data_str = chunk[5:].strip()
+                if data_str and data_str != "[DONE]":
+                    data = json.loads(data_str)
+                    content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    if content:
+                        full_assistant_response += content
+        except json.JSONDecodeError:
+            pass
         yield chunk
 
+    if full_assistant_response:
+        crud.add_message_to_history(db, user_id=user_id, role="assistant", content=full_assistant_response)
     logger.info("RAG flow finished.")

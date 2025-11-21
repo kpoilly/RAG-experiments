@@ -26,10 +26,18 @@ dependencies = [
     "uvicorn==0.37.0",
     "fastapi==0.118.0",
     "python-multipart==0.0.20",
+    "python-magic==0.4.27",
     
     # Models & Config
     "pydantic==2.11.10",
+    "pydantic[email]==2.11.10",
     "pydantic-settings==2.11.0",
+
+    # Security
+    "passlib[bcrypt]==1.7.4",
+    "bcrypt==4.3.0",
+    "python-jose[cryptography]==3.5.0",
+    "cryptography==46.0.3"
 ]
 
 [dependency-groups]

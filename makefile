@@ -7,11 +7,12 @@ endif
 
 .PHONY: all build up down clean-data re rebuild ingest eval cli ui \
 prometheus grafana minio pgadmin dev clean-folders docker-clean \
-open uv-lock logs-rag logs-llm logs-eval lint format push
+open uv-lock logs-rag logs-llm logs-eval lint format push \
+generate-encrypt register login 
 
 
-# --- MAIN ---
-all: build up
+# --- BUILDING ---
+all: bootstrap build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
@@ -26,17 +27,38 @@ down:
 	docker compose down
 	@echo "🛑 All services have been stopped."
 
-clean-data:
-	docker compose down -v
-	@echo "🛑 All services have been stopped and volumes removed."
-
 re: down up
 
 rebuild: down all
 
+clean-data:
+	docker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
+
+
+# --- INTERACTIONS ---
+TOKEN_FILE := .auth_token
+
+register:
+	@curl -X POST "http://localhost/api/auth/register" \
+	-H "Content-Type: application/json" \
+	-d '{"email": "admin@admin.com", "password": "admin"}'
+
+login:
+	@curl -X POST "http://localhost/api/auth/token" \
+	-H "Content-Type: application/x-www-form-urlencoded" \
+	-d "username=admin@admin.com&password=admin"
+
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
-	curl -X POST http://localhost/api/ingest 
+	@TOKEN=$$(cat $(TOKEN_FILE)); \
+	curl -X POST "http://localhost/api/documents/ingest" \
+	-H "Authorization: Bearer $$TOKEN"
+
+list-docs:
+	@TOKEN=$$(cat $(TOKEN_FILE)); \
+	curl -X GET "http://localhost/api/documents" \
+	-H "Authorization: Bearer $$TOKEN"
 
 eval:
 	@echo "📝 Running a RAGAS evaluation..."
@@ -61,17 +83,18 @@ minio:
 pgadmin:
 	@$(MAKE) --no-print-directory open URL=http://localhost/pgadmin/
 
+
 #--- DEV ---
-dev:
+dev: uv-lock
 	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
 
+bootstrap:
+	@chmod +x scripts/bootstrap.sh
+	@scripts/bootstrap.sh
+
 clean-folders:
-	@for service in $(TARGET_SERVICES); do \
-		rm -rf src/$$service/__pycache__; \
-		rm -rf src/$$service/.ruff_cache; \
-		rm -rf src/$$service/.pytest_cache; \
-		rm -rf src/$$service/.venv; \
-	done
+	@sudo find . -type d -name "__pycache__" -exec rm -rf {} +
+	@sudo find . -type d -name ".ruff_cache" -exec rm -rf {} +
 
 docker-nuke: clean-data
 	docker stop $(docker ps -aq) 2>/dev/null; docker rm $(docker ps -aq) 2>/dev/null; docker system prune --all --volumes --force
@@ -111,6 +134,9 @@ uv-lock:
 		uv lock --directory src/$$service/; \
 	done
 
+generate-encrypt:
+	python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
 
 #--- LOGS ---
 logs-rag:
@@ -142,7 +168,7 @@ format:
 	@for service in $(TARGET_SERVICES); do \
 		echo "--- Formatting $$service ---"; \
 		echo "Building linter image for $$service..."; \
-		docker build \
+		docker build -q\
 			--target linter \
 			--tag $$service-linter \
 			./src/$$service; \
@@ -154,7 +180,7 @@ format:
 
 
 # --- GIT ---
-push: format
+push: format clean-folders
 	git add .
 	git commit -m "$(MSG)"
 	git push origin main

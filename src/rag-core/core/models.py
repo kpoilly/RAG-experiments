@@ -1,14 +1,13 @@
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
 class GenerationRequest(BaseModel):
     query: str
-    history: List[Dict[str, str]]
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     strict_rag: Optional[bool] = None
-    rerank_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    rerank_threshold: Optional[float] = Field(default=None, ge=-10.0, le=10.0)
 
 
 class IngestionResponse(BaseModel):

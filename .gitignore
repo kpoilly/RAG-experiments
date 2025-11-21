@@ -1,5 +1,8 @@
 .env
-.env_dev
+.env.dev
+.env.prod
+.env.test
+.auth_token
 data_backup/
 data/*.pdf
 data/*.md

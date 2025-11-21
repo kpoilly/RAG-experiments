@@ -19,9 +19,6 @@
 
 -   **Sécurité :**
     -   Ajouter la validation du type de fichier avec `python-magic`.
-    -   Gestion des Utilisateurs : Mettre en place un système d'authentification de base (ex: JWT) pour identifier les utilisateurs.
-    -   Sécuriser les APIs : Implémenter une authentification par token sur les endpoints (/chat, /ingest).
-    -   Isolation des Données : Rendre le collection_name et le namespace dynamiques, basés sur l'ID de l'utilisateur, pour garantir la confidentialité des documents.
     -   Gestion des Quotas :
         -   Permettre aux utilisateurs de stocker leur propre clé API de manière sécurisée (chiffrée en base de données).
         -   Modifier le llm-gateway pour qu'il transmette la clé de l'utilisateur au Proxy LiteLLM pour chaque requête.
@@ -89,3 +86,5 @@
 -   Voir pour passer au Cloud pour le stockage, un changement des logins dans le .env devrait suffir (code S3 ready).
 
 -   Site internet comme UI.
+
+-   Red teaming : Chaos Mesh (pour Kub), Locust ou k6 pour DDOS
