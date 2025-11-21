@@ -1,13 +1,13 @@
 # 📚 Document-Grounded Conversational Assistant (RAG)
 
-Conversational Assistant experiment. This system uses the **RAG** (Retrieval-Augmented Generation) architecture to provide accurate, contextual responses based on your private corpus of documents (PDFs, Docxs, MDs).
+This project provides a **production-ready, multi-tenant platform** for deploying Document-Grounded Conversational Assistants. Built on a robust **RAG** (Retrieval-Augmented Generation) architecture, the system allows multiple users to securely manage their own private document collections and interact with a context-aware AI.
 
 
 ---
 
 ## 💡 Key Features & Architecture
 
-The goal of this system is to be architected as a robust, scalable, and observable pipeline designed for modern, cloud-native workloads.
+The goal of this system is to be architected as a secure, robust, scalable, and observable pipeline designed for modern, cloud-native workloads.
 
 
 1.  **Cloud-Agnostic Object Storage:** Document storage is fully decoupled from the application logic.The system uses a **MinIO** server for local development, which emulates the **S3 API**. This ensures that the application is "Cloud-Ready" and can be deployed seamlessly to AWS S3, Google Cloud Storage, Azure Blob Storage, etc.
@@ -30,7 +30,10 @@ The goal of this system is to be architected as a robust, scalable, and observab
     * **Custom Testset Generator:** A custom implementation generates synthetic ground-truth pairs (Question/Answer/Context) tailored to your documents, bypassing the limitations of standard generators.
     * **Metrics:** Tracks Faithfulness, Answer Relevance, and Context Precision over time.
 
-7.  **Secure & Scalable Serving:** Exposed via **Nginx** (Reverse Proxy) for security and rate limiting.
+1.  **Secure Multi-Tenancy:**
+    *   **User Authentication:** A complete authentication system (Register, Login) is built-in, using **JWT** for securing API endpoints.
+    *   **Data Isolation:** Each user's data is strictly segregated. Documents are stored in user-specific paths in the S3 bucket, and vector data is indexed in separate PostgreSQL collections.
+    *   **Encrypted Secrets:** User-provided API keys are encrypted at rest in the database, ensuring confidentiality.
 
 8.  **Optimized for CI/CD:** **Docker** multi-stage builds and **uv** package management ensure ultra-fast builds and reproducible environments.
 
@@ -47,6 +50,7 @@ The goal of this system is to be architected as a robust, scalable, and observab
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
 | **User Interface** | Streamlit | Interactive UI for chat and real-time document management. |
+| **Authentication**| JWT, Passlib, Cryptography | Secure user registration, login, and session management. |
 | **LLM Orchestration** | LiteLLM Proxy | Central hub for LLM routing, fallback, caching, and rate limiting. |
 | **Embedding & Rerank**| FastEmbed (ONNX) | Lightweight, quantized inference. |
 | **Reverse Proxy** | Nginx | Secure entry point, rate limiting, and future SSL/TLS termination. |
@@ -56,7 +60,7 @@ The goal of this system is to be architected as a robust, scalable, and observab
 | **RAG Framework** | LangChain | Orchestration of the RAG workflow (PDR, chains, etc.). |
 | **Observability** | Prometheus, Grafana, LangSmith | (In progress) Monitoring, tracing, and evaluation of the entire stack. |
 | **Dependency Mgmt.** | `uv`, `pyproject.toml` | High-speed, modern Python package management. |
-| *(...and others)* | Docker, Redis, Ragas, ... | |
+| *(...and others)* | Docker, Redis, Ragas, Boto3... | |
 
 
 ---
@@ -77,14 +81,20 @@ This project comes pre-configured to use **Groq** (specifically Llama 3 models) 
 
 2.  **Configure the Environment:**
     * Create a `.env` file in the project root.
-    * Open `.env` and **only** paste `GROQ_API_KEY=` followed by your API Key.
+    * Add the following line, pasting your key:
+        ```env
+        GROQ_API_KEY=gsk_...
+        ```
+    *   *That's it! The system will automatically generate all other required security keys for you.*
 
 3.  **Run:**
     ```bash
     make
     ```
-    * That's it! The system handles document ingestion, database creation, and UI startup automatically.
+    * That's it! The system handles security keys generation, database creation, and UI startup automatically.
     * Access the UI at: `http://localhost` or with `make ui`.
+    * You will be greeted with a login page. Go to the "Register" tab and create your first user account, then Log in with your credentials.
+    * You can now upload documents and interact with your private conversational assistant.
 
 
 ---
@@ -196,7 +206,7 @@ The project includes a complete monitoring stack:
 | `make down` | Stop all containers. |
 | `make ingest` | Force synchronization between S3 and the Vector DB. |
 | `make ui` | Open the Web UI in browser. |
-| `make cli` | Run the command-line interface version of the chat. |
+| `make cli` | Run the command-line interface version of the chat *(outdated, need a security and docs management update)*. |
 | `make clean-data` | **Reset Data.** Removes volumes (DB & S3). **Use this when changing embedding models.** |
 
 
