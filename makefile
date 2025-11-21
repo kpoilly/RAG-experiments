@@ -168,10 +168,10 @@ format:
 	@for service in $(TARGET_SERVICES); do \
 		echo "--- Formatting $$service ---"; \
 		echo "Building linter image for $$service..."; \
-		docker build \
+		docker build -q\
 			--target linter \
 			--tag $$service-linter \
-			./src/$$service; -q \
+			./src/$$service; \
 		echo "Applying fixes in a temporary container..."; \
 		docker run --rm \
 			-v ./src/$$service:/app \
