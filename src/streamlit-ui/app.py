@@ -1,3 +1,4 @@
+from email import header
 import json
 import os
 import time
@@ -6,69 +7,126 @@ from urllib.parse import quote
 import requests
 import streamlit as st
 
+
 # --- Config ---
 
 API_URL = os.getenv("API_URL", "http://nginx/api")
 HEALTH_URL = f"{API_URL}/health"
+AUTH_URL = f"{API_URL}/auth"
 DOCUMENTS_URL = f"{API_URL}/documents"
 CHAT_URL = f"{API_URL}/chat"
+HISTORY_URL = f"{API_URL}/history"
 
 
-# --- Utils ---
+# --- API ---
+
+def get_api_headers():
+    if "auth_token" not in st.session_state:
+        return None
+    return {"Authorization": f"Bearer {st.session_state['auth_token']}"}
 
 
-@st.cache_data(ttl=10)
-def get_current_documents():
-    """get current document filenames."""
+def register_user(email, password):
     try:
-        response = requests.get(DOCUMENTS_URL)
+        response = requests.post(f"{AUTH_URL}/register", json={"email": email, "password": password})
         response.raise_for_status()
-        return response.json()
+        return True
     except requests.RequestException as e:
-        st.error(f"Error fetching document list: {e}")
-        return []
+        st.error(f"Registration failed: {e.response.json().get('detail') if e.response else e}")
+        return False
+    
+
+def login_user(email, password):
+    try:
+        response = requests.post(f"{AUTH_URL}/token", data={"username": email, "password": password})
+        response.raise_for_status()
+        return response.json()["access_token"]
+    except requests.RequestException as e:
+        st.error(f"Login failed: {e.response.json().get('detail') if e.response else e}")
+        return None
 
 
-# --- Init ---
+# --- App Pages ---
 
-st.set_page_config(page_title="Conversational RAG Assistant", page_icon="🤖", layout="wide")
+def display_login_page():
+    st.title("Welcome to the Conversational RAG Assistant")
+    login_tab, register_tab = st.tabs(["Login", "Register"])
 
-st.markdown(
-    """
-    <style>
-        .block-container {
-            padding-top: 1rem; /* Réduit l'espace en haut de la page */
-        }
-        h1 {
-            padding-top: 0rem; /* Réduit l'espace au-dessus du titre */
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+    with login_tab:
+        with st.form("login_form"):
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_password")
+            submitted = st.form_submit_button("Login")
+            if submitted:
+                token = login_user(email, password)
+                if token:
+                    st.session_state["auth_token"] = token
+                    st.session_state["user_email"] = email
+                    st.success("Login successful!")
+                    time.sleep(1)
+                    st.rerun()
 
-with st.sidebar:
-    st.title("RAG")
-    page = st.radio("Navigation", ["💬 Chat", "⚙️ Settings", "ℹ️ Info"])
+    with register_tab:
+        with st.form("register_form"):
+            email = st.text_input("Email", key="reg_email")
+            password = st.text_input("Password", type="password", key="reg_password")
+            submitted = st.form_submit_button("Register")
+            if submitted:
+                if register_user(email, password):
+                    st.success("Registration successful! Please proceed to the Login tab.")
+                    time.sleep(2)
+
+def display_main_app():
+    with st.sidebar:
+        st.title("Conversational RAG Assistant")
+
+        st.write(f"Logged in as: {st.session_state.get('user_email', 'Unknown')}")
+        if st.button("Logout"):
+            if "auth_token" in st.session_state: del st.session_state["auth_token"]
+            if "user_email" in st.session_state: del st.session_state["user_email"]
+            st.rerun()
+        
+        page = st.radio("Navigation", ["💬 Chat", "⚙️ Settings", "ℹ️ Info"])
+
+    if page == "💬 Chat":
+        display_chat_page()
+    elif page == "⚙️ Settings":
+        display_settings_page()
+    elif page == "ℹ️ Info":
+        display_info_page()
 
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "upload_processed" not in st.session_state:
-    st.session_state.upload_processed = False
-if "llm_temperature" not in st.session_state:
-    st.session_state.llm_temperature = float(os.getenv("LLM_TEMPERATURE", 0.3))
-if "llm_strict_rag" not in st.session_state:
-    st.session_state.llm_strict_rag = os.getenv("LLM_STRICT_RAG", "True").lower() == "true"
-if "rerank_threshold" not in st.session_state:
-    st.session_state.rerank_threshold = float(os.getenv("RERANKER_THRESHOLD", 0.4))
-
-
-# --- Main Page ---
-
-if page == "💬 Chat":
+def display_chat_page():
     st.title("🤖 Chat")
+
+    @st.cache_data(ttl=10)
+    def get_current_documents():
+        """get current document filenames."""
+        headers = get_api_headers()
+        if not headers: return []
+        try:
+            response = requests.get(DOCUMENTS_URL, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            st.error(f"Error fetching document list: {e}")
+            return []
+
     col_chat, col_docs = st.columns([0.7, 0.3])
+
+    if "messages" not in st.session_state:
+        try:
+            headers = get_api_headers()
+            response = requests.get(HISTORY_URL, headers=headers)
+            response.raise_for_status()
+            st.session_state.messages = response.json()
+        except requests.RequestException:
+            st.session_state.messages = []
+            st.warning("Could not load chat history.")
+    
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
     with col_chat:
         chat_container = st.container(height=600)
@@ -79,7 +137,6 @@ if page == "💬 Chat":
 
         if prompt := st.chat_input("Ask a question about your documents..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
-
             with chat_container:
                 with st.chat_message("user"):
                     st.markdown(prompt)
@@ -88,15 +145,14 @@ if page == "💬 Chat":
                     message_placeholder = st.empty()
                     full_response = ""
                     try:
-                        api_history = [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.messages]
+                        headers = get_api_headers()
                         request_payload = {
                             "query": prompt,
-                            "history": api_history,
                             "temperature": st.session_state.llm_temperature,
                             "strict_rag": st.session_state.llm_strict_rag,
                             "rerank_threshold": st.session_state.rerank_threshold,
                         }
-                        with requests.post(CHAT_URL, json=request_payload, stream=True, timeout=120) as response:
+                        with requests.post(CHAT_URL, json=request_payload, headers=headers, stream=True, timeout=120) as response:
                             response.raise_for_status()
                             for line in response.iter_lines():
                                 decoded_line = line.decode("utf-8")
@@ -136,7 +192,8 @@ if page == "💬 Chat":
                 with st.spinner("Uploading and processing documents..."):
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                     try:
-                        response = requests.post(DOCUMENTS_URL, files=files)
+                        headers = get_api_headers()
+                        response = requests.post(DOCUMENTS_URL, files=files, headers=headers)
                         response.raise_for_status()
                     except requests.RequestException as e:
                         st.error(f"Failed to process {uploaded_file.name}: {e.response.text if e.response else e}")
@@ -152,9 +209,9 @@ if page == "💬 Chat":
             with st.spinner("Removing documents..."):
                 for doc_name in docs_to_delete:
                     try:
-                        # UN SEUL APPEL pour supprimer et ré-indexer
+                        headers = get_api_headers()
                         delete_url = f"{DOCUMENTS_URL}/{quote(doc_name)}"
-                        response = requests.delete(delete_url)
+                        response = requests.delete(delete_url, headers=headers)
                         response.raise_for_status()
                     except requests.RequestException as e:
                         st.error(f"Failed to remove {doc_name}: {e}")
@@ -164,7 +221,8 @@ if page == "💬 Chat":
             time.sleep(1)
             st.rerun()
 
-elif page == "⚙️ Settings":
+
+def display_settings_page():
     st.title("⚙️ Application Settings")
     st.info(
         "These settings are read from the environment variables at startup. To change them, please update your `.env`\
@@ -190,10 +248,35 @@ elif page == "⚙️ Settings":
     st.text_input("Chunk Size (Child)", value=os.getenv("CHUNK_SIZE_C", "Not Set"), disabled=True)
     st.text_input("Overlap (Child)", value=os.getenv("CHUNK_OVERLAP_C", "Not Set"), disabled=True)
 
-elif page == "ℹ️ Info":
+
+def display_info_page():
     st.title("ℹ️ About This Project")
     st.info(
         "This is a boilerplate for a production-ready RAG conversational assistant. It uses a Parent Document Retrieval strategy with a PostgreSQL+PGVector backend,\
               and a provider-agnostic LLM Gateway powered by LiteLLM."
     )
     st.markdown("For more details, check out the [GitHub repository](https://github.com/kpoilly/RAG-experiments).")
+
+
+# --- Init ---
+
+st.set_page_config(page_title="Conversational RAG Assistant", page_icon="🤖", layout="wide")
+
+st.markdown("""
+<style>
+    .block-container { padding-top: 1rem; }
+    h1 { padding-top: 0rem; }
+</style>
+""", unsafe_allow_html=True)
+
+if "llm_temperature" not in st.session_state:
+    st.session_state.llm_temperature = float(os.getenv("LLM_TEMPERATURE", 0.3))
+if "llm_strict_rag" not in st.session_state:
+    st.session_state.llm_strict_rag = os.getenv("LLM_STRICT_RAG", "True").lower() == "true"
+if "rerank_threshold" not in st.session_state:
+    st.session_state.rerank_threshold = float(os.getenv("RERANKER_THRESHOLD", 0.4))
+
+if "auth_token" not in st.session_state:
+    display_login_page()
+else:
+    display_main_app()

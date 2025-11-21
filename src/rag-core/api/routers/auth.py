@@ -39,7 +39,7 @@ def register_user(
             detail="Email already registered.",
         )
     encrypted_key = security.encrypt_data(user.groq_api_key) if user.groq_api_key else None
-    return crud.create_user(db=db, user=user, encrypted_groq_api_key=encrypted_key)
+    return crud.create_user(db=db, user=user, encrypted_api_key=encrypted_key)
 
 
 @router.post("/token", response_model=schemas.Token)

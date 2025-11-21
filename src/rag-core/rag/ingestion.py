@@ -19,14 +19,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("Ingestion")
 
 
-def _build_retriever() -> ParentDocumentRetriever:
-    """Configures the Parent Document Retriever (PDR) stack."""
-    # Child
-    vector_store = PGVector(collection_name=env.COLLECTION_NAME, connection=env.DB_URL, embeddings=get_embeddings())
+def _build_retriever(user_id: str) -> ParentDocumentRetriever:
+    """Configures the Parent Document Retriever (PDR) stack for a specific user."""
+    collection_name = f"user_{user_id}_collection"
+    namespace = f"user_{user_id}_parents"
 
-    # Parent
-    sql_store = SQLStore(db_url=env.DB_URL, namespace=f"{env.COLLECTION_NAME}_parents")
-
+    vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=get_embeddings())
+    sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
+    sql_store.create_schema()
     store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
 
     return ParentDocumentRetriever(
@@ -37,70 +37,85 @@ def _build_retriever() -> ParentDocumentRetriever:
     )
 
 
-def _load_and_process_files(hashes_to_add: Set[str], s3_map: Dict[str, str], s3: S3Repository) -> List[Document]:
+def _load_and_process_files(user_id: str, files_to_process: Dict[str, str], s3: S3Repository) -> List[Document]:
     """Downloads files to temp storage, loads them, and tags them with hashes."""
     LOADER_MAPPING = {".pdf": PyPDFLoader, ".docx": UnstructuredWordDocumentLoader, ".md": UnstructuredMarkdownLoader}
 
     docs = []
     with tempfile.TemporaryDirectory() as temp_dir:
-        for doc_hash in hashes_to_add:
-            key = s3_map[doc_hash]
-            ext = os.path.splitext(key)[1].lower()
-
+        for filename, etag in files_to_process.items():
+            ext = os.path.splitext(filename)[1].lower()
             if ext not in LOADER_MAPPING:
-                logger.warning(f"Skipping unsupported: {key}")
+                logger.warning(f"Skipping unsupported file: {filename}")
                 continue
 
-            local_path = os.path.join(temp_dir, key.replace("/", "_"))
+            local_path = os.path.join(temp_dir, filename.replace("/", "_"))
             try:
-                logger.info(f"Downloading: {key}")
-                s3.download_file(key, local_path)
+                logger.info(f"Downloading: {filename}")
+                s3.download_file(user_id, filename, local_path)
+                
                 loader = LOADER_MAPPING[ext](local_path)
                 pages = loader.load()
-
                 for page in pages:
-                    page.metadata["document_hash"] = doc_hash
+                    page.metadata["source"] = filename
+                    page.metadata["file_hash"] = etag
                 docs.extend(pages)
             except Exception as e:
-                logger.error(f"Failed to process {key}: {e}")
+                logger.error(f"Failed to process {filename}: {e}")
     return docs
 
 
-def process_and_index_documents() -> int:
+def process_and_index_documents(user_id: str) -> int:
     """
     Main Ingestion Workflow: Syncs S3 bucket state with PGVector index.
     """
-    logger.info("Starting Ingestion Pipeline...")
+    logger.info(f"Starting Ingestion Pipeline for user_id: {user_id}...")
     s3 = S3Repository()
-    db = VectorDBRepository()
+    db = VectorDBRepository(user_id=user_id)
     s3.ensure_bucket_exists()
     db.ensure_schema()
 
     # S3 vs DB diff
-    s3_files = s3.get_file_hashes()
-    current_hashes = set(s3_files.keys())
-    stored_hashes = db.get_existing_hashes()
+    s3_files = s3.get_user_files(user_id=user_id)
+    indexed_files = db.get_existing_files()
 
-    to_add = current_hashes - stored_hashes
-    to_remove = stored_hashes - current_hashes
+    files_to_delete_from_s3 = set(indexed_files.keys()) - set(s3_files.keys())
+    files_to_process = {}
+    for filename, etag in s3_files.items():
+        if filename not in indexed_files or indexed_files[filename] != etag:
+            files_to_process[filename] = etag
+    
+    files_to_remove_from_index = files_to_delete_from_s3.union(
+        {filename for filename in files_to_process if filename in indexed_files}
+    )
+    
+    if files_to_remove_from_index:
+        logger.info(f"Removing {len(files_to_remove_from_index)} obsolete/modified documents from index...")
+        db.delete_documents_by_source(list(files_to_remove_from_index))
 
-    if to_remove:
-        logger.info(f"Removing {len(to_remove)} obsolete documents...")
-        db.delete_documents(to_remove)
-
-    if to_add:
-        logger.info(f"Adding {len(to_add)} new documents...")
-        new_docs = _load_and_process_files(to_add, s3_files, s3)
-
+    if files_to_process:
+        logger.info(f"Processing {len(files_to_process)} new/modified documents...")
+        new_docs = _load_and_process_files(user_id, files_to_process, s3)
+        
         if new_docs:
-            logger.info(f"Indexing {len(new_docs)} pages via PDR...")
-            retriever = _build_retriever()
+            logger.info(f"Indexing {len(new_docs)} pages via PDR for user {user_id}...")
+            safe_user_id = user_id.replace("-", "")
+            collection_name = f"user_{safe_user_id}_collection"
+            namespace = f"user_{safe_user_id}_parents"
+
+            vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=get_embeddings())
+            sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
+            sql_store.create_schema()
+            store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
+            
+            retriever = ParentDocumentRetriever(
+                vectorstore=vector_store,
+                docstore=store,
+                child_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C),
+                parent_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P),
+            )
             retriever.add_documents(new_docs, ids=None, add_to_docstore=True)
 
     total = db.count_chunks()
-    logger.info(f"Sync Complete. Total Chunks in DB: {total}")
+    logger.info(f"Sync Complete for user {user_id}. Total Chunks in DB: {total}")
     return total
-
-
-if __name__ == "__main__":
-    process_and_index_documents()

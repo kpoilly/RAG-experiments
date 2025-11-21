@@ -33,8 +33,6 @@ class Settings(BaseSettings):
     DB_USER: str = "rag_user"
     DB_PASSWORD: str = "rag_password"
 
-    COLLECTION_NAME: str = "rag_documents"
-
     S3_ENDPOINT_URL: str = "http://minio:9000"
     S3_ACCESS_KEY_ID: str = "minioadmin"
     S3_SECRET_ACCESS_KEY: str = "minioadmin"

@@ -1,9 +1,12 @@
+from typing import List, Dict
+
 from sqlalchemy.orm import Session
 
 from core import security
 from . import models, schemas
 
 
+# --- User Crud ---
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
@@ -11,14 +14,14 @@ def get_user_by_email(db: Session, email: str):
 def create_user(
     db: Session, 
     user: schemas.UserCreate, 
-    encrypted_groq_api_key: bytes | None
+    encrypted_api_key: bytes | None
 ):
     hashed_password = security.get_password_hash(user.password)
     encrypted_key = security.encrypt_data(user.groq_api_key)
     db_user = models.User(
         email=user.email, 
         hashed_password=hashed_password,
-        encrypted_groq_api_key=encrypted_key,
+        encrypted_api_key=encrypted_key,
         llm_model=user.llm_model,
         llm_side_model=user.llm_side_model
     )
@@ -37,7 +40,7 @@ def authenticate_user(db: Session, email: str, password: str):
 
 def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate):
     if user_update.groq_api_key is not None:
-        user.encrypted_groq_api_key = security.encrypt_data(user_update.groq_api_key)
+        user.encrypted_api_key = security.encrypt_data(user_update.groq_api_key)
     if user_update.llm_model is not None:
         user.llm_model = user_update.llm_model
     if user_update.llm_side_model is not None:
@@ -46,3 +49,35 @@ def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate)
     db.commit()
     db.refresh(user)
     return user
+
+
+# --- History Crud ---
+def get_history_for_user(db: Session, user_id: str) -> List[Dict[str, str]]:
+    """
+    Retrieve a user's history.
+    """
+    conversation = db.query(models.Conversation).filter(models.Conversation.user_id == user_id).first()
+    if not conversation:
+        return []
+    return sorted(conversation.messages, key=lambda msg: msg.created_at)
+
+def add_message_to_history(db: Session, user_id: str, role: str, content: str) -> models.Message:
+    """
+    Add a new message to the user's history.
+    """
+    conversation = db.query(models.Conversation).filter(models.Conversation.user_id == user_id).first()
+    if not conversation:
+        conversation = models.Conversation(user_id=user_id)
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    db_message = models.Message(
+        conversation_id=conversation.id,
+        role=role,
+        content=content
+    )
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message

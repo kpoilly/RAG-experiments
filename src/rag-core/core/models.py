@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 class GenerationRequest(BaseModel):
     query: str
-    history: List[Dict[str, str]]
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     strict_rag: Optional[bool] = None
     rerank_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)

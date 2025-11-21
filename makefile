@@ -7,11 +7,12 @@ endif
 
 .PHONY: all build up down clean-data re rebuild ingest eval cli ui \
 prometheus grafana minio pgadmin dev clean-folders docker-clean \
-open uv-lock logs-rag logs-llm logs-eval lint format push
+open uv-lock logs-rag logs-llm logs-eval lint format push \
+generate-encrypt register login 
 
 
 # --- BUILDING ---
-all: build up
+all: bootstrap build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
@@ -26,16 +27,18 @@ down:
 	docker compose down
 	@echo "🛑 All services have been stopped."
 
-clean-data:
-	docker compose down -v
-	@echo "🛑 All services have been stopped and volumes removed."
-
 re: down up
 
 rebuild: down all
 
+clean-data:
+	docker compose down -v
+	@echo "🛑 All services have been stopped and volumes removed."
+
 
 # --- INTERACTIONS ---
+TOKEN_FILE := .auth_token
+
 register:
 	@curl -X POST "http://localhost/api/auth/register" \
 	-H "Content-Type: application/json" \
@@ -48,7 +51,14 @@ login:
 
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
-	curl -X POST http://localhost/api/documents/ingest 
+	@TOKEN=$$(cat $(TOKEN_FILE)); \
+	curl -X POST "http://localhost/api/documents/ingest" \
+	-H "Authorization: Bearer $$TOKEN"
+
+list-docs:
+	@TOKEN=$$(cat $(TOKEN_FILE)); \
+	curl -X GET "http://localhost/api/documents" \
+	-H "Authorization: Bearer $$TOKEN"
 
 eval:
 	@echo "📝 Running a RAGAS evaluation..."
@@ -75,29 +85,12 @@ pgadmin:
 
 
 #--- DEV ---
-SCRIPTS_VENV := scripts/.venv
-SCRIPTS_PYTHON := $(SCRIPTS_VENV)/bin/python
-
 dev: uv-lock
 	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
 
-bootstrap: $(SCRIPTS_VENV)/touchfile
-	@echo "--- Initializing project (secrets, auth token) ---"
-	@$(SCRIPTS_PYTHON) scripts/bootstrap.py
-
-$(SCRIPTS_VENV)/touchfile: scripts/requirements.txt
-	@echo "--- Setting up virtual environment for scripts... ---"
-	@if ! command -v uv > /dev/null; then \
-		echo "uv not found, installing..."; \
-		curl -LsSf https://astral.sh/uv/install.sh | sh; \
-	fi
-	@uv venv $(SCRIPTS_VENV) --python 3.12 --clear -q
-	@uv pip install -p $(SCRIPTS_VENV) -r scripts/requirements.txt -q
-	@touch $(SCRIPTS_VENV)/touchfile
-
-clean-bootstrap:
-	@echo "--- Cleaning bootstrap artifacts ---"
-	@rm -rf $(SCRIPTS_VENV)
+bootstrap:
+	@chmod +x scripts/bootstrap.sh
+	@scripts/bootstrap.sh
 
 clean-folders:
 	@sudo find . -type d -name "__pycache__" -exec rm -rf {} +

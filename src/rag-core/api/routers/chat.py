@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from api import deps
 from database import models
@@ -22,11 +23,23 @@ router = APIRouter(
 
 
 @router.post("")
-async def generate(request: GenerationRequest, current_user: models.User = Depends(deps.get_current_user)):
+async def generate(
+    request: GenerationRequest,
+    current_user: models.User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db)
+):
     try:
-        logger.info(f"New chat request received from {current_user.id}.")
+        user_id = str(current_user.id)
+        logger.info(f"New chat request received from {user_id}.")
         formated_query = re.sub(r"(\b[ldjstnmc]|qu)'", r"\1 ", request.query.lower())
-        response_generator = orchestrate_rag_flow(formated_query, request.history, request.temperature, request.strict_rag, request.rerank_threshold)
+        response_generator = orchestrate_rag_flow(
+            formated_query,
+            user_id,
+            db,
+            request.temperature,
+            request.strict_rag,
+            request.rerank_threshold
+        )
         return StreamingResponse(content=response_generator, media_type="text/event-stream")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")

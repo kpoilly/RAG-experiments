@@ -4,11 +4,10 @@ import logging
 import httpx
 from fastapi import FastAPI, HTTPException, status
 
-from api.routers import auth, chat, documents
+from api.routers import auth, chat, documents, history
 from core.config import settings as env
 from database.database import create_db_and_tables
-from rag.ingestion import process_and_index_documents
-from rag.retriever import build_retriever, init_components
+from rag.retriever import init_components
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -48,8 +47,7 @@ async def startup_event():
                         or model.get("model_info", {}).get("key") == env.LLM_MODEL
                     )
                 ),
-                None,
-            )
+                None)
 
             context_window = None
             if model_config:
@@ -61,9 +59,7 @@ async def startup_event():
                 logger.info(f"Successfully retrieved and set context window for {env.LLM_MODEL}: {env.LLM_MAX_CONTEXT_TOKENS} tokens.")
             logger.info(f"Context window for {env.LLM_MODEL}: {env.LLM_MAX_CONTEXT_TOKENS} tokens")
 
-        await asyncio.to_thread(process_and_index_documents)
         await asyncio.to_thread(init_components)
-        await build_retriever()
         app.state.rad_ready = True
         logger.info("Application startup complete. Ready to serve requests.")
     except Exception as e:
@@ -73,6 +69,7 @@ async def startup_event():
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
+app.include_router(history.router)
 
 
 # --- Endpoints ---

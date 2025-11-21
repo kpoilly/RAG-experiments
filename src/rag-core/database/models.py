@@ -13,7 +13,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    encrypted_groq_api_key = Column(LargeBinary, nullable=True)
+    encrypted_api_key = Column(LargeBinary, nullable=True)
     llm_model = Column(String, nullable=True)
     llm_side_model = Column(String, nullable=True)
 
@@ -32,10 +32,14 @@ class Conversation(Base):
 
 
 class Message(Base):
+    """
+    Represents a single message in a user's chat history.
+    """
     __tablename__ = "messages"
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False, index=True)
-    role = Column(String, nullable=False)  # 'user' or 'assistant'
+    role = Column(String, nullable=False)
     content = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

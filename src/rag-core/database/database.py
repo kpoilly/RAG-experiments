@@ -10,8 +10,5 @@ Base = declarative_base()
 
 
 def create_db_and_tables():
-    """
-    Crée toutes les tables dans la base de données.
-    Cette fonction doit être appelée au démarrage de l'application.
-    """
+    from . import models
     Base.metadata.create_all(bind=engine)
