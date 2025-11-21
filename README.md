@@ -33,7 +33,6 @@ The goal of this system is to be architected as a secure, robust, scalable, and 
 1.  **Secure Multi-Tenancy:**
     *   **User Authentication:** A complete authentication system (Register, Login) is built-in, using **JWT** for securing API endpoints.
     *   **Data Isolation:** Each user's data is strictly segregated. Documents are stored in user-specific paths in the S3 bucket, and vector data is indexed in separate PostgreSQL collections.
-    *   **Encrypted Secrets:** User-provided API keys are encrypted at rest in the database, ensuring confidentiality.
 
 8.  **Optimized for CI/CD:** **Docker** multi-stage builds and **uv** package management ensure ultra-fast builds and reproducible environments.
 
@@ -56,7 +55,7 @@ The goal of this system is to be architected as a secure, robust, scalable, and 
 | **Reverse Proxy** | Nginx | Secure entry point, rate limiting, and future SSL/TLS termination. |
 | **API Services** | FastAPI | High-performance backend for RAG logic and LLM gateway facade. |
 | **Object Storage** | MinIO (S3 API) | Cloud-agnostic storage for raw documents. |
-| **Vector Database** | PostgreSQL + PGVector | Storage, indexing, and vector search for child chunks. |
+| **Vector Database** | PostgreSQL + PGVector | Multi-tenant storage, indexing, and vector search. |
 | **RAG Framework** | LangChain | Orchestration of the RAG workflow (PDR, chains, etc.). |
 | **Observability** | Prometheus, Grafana, LangSmith | (In progress) Monitoring, tracing, and evaluation of the entire stack. |
 | **Dependency Mgmt.** | `uv`, `pyproject.toml` | High-speed, modern Python package management. |
