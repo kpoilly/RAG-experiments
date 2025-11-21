@@ -8,10 +8,9 @@ from sqlalchemy.orm import Session
 
 from core import security
 from core.config import settings as env
-from database import models, crud
-from database import schemas
-from .. import deps
+from database import crud, models, schemas
 
+from .. import deps
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -22,11 +21,9 @@ router = APIRouter(
     tags=["Authentication"],
 )
 
+
 @router.post("/register", response_model=schemas.User)
-def register_user(
-    user: schemas.UserCreate, 
-    db: Session = Depends(deps.get_db)
-):
+def register_user(user: schemas.UserCreate, db: Session = Depends(deps.get_db)):
     """
     Handles user registration.
     Creates a new user in the database with a hashed password.
@@ -43,10 +40,7 @@ def register_user(
 
 
 @router.post("/token", response_model=schemas.Token)
-async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Session = Depends(deps.get_db)
-):
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(deps.get_db)):
     """
     Handles user login.
     Verifies credentials and returns a JWT access token.
@@ -59,11 +53,9 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token_expires = timedelta(minutes=env.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
+    access_token = security.create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -75,12 +67,9 @@ async def read_users_me(current_user: Annotated[models.User, Depends(deps.get_cu
     """
     return current_user
 
+
 @router.put("/users/me", response_model=schemas.User)
-async def update_user_me(
-    user_update: schemas.UserUpdate, 
-    current_user: models.User = Depends(deps.get_current_user),
-    db: Session = Depends(deps.get_db)
-):
+async def update_user_me(user_update: schemas.UserUpdate, current_user: models.User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)):
     """
     Allows a user to update their own API keys and model preferences.
     """

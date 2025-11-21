@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional
 
 import boto3
 import psycopg
@@ -11,7 +11,6 @@ from langchain_core.embeddings import Embeddings
 
 from core.config import MODELS_CONFIG
 from core.config import settings as env
-from utils.utils import calculate_file_hash_from_stream
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Ingestion")
@@ -55,7 +54,7 @@ class S3Repository:
             endpoint_url=env.S3_ENDPOINT_URL,
             aws_access_key_id=env.S3_ACCESS_KEY_ID,
             aws_secret_access_key=env.S3_SECRET_ACCESS_KEY,
-            config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
+            config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
         )
         self.bucket = env.S3_BUCKET_NAME
 
@@ -76,11 +75,11 @@ class S3Repository:
         s3_files = {}
         prefix = f"{user_id}/"
         try:
-            paginator = self.client.get_paginator('list_objects_v2')
+            paginator = self.client.get_paginator("list_objects_v2")
             pages = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
             for page in pages:
                 for obj in page.get("Contents", []):
-                    file_key = obj["Key"][len(prefix):]
+                    file_key = obj["Key"][len(prefix) :]
                     if file_key:
                         s3_files[file_key] = obj["ETag"].strip('"')
             return s3_files
@@ -88,10 +87,10 @@ class S3Repository:
             logger.error(f"S3 Listing for user {user_id} failed: {e}")
             return {}
 
-    def download_file(self, user_id: str,key: str, dest_path: str) -> None:
+    def download_file(self, user_id: str, key: str, dest_path: str) -> None:
         full_key = f"{user_id}/{key}"
         self.client.download_file(self.bucket, full_key, dest_path)
-    
+
     def upload_file(self, user_id: str, file_stream, filename: str):
         full_key = f"{user_id}/{filename}"
         self.client.upload_fileobj(file_stream, self.bucket, full_key)
@@ -108,7 +107,8 @@ class VectorDBRepository:
     """
 
     def __init__(self, user_id: str):
-        if not user_id: raise ValueError("user_id cannot be empty")
+        if not user_id:
+            raise ValueError("user_id cannot be empty")
         self.user_id = user_id
         self.db_url = env.DB_URL.replace("+psycopg", "")
         self.collection = f"user_{user_id.replace("-", "")}_collection"
@@ -167,24 +167,24 @@ class VectorDBRepository:
             WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
             AND cmetadata ->> 'source' = ANY(%s);
         """
-        
+
         q_del_vecs = """
             DELETE FROM langchain_pg_embedding
             WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = %s)
             AND cmetadata ->> 'doc_id' = ANY(%s);
         """
-        
-        q_del_store = f"""
+
+        q_del_store = """
             DELETE FROM langchain_key_value_stores
             WHERE namespace = %s AND key = ANY(%s);
         """
 
         try:
             with self._get_conn() as conn, conn.cursor() as cur:
-                cur.execute(q_find_ids, (self.collection_name, source_keys))
+                cur.execute(q_find_ids, (self.collection, source_keys))
                 parent_ids = [row[0] for row in cur.fetchall()]
                 if parent_ids:
-                    cur.execute(q_del_vecs, (self.collection_name, parent_ids))
+                    cur.execute(q_del_vecs, (self.collection, parent_ids))
                     cur.execute(q_del_store, (self.docstore_namespace, parent_ids))
                     logger.info(f"Deleted {len(parent_ids)} documents (Parents & Children) associated with {len(source_keys)} source files.")
                 conn.commit()
@@ -192,7 +192,6 @@ class VectorDBRepository:
             logger.error(f"Delete transaction failed: {e}")
             conn.rollback()
             raise
-
 
     def count_chunks(self) -> int:
         """Returns total count of vector chunks."""

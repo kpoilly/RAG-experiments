@@ -9,7 +9,6 @@ from core.config import settings as env
 from database.database import create_db_and_tables
 from rag.retriever import init_components
 
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,8 @@ async def startup_event():
                         or model.get("model_info", {}).get("key") == env.LLM_MODEL
                     )
                 ),
-                None)
+                None,
+            )
 
             context_window = None
             if model_config:

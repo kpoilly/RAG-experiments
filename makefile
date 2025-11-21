@@ -171,7 +171,7 @@ format:
 		docker build \
 			--target linter \
 			--tag $$service-linter \
-			./src/$$service; \
+			./src/$$service; -q \
 		echo "Applying fixes in a temporary container..."; \
 		docker run --rm \
 			-v ./src/$$service:/app \

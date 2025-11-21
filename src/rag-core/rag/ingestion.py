@@ -1,7 +1,7 @@
 import logging
 import os
 import tempfile
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from langchain_classic.retrievers import ParentDocumentRetriever
 from langchain_classic.storage import EncoderBackedStore
@@ -11,9 +11,10 @@ from langchain_community.storage import SQLStore
 from langchain_core.documents import Document
 from langchain_postgres.vectorstores import PGVector
 
-from .ingestion_utils import S3Repository, VectorDBRepository, get_embeddings
 from core.config import settings as env
 from utils.utils import value_deserializer, value_serializer
+
+from .ingestion_utils import S3Repository, VectorDBRepository, get_embeddings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Ingestion")
@@ -53,7 +54,7 @@ def _load_and_process_files(user_id: str, files_to_process: Dict[str, str], s3: 
             try:
                 logger.info(f"Downloading: {filename}")
                 s3.download_file(user_id, filename, local_path)
-                
+
                 loader = LOADER_MAPPING[ext](local_path)
                 pages = loader.load()
                 for page in pages:
@@ -84,11 +85,9 @@ def process_and_index_documents(user_id: str) -> int:
     for filename, etag in s3_files.items():
         if filename not in indexed_files or indexed_files[filename] != etag:
             files_to_process[filename] = etag
-    
-    files_to_remove_from_index = files_to_delete_from_s3.union(
-        {filename for filename in files_to_process if filename in indexed_files}
-    )
-    
+
+    files_to_remove_from_index = files_to_delete_from_s3.union({filename for filename in files_to_process if filename in indexed_files})
+
     if files_to_remove_from_index:
         logger.info(f"Removing {len(files_to_remove_from_index)} obsolete/modified documents from index...")
         db.delete_documents_by_source(list(files_to_remove_from_index))
@@ -96,7 +95,7 @@ def process_and_index_documents(user_id: str) -> int:
     if files_to_process:
         logger.info(f"Processing {len(files_to_process)} new/modified documents...")
         new_docs = _load_and_process_files(user_id, files_to_process, s3)
-        
+
         if new_docs:
             logger.info(f"Indexing {len(new_docs)} pages via PDR for user {user_id}...")
             safe_user_id = user_id.replace("-", "")
@@ -107,7 +106,7 @@ def process_and_index_documents(user_id: str) -> int:
             sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
             sql_store.create_schema()
             store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
-            
+
             retriever = ParentDocumentRetriever(
                 vectorstore=vector_store,
                 docstore=store,

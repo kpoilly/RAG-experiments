@@ -1,8 +1,8 @@
 import uuid
-
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class Token(BaseModel):
@@ -15,6 +15,7 @@ class TokenData(BaseModel):
 
 
 # --- User Schemas ---
+
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -41,6 +42,7 @@ class User(BaseModel):
 
 # --- Message Schemas ---
 
+
 class MessageBase(BaseModel):
     role: str
     content: str
@@ -52,4 +54,3 @@ class Message(MessageBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-        

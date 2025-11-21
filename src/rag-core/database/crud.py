@@ -1,8 +1,9 @@
-from typing import List, Dict
+from typing import Dict, List
 
 from sqlalchemy.orm import Session
 
 from core import security
+
 from . import models, schemas
 
 
@@ -11,19 +12,11 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def create_user(
-    db: Session, 
-    user: schemas.UserCreate, 
-    encrypted_api_key: bytes | None
-):
+def create_user(db: Session, user: schemas.UserCreate, encrypted_api_key: bytes | None):
     hashed_password = security.get_password_hash(user.password)
     encrypted_key = security.encrypt_data(user.groq_api_key)
     db_user = models.User(
-        email=user.email, 
-        hashed_password=hashed_password,
-        encrypted_api_key=encrypted_key,
-        llm_model=user.llm_model,
-        llm_side_model=user.llm_side_model
+        email=user.email, hashed_password=hashed_password, encrypted_api_key=encrypted_key, llm_model=user.llm_model, llm_side_model=user.llm_side_model
     )
     db.add(db_user)
     db.commit()
@@ -45,7 +38,7 @@ def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate)
         user.llm_model = user_update.llm_model
     if user_update.llm_side_model is not None:
         user.llm_side_model = user_update.llm_side_model
-    
+
     db.commit()
     db.refresh(user)
     return user
@@ -61,6 +54,7 @@ def get_history_for_user(db: Session, user_id: str) -> List[Dict[str, str]]:
         return []
     return sorted(conversation.messages, key=lambda msg: msg.created_at)
 
+
 def add_message_to_history(db: Session, user_id: str, role: str, content: str) -> models.Message:
     """
     Add a new message to the user's history.
@@ -72,12 +66,24 @@ def add_message_to_history(db: Session, user_id: str, role: str, content: str) -
         db.commit()
         db.refresh(conversation)
 
-    db_message = models.Message(
-        conversation_id=conversation.id,
-        role=role,
-        content=content
-    )
+    db_message = models.Message(conversation_id=conversation.id, role=role, content=content)
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
     return db_message
+
+
+def delete_history_for_user(db: Session, user_id: str) -> int:
+    """
+    Deletes every messages from a user.
+    returns the number of deleted messages.
+    """
+    conversations = db.query(models.Conversation).filter(models.Conversation.user_id == user_id).all()
+    if not conversations:
+        return 0
+
+    conversation_ids = [conv.id for conv in conversations]
+    num_deleted = db.query(models.Message).filter(models.Message.conversation_id.in_(conversation_ids)).delete(synchronize_session=False)
+
+    db.commit()
+    return num_deleted

@@ -16,11 +16,12 @@ from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
 from sqlalchemy.orm import Session
 
-from .ingestion import get_embeddings
 from core.config import settings as env
 from core.models import ExpandedQueries, LLMRequest
 from database import crud
 from utils.utils import count_tokens, format_history_for_prompt, truncate_history, value_deserializer, value_serializer
+
+from .ingestion import get_embeddings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ logger = logging.getLogger(__name__)
 # --- Init & Component Getters ---
 with open("/app/prompts/system.json", "r") as f:
     SYSTEM_PROMPTS = json.load(f)
+if isinstance(SYSTEM_PROMPTS["instructions"], list):
+    SYSTEM_PROMPTS["instructions"] = "\n".join(SYSTEM_PROMPTS["instructions"])
 with open("/app/prompts/query_expansion.json", "r") as f:
     QUERY_EXP_PROMPTS = json.load(f)
 
@@ -59,6 +62,7 @@ def init_components():
         logger.info("LLM query generator initialized.")
 
     logger.info("Embedder, Reranker and LLM chain initialized.")
+
 
 def get_reranker() -> Optional[TextCrossEncoder]:
     return _RERANKER
@@ -366,12 +370,7 @@ async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, 
 
 
 async def orchestrate_rag_flow(
-    query: str,
-    user_id: str,
-    db: Session,
-    temp: float = env.LLM_TEMPERATURE,
-    strict: bool = env.LLM_STRICT_RAG,
-    rerank_threshold: float = env.RERANKER_THRESHOLD
+    query: str, user_id: str, db: Session, temp: float = env.LLM_TEMPERATURE, strict: bool = env.LLM_STRICT_RAG, rerank_threshold: float = env.RERANKER_THRESHOLD
 ) -> AsyncGenerator[str, None]:
     """
     Executes the entire RAG flow by orchestrating calls to specialized functions.
@@ -422,5 +421,5 @@ async def orchestrate_rag_flow(
         yield chunk
 
     if full_assistant_response:
-       crud.add_message_to_history(db, user_id=user_id, role="assistant", content=full_assistant_response)
+        crud.add_message_to_history(db, user_id=user_id, role="assistant", content=full_assistant_response)
     logger.info("RAG flow finished.")

@@ -4,10 +4,9 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from core.config import settings as env
-from database import models, crud
+from database import crud, models
 from database.database import SessionLocal
 from rag.ingestion_utils import S3Repository
-
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
@@ -24,10 +23,7 @@ def get_db():
         db.close()
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme), 
-    db: Session = Depends(get_db)
-) -> models.User:
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -40,7 +36,7 @@ def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = crud.get_user_by_email(db, email=email)
     if user is None:
         raise credentials_exception

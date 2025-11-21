@@ -1,17 +1,17 @@
-import os
-import logging
 import asyncio
+import logging
+import os
 from typing import List
 from urllib.parse import unquote
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from .. import deps
-from database import models
 from core.models import IngestionResponse
+from database import models
 from rag.ingestion import process_and_index_documents
 from rag.ingestion_utils import S3Repository
 
+from .. import deps
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ router = APIRouter(
     prefix="/documents",
     tags=["Documents"],
 )
+
 
 @router.get("", response_model=List[str])
 async def list_documents(current_user: models.User = Depends(deps.get_current_user)):
@@ -34,10 +35,7 @@ async def list_documents(current_user: models.User = Depends(deps.get_current_us
 
 
 @router.post("")
-async def upload_document(
-    file: UploadFile = File(...),
-    current_user: models.User = Depends(deps.get_current_user)
-):
+async def upload_document(file: UploadFile = File(...), current_user: models.User = Depends(deps.get_current_user)):
     """
     Receives a file, validates it, uploads it to S3, and triggers ingestion.
     """

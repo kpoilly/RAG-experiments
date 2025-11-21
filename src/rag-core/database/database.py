@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 from core.config import settings as env
 
@@ -10,5 +10,4 @@ Base = declarative_base()
 
 
 def create_db_and_tables():
-    from . import models
     Base.metadata.create_all(bind=engine)

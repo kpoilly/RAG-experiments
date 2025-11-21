@@ -1,4 +1,3 @@
-from email import header
 import json
 import os
 import time
@@ -6,7 +5,6 @@ from urllib.parse import quote
 
 import requests
 import streamlit as st
-
 
 # --- Config ---
 
@@ -19,6 +17,7 @@ HISTORY_URL = f"{API_URL}/history"
 
 
 # --- API ---
+
 
 def get_api_headers():
     if "auth_token" not in st.session_state:
@@ -34,7 +33,7 @@ def register_user(email, password):
     except requests.RequestException as e:
         st.error(f"Registration failed: {e.response.json().get('detail') if e.response else e}")
         return False
-    
+
 
 def login_user(email, password):
     try:
@@ -48,33 +47,37 @@ def login_user(email, password):
 
 # --- App Pages ---
 
+
 def display_login_page():
-    st.title("Welcome to the Conversational RAG Assistant")
-    login_tab, register_tab = st.tabs(["Login", "Register"])
+    _, col_center, _ = st.columns([1, 2, 1], gap="medium")
+    with col_center:
+        st.title("Conversational RAG Assistant")
+        login_tab, register_tab = st.tabs(["Login", "Register"])
 
-    with login_tab:
-        with st.form("login_form"):
-            email = st.text_input("Email", key="login_email")
-            password = st.text_input("Password", type="password", key="login_password")
-            submitted = st.form_submit_button("Login")
-            if submitted:
-                token = login_user(email, password)
-                if token:
-                    st.session_state["auth_token"] = token
-                    st.session_state["user_email"] = email
-                    st.success("Login successful!")
-                    time.sleep(1)
-                    st.rerun()
+        with login_tab:
+            with st.form("login_form"):
+                email = st.text_input("Email", key="login_email")
+                password = st.text_input("Password", type="password", key="login_password")
+                submitted = st.form_submit_button("Login")
+                if submitted:
+                    token = login_user(email, password)
+                    if token:
+                        st.session_state["auth_token"] = token
+                        st.session_state["user_email"] = email
+                        st.success("Login successful!")
+                        time.sleep(1)
+                        st.rerun()
 
-    with register_tab:
-        with st.form("register_form"):
-            email = st.text_input("Email", key="reg_email")
-            password = st.text_input("Password", type="password", key="reg_password")
-            submitted = st.form_submit_button("Register")
-            if submitted:
-                if register_user(email, password):
-                    st.success("Registration successful! Please proceed to the Login tab.")
-                    time.sleep(2)
+        with register_tab:
+            with st.form("register_form"):
+                email = st.text_input("Email", key="reg_email")
+                password = st.text_input("Password", type="password", key="reg_password")
+                submitted = st.form_submit_button("Register")
+                if submitted:
+                    if register_user(email, password):
+                        st.success("Registration successful! Please proceed to the Login tab.")
+                        time.sleep(2)
+
 
 def display_main_app():
     with st.sidebar:
@@ -82,10 +85,26 @@ def display_main_app():
 
         st.write(f"Logged in as: {st.session_state.get('user_email', 'Unknown')}")
         if st.button("Logout"):
-            if "auth_token" in st.session_state: del st.session_state["auth_token"]
-            if "user_email" in st.session_state: del st.session_state["user_email"]
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
             st.rerun()
-        
+
+        if st.button("Clear Chat History", type="secondary"):
+            try:
+                headers = get_api_headers()
+                response = requests.delete(HISTORY_URL, headers=headers)
+                response.raise_for_status()
+
+                if "messages" in st.session_state:
+                    del st.session_state["messages"]
+
+                st.success("Chat history cleared!")
+                time.sleep(1)
+                st.rerun()
+            except requests.RequestException:
+                st.error("Failed to clear history. Please try again.")
+
+        st.divider()
         page = st.radio("Navigation", ["💬 Chat", "⚙️ Settings", "ℹ️ Info"])
 
     if page == "💬 Chat":
@@ -103,7 +122,8 @@ def display_chat_page():
     def get_current_documents():
         """get current document filenames."""
         headers = get_api_headers()
-        if not headers: return []
+        if not headers:
+            return []
         try:
             response = requests.get(DOCUMENTS_URL, headers=headers)
             response.raise_for_status()
@@ -123,10 +143,6 @@ def display_chat_page():
         except requests.RequestException:
             st.session_state.messages = []
             st.warning("Could not load chat history.")
-    
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
 
     with col_chat:
         chat_container = st.container(height=600)
@@ -242,7 +258,9 @@ def display_settings_page():
             the assistant is strictly forbidden from using any knowledge outside of the provided documents.",
     )
     st.session_state.llm_temperature = st.slider(label="LLM Temperature", min_value=0.0, max_value=2.0, step=0.05, value=st.session_state.llm_temperature, width=500)
-    st.session_state.rerank_threshold = st.slider(label="Reranker Threshold", min_value=0.0, max_value=1.0, step=0.05, value=st.session_state.rerank_threshold, width=500)
+    st.session_state.rerank_threshold = st.slider(
+        label="Reranker Threshold", min_value=-10.0, max_value=10.0, step=0.05, value=st.session_state.rerank_threshold, width=500
+    )
     st.text_input("Chunk Size (Parent)", value=os.getenv("CHUNK_SIZE_P", "Not Set"), disabled=True)
     st.text_input("Overlap (Parent)", value=os.getenv("CHUNK_OVERLAP_P", "Not Set"), disabled=True)
     st.text_input("Chunk Size (Child)", value=os.getenv("CHUNK_SIZE_C", "Not Set"), disabled=True)
@@ -251,23 +269,38 @@ def display_settings_page():
 
 def display_info_page():
     st.title("ℹ️ About This Project")
+
     st.info(
-        "This is a boilerplate for a production-ready RAG conversational assistant. It uses a Parent Document Retrieval strategy with a PostgreSQL+PGVector backend,\
-              and a provider-agnostic LLM Gateway powered by LiteLLM."
+        """
+        This project is a **production-ready boilerplate** for a multi-tenant,
+        document-grounded conversational assistant (RAG).
+
+        It is built on a modern, cloud-native architecture designed for scalability, observability, and flexibility.
+
+        Core Architectural Principles:
+
+        - **Cloud-Agnostic Design:** Using S3-compatible object storage and PostgreSQL allowing for seamless deployment to any major cloud provider (AWS, GCP, Azure)..
+        - **Advanced RAG Pipeline:** Advanced PDR retrieval workflow with query expansion and Cross-Encoder re-ranking.
+        - **Deep Observability:** Prometheus & Grafana for real-time metrics, and LangSmith for end-to-end tracing and evaluation of the RAG pipeline.
+        - **Optimized for CI/CD and Dev Experience:** Built for efficiency with multi-stage Docker builds and `uv` for high-speed dependency management
+        """
     )
-    st.markdown("For more details, check out the [GitHub repository](https://github.com/kpoilly/RAG-experiments).")
+    st.success("For a complete technical overview, check out the [GitHub repository](https://github.com/kpoilly/RAG-Boilerplate).")
 
 
 # --- Init ---
 
 st.set_page_config(page_title="Conversational RAG Assistant", page_icon="🤖", layout="wide")
 
-st.markdown("""
+st.markdown(
+    """
 <style>
     .block-container { padding-top: 1rem; }
     h1 { padding-top: 0rem; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 if "llm_temperature" not in st.session_state:
     st.session_state.llm_temperature = float(os.getenv("LLM_TEMPERATURE", 0.3))
