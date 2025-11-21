@@ -37,15 +37,12 @@ async def startup_event():
 
             models_list = all_models_info.get("data", [])
             model_config = next(
-                (
-                    model
-                    for model in models_list
-                    if (
-                        model.get("model_name") == env.LLM_MODEL
-                        or model.get("litellm_params", {}).get("model") == env.LLM_MODEL
-                        or model.get("model_info", {}).get("key") == env.LLM_MODEL
-                    )
-                ),
+                (model
+                for model in models_list
+                if (
+                    model.get("model_name") == env.LLM_MODEL
+                    or model.get("litellm_params", {}).get("model") == env.LLM_MODEL
+                    or model.get("model_info", {}).get("key") == env.LLM_MODEL)),
                 None,
             )
 

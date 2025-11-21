@@ -214,50 +214,6 @@ def display_chat_page():
 
                             final_html = full_response
                         if source_chunks and re.search(r"\[\d+\]", full_response):
-                            tooltip_css = """
-                    <style>
-                        .tooltip {
-                            position: relative;
-                            display: inline-block;
-                            font-weight: bold;
-                            color: #007bff;
-                        }
-                        .tooltip-content {
-                            visibility: hidden;
-                            opacity: 0;
-
-                            width: 600px;
-                            max-height: 400px;
-                            overflow-y: auto;
-
-                            font-size: 0.85rem;
-                            word-wrap: break-word;
-                            line-height: 1.4;
-
-                            background-color: #333;
-                            color: #fff;
-                            text-align: left;
-                            border-radius: 6px;
-                            padding: 12px;
-
-                            position: fixed;
-                            z-index: 10;
-                            bottom: auto;
-                            top: 20%;
-                            left: 50%;
-                            margin-left: -375px;
-
-                            transition: opacity 0.3s;
-                            font-weight: normal;
-                            white-space: pre-wrap;
-                            box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
-                        }
-                        .tooltip:hover .tooltip-content {
-                            visibility: visible;
-                            opacity: 1;
-                        }
-                    </style>
-                    """
                             for chunk in source_chunks:
                                 if f"[{chunk['index']}]" in full_response:
                                     index_marker = f"[{chunk['index']}]"
@@ -267,7 +223,7 @@ def display_chat_page():
                                     safe_tooltip_content = tooltip_content.replace('"', "&quot;").replace("\n", "<br>")
                                     tooltip_html = f'<span class="tooltip">{index_marker}<span class="tooltip-content">{safe_tooltip_content}</span></span>'
                                     final_html = re.sub(r"\[" + str(chunk["index"]) + r"\](?!<)", tooltip_html, final_html)
-                            message_placeholder.markdown(tooltip_css + final_html, unsafe_allow_html=True)
+                            message_placeholder.markdown(final_html, unsafe_allow_html=True)
                         else:
                             message_placeholder.markdown(full_response)
 
@@ -381,6 +337,49 @@ st.markdown(
 <style>
     .block-container { padding-top: 1rem; }
     h1 { padding-top: 0rem; }
+</style>
+
+<style>
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .tooltip-content {
+        visibility: hidden;
+        opacity: 0;
+
+        width: 600px;
+        max-height: 400px;
+        overflow-y: auto;
+
+        font-size: 0.85rem;
+        word-wrap: break-word;
+        line-height: 1.4;
+
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 12px;
+
+        position: fixed;
+        z-index: 10;
+        bottom: auto;
+        top: 20%;
+        left: 50%;
+        margin-left: -375px;
+
+        transition: opacity 0.3s;
+        font-weight: normal;
+        white-space: pre-wrap;
+        box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+    }
+    .tooltip:hover .tooltip-content {
+        visibility: visible;
+        opacity: 1;
+    }
 </style>
 """,
     unsafe_allow_html=True,
