@@ -144,7 +144,7 @@ async def expand_query(query: str, history: List[Dict[str, str]]) -> List[str]:
 
     try:
         history_str = format_history_for_prompt(history)
-        gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str})
+        gen_exp_queries = await query_expansion_chain.ainvoke({"question": query, "chat_history": history_str[:4000]})
         expanded_queries = gen_exp_queries.queries if hasattr(gen_exp_queries, "queries") else []
         logger.info(f"Generated {len(expanded_queries)} expanded queries: {expanded_queries}")
         return [query] + expanded_queries
@@ -255,9 +255,7 @@ def build_context_from_docs(docs: List, context_budget: int) -> Tuple[List[str],
     return context_texts, unique_metadatas
 
 
-def build_prompt_with_context(
-    query: str, context: List[str], metadatas: List[Dict[str, str]], history: List[Dict[str, str]], strict_rule: str
-) -> Tuple[str, List[Dict[str, Any]]]:
+def build_prompt_with_context(query: str, context: str, history: List[Dict[str, str]], strict_rule: str) -> Tuple[str, List[Dict[str, Any]]]:
     """
     Build the final prompt to send to the LLM, including RAG context and history.
 
@@ -270,12 +268,6 @@ def build_prompt_with_context(
         A Tuple with the system instruction and the list of final messages.
     """
 
-    context_map = []
-    for i, (text_chunk) in enumerate(context):
-        metadata = metadatas[i] if i < len(metadatas) else {"source": "N/A", "page": "N/A"}
-        context_map.append(f"Content: {text_chunk} (Source: {metadata['source']} [Page {metadata['page']}])")
-    context = "\n\n".join(context_map)
-
     template = SYSTEM_PROMPTS["instructions"]
     system_instruction = template.format(context=context, strict_rule=strict_rule)
     messages = [{"role": "system", "content": system_instruction}]
@@ -285,7 +277,7 @@ def build_prompt_with_context(
     return system_instruction, messages
 
 
-def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, strict: bool) -> Tuple[List[Dict[str, Any]], int]:
+def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, strict: bool) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
     """
     Assembles the final prompt for the LLM, managing token budgets for context and history.
 
@@ -299,6 +291,7 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
         A tuple containing:
         - The final list of messages for the LLM API.
         - The total number of tokens in the final prompt.
+        - The source chunks for frontend.
     """
     # Defining budgets
     RESPONSE_BUDGET = int(env.LLM_MAX_CONTEXT_TOKENS * 0.1)
@@ -317,20 +310,38 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
     history_tokens = sum(count_tokens(message.get("content", "")) for message in final_history)
 
     # Build context from documents
-    context_texts, unique_metadatas = build_context_from_docs(docs, CONTEXT_BUDGET)
-    context_tokens = sum(count_tokens(text) for text in context_texts)
-    if not context_texts:
+    context_for_llm = []
+    source_chunks_for_frontend = []
+    current_context_tokens = 0
+
+    for i, doc in enumerate(docs):
+        doc_tokens = count_tokens(doc.page_content)
+        if current_context_tokens + doc_tokens > CONTEXT_BUDGET:
+            logger.info("Reached RAG context token budget during prompt construction.")
+            break
+
+        current_context_tokens += doc_tokens
+        # Numeroted context for llm
+        context_chunk = f"[{i+1}] Content: {doc.page_content} (Source: {doc.metadata.get('source', 'N/A')} [Page {doc.metadata.get('page', 'N/A')}])"
+        context_for_llm.append(context_chunk)
+
+        # Sources map for frontend
+        source_chunks_for_frontend.append(
+            {"index": i + 1, "content": doc.page_content, "source": doc.metadata.get("source", "N/A"), "page": doc.metadata.get("page", "N/A")}
+        )
+
+    final_context_str = "\n\n".join(context_for_llm)
+    if not final_context_str:
         logger.warning("No relevant documents were added to the final context.")
 
     # Assemble final prompt
-    system_instructions, messages = build_prompt_with_context(query, context_texts, unique_metadatas, final_history, strict_rule)
-    total_tokens = query_tokens + history_tokens + context_tokens + prompt_template_tokens
+    system_instructions, messages = build_prompt_with_context(query, final_context_str, final_history, strict_rule)
+    total_tokens = query_tokens + history_tokens + count_tokens(system_instructions)
     logger.info(
-        f"Final prompt assembled. Tokens - Total: {total_tokens}, Query: {query_tokens}, "
-        f"History: {history_tokens}, Context: {context_tokens}, Template: {prompt_template_tokens}"
+        f"Final prompt assembled. Tokens - Total: {total_tokens}, Query: {query_tokens}, " f"History: {history_tokens}, Instructions: {count_tokens(system_instructions)}"
     )
 
-    return messages, total_tokens, context_texts, unique_metadatas
+    return messages, total_tokens, source_chunks_for_frontend
 
 
 async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None) -> AsyncGenerator[str, None]:
@@ -400,11 +411,11 @@ async def orchestrate_rag_flow(
     retrieved_docs = await retrieve_and_deduplicate_documents(retriever, expanded_queries)
     final_docs = rerank_documents(query, retrieved_docs, reranker, rerank_threshold)
 
-    messages, token_count, context_texts, unique_metadatas = build_final_prompt(query, history, final_docs, strict_mode)
+    messages, token_count, source_chunks = build_final_prompt(query, history, final_docs, strict_mode)
 
     # We do this because evaluation-runner needs the context texts and metadatas
-    context_payload = {"type": "context", "data": {"texts": context_texts, "metadatas": unique_metadatas}}
-    yield f"data:{json.dumps(context_payload)}\n\n"
+    sources_payload = {"type": "sources", "data": source_chunks}
+    yield f"data: {json.dumps(sources_payload)}\n\n"
 
     full_assistant_response = ""
     async for chunk in stream_llm_response(messages, token_count, temp):
