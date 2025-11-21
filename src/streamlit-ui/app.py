@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from urllib.parse import quote
 
@@ -43,6 +44,26 @@ def login_user(email, password):
     except requests.RequestException as e:
         st.error(f"Login failed: {e.response.json().get('detail') if e.response else e}")
         return None
+
+
+# --- Utils ---
+
+
+def format_chunk(text: str) -> str:
+    # Rem
+    text = re.sub(r"(?<!\n)(?<!\.)\n(?!\n)(?![A-Z])", " ", text)
+    text = text.strip()
+
+    match_start = re.search(r"[A-Z]", text)
+    if match_start:
+        text = text[match_start.start() :]
+    else:
+        return text
+
+    last_period_index = text.rfind(".")
+    if last_period_index != -1:
+        text = text[: last_period_index + 1]
+    return text
 
 
 # --- App Pages ---
@@ -153,13 +174,16 @@ def display_chat_page():
 
         if prompt := st.chat_input("Ask a question about your documents..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
+
             with chat_container:
                 with st.chat_message("user"):
                     st.markdown(prompt)
+
             with chat_container:
                 with st.chat_message("assistant"):
                     message_placeholder = st.empty()
                     full_response = ""
+                    source_chunks = []
                     try:
                         headers = get_api_headers()
                         request_payload = {
@@ -178,15 +202,31 @@ def display_chat_page():
                                         break
                                     if not json_str:
                                         continue
-                                    try:
-                                        data = json.loads(json_str)
+
+                                    data = json.loads(json_str)
+                                    if data.get("type") == "sources":
+                                        source_chunks = data.get("data", [])
+                                    else:
                                         content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                                         if content:
                                             full_response += content
                                             message_placeholder.markdown(full_response + "▌")
-                                    except json.JSONDecodeError:
-                                        continue
-                        message_placeholder.markdown(full_response)
+
+                            final_html = full_response
+                        if source_chunks and re.search(r"\[\d+\]", full_response):
+                            for chunk in source_chunks:
+                                if f"[{chunk['index']}]" in full_response:
+                                    index_marker = f"[{chunk['index']}]"
+                                    page_info = f" [Page {chunk['page']}]" if chunk.get("page") and str(chunk["page"]).lower() != "n/a" else ""
+                                    cleaned_content = format_chunk(chunk["content"])
+                                    tooltip_content = f"**Source:** {chunk['source']}{page_info}\n\n---\n{cleaned_content}"
+                                    safe_tooltip_content = tooltip_content.replace('"', "&quot;").replace("\n", "<br>")
+                                    tooltip_html = f'<span class="tooltip">{index_marker}<span class="tooltip-content">{safe_tooltip_content}</span></span>'
+                                    final_html = re.sub(r"\[" + str(chunk["index"]) + r"\](?!<)", tooltip_html, final_html)
+                            message_placeholder.markdown(final_html, unsafe_allow_html=True)
+                        else:
+                            message_placeholder.markdown(full_response)
+
                     except requests.RequestException as e:
                         full_response = f"Error: {e}"
                         message_placeholder.error("RAG Service is not up yet. Please try again later.")
@@ -297,6 +337,49 @@ st.markdown(
 <style>
     .block-container { padding-top: 1rem; }
     h1 { padding-top: 0rem; }
+</style>
+
+<style>
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .tooltip-content {
+        visibility: hidden;
+        opacity: 0;
+
+        width: 600px;
+        max-height: 400px;
+        overflow-y: auto;
+
+        font-size: 0.85rem;
+        word-wrap: break-word;
+        line-height: 1.4;
+
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 12px;
+
+        position: fixed;
+        z-index: 10;
+        bottom: auto;
+        top: 20%;
+        left: 50%;
+        margin-left: -375px;
+
+        transition: opacity 0.3s;
+        font-weight: normal;
+        white-space: pre-wrap;
+        box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+    }
+    .tooltip:hover .tooltip-content {
+        visibility: visible;
+        opacity: 1;
+    }
 </style>
 """,
     unsafe_allow_html=True,

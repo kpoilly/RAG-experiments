@@ -20,24 +20,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("Ingestion")
 
 
-def _build_retriever(user_id: str) -> ParentDocumentRetriever:
-    """Configures the Parent Document Retriever (PDR) stack for a specific user."""
-    collection_name = f"user_{user_id}_collection"
-    namespace = f"user_{user_id}_parents"
-
-    vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=get_embeddings())
-    sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
-    sql_store.create_schema()
-    store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
-
-    return ParentDocumentRetriever(
-        vectorstore=vector_store,
-        docstore=store,
-        child_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C, separators=["\n\n", "\n", " "]),
-        parent_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P, separators=["\n#", "\n##", "\n\n\n"]),
-    )
-
-
 def _load_and_process_files(user_id: str, files_to_process: Dict[str, str], s3: S3Repository) -> List[Document]:
     """Downloads files to temp storage, loads them, and tags them with hashes."""
     LOADER_MAPPING = {".pdf": PyPDFLoader, ".docx": UnstructuredWordDocumentLoader, ".md": UnstructuredMarkdownLoader}
@@ -103,6 +85,7 @@ def process_and_index_documents(user_id: str) -> int:
             namespace = f"user_{safe_user_id}_parents"
 
             vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=get_embeddings())
+            vector_store.create_tables_if_not_exists()
             sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
             sql_store.create_schema()
             store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)

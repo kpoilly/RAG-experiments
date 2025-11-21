@@ -16,8 +16,6 @@ services:
       context: src/streamlit-ui
     container_name: streamlit-ui
     restart: unless-stopped
-    volumes:
-      - ./data:/app/data
     environment:
       - API_URL=http://nginx/api
       - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
