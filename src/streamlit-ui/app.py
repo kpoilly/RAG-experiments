@@ -212,20 +212,19 @@ def display_chat_page():
                                             full_response += content
                                             message_placeholder.markdown(full_response + "▌")
 
-                        if source_chunks and re.search(r"\[\d+\]", full_response):
                             final_html = full_response
-
+                        if source_chunks and re.search(r"\[\d+\]", full_response):
                             tooltip_css = """
                     <style>
                         .tooltip {
                             position: relative;
                             display: inline-block;
-                            cursor: pointer;
                             font-weight: bold;
                             color: #007bff;
                         }
-                        .tooltip .tooltiptext {
+                        .tooltip-content {
                             visibility: hidden;
+                            opacity: 0;
 
                             width: 600px;
                             max-height: 400px;
@@ -248,19 +247,17 @@ def display_chat_page():
                             left: 50%;
                             margin-left: -375px;
 
-                            opacity: 0;
                             transition: opacity 0.3s;
                             font-weight: normal;
                             white-space: pre-wrap;
                             box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
                         }
-                        .tooltip:hover .tooltiptext {
+                        .tooltip:hover .tooltip-content {
                             visibility: visible;
                             opacity: 1;
                         }
                     </style>
                     """
-
                             for chunk in source_chunks:
                                 if f"[{chunk['index']}]" in full_response:
                                     index_marker = f"[{chunk['index']}]"
@@ -268,7 +265,7 @@ def display_chat_page():
                                     cleaned_content = format_chunk(chunk["content"])
                                     tooltip_content = f"**Source:** {chunk['source']}{page_info}\n\n---\n{cleaned_content}"
                                     safe_tooltip_content = tooltip_content.replace('"', "&quot;").replace("\n", "<br>")
-                                    tooltip_html = f'<span class="tooltip">{index_marker}<span class="tooltiptext">{safe_tooltip_content}</span></span>'
+                                    tooltip_html = f'<span class="tooltip">{index_marker}<span class="tooltip-content">{safe_tooltip_content}</span></span>'
                                     final_html = re.sub(r"\[" + str(chunk["index"]) + r"\](?!<)", tooltip_html, final_html)
                             message_placeholder.markdown(tooltip_css + final_html, unsafe_allow_html=True)
                         else:
