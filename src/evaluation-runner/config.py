@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     GENERATOR_LLM: str = "groq/llama-3.1-8b-instant"
     EVAL_TESTSET_SIZE: int = 10
     LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
-    RAG_CORE_URL: str = "http://rag-core:8001"
+    API_URL: str = "http://rag-core:8001"
 
     EMBEDDING_MODEL: str = "optimal"
     CHUNK_SIZE: int = 1500
@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY_ID: str = "minioadmin"
     S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
+
+    SERVICE_ACCOUNT_EMAIL: str
+    SERVICE_ACCOUNT_PASSWORD: str
 
 
 settings = Settings()

@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    SERVICE_ACCOUNT_EMAIL: str
+    SERVICE_ACCOUNT_PASSWORD: str
+
 
 settings = Settings()
 

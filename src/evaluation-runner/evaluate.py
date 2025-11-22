@@ -117,6 +117,22 @@ def configure_embedding_model(user_choice: str):
     env.EMBEDDING_MODEL = config["name"]
 
 
+def get_service_auth_token() -> str | None:
+    logger.info("Authenticating evaluation runner with the RAG Core API...")
+    try:
+        login_payload = {"username": env.SERVICE_ACCOUNT_EMAIL, "password": env.SERVICE_ACCOUNT_PASSWORD}
+        response = requests.post(f"{env.API_URL}/auth/token", data=login_payload, timeout=10)
+        response.raise_for_status()
+        token = response.json().get("access_token")
+        if not token:
+            raise ValueError("Authentication failed: No access token in response.")
+        logger.info("Authentication successful.")
+        return token
+    except Exception as e:
+        logger.error(f"FATAL: Could not authenticate with RAG Core API. Error: {e}")
+        return None
+
+
 # --- Eval ---
 def generate_synthetic_testset(documents: List, generator_llm: ChatOpenAI, size: int) -> List[Dict]:
     """
@@ -159,11 +175,12 @@ def generate_synthetic_testset(documents: List, generator_llm: ChatOpenAI, size:
     return results
 
 
-def run_rag_pipeline(question: str) -> Dict[str, Any]:
+def run_rag_pipeline(question: str, auth_token: str) -> Dict[str, Any]:
     answer = ""
     contexts = []
     try:
-        response = requests.post(f"{env.RAG_CORE_URL}/chat", json={"query": question, "history": []}, stream=True, timeout=120)
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        response = requests.post(f"{env.API_URL}/chat", json={"query": question, "history": []}, stream=True, timeout=120, headers=headers)
         response.raise_for_status()
 
         for line in response.iter_lines():
@@ -203,6 +220,14 @@ async def run_evaluation_task():
         EVALUATION_RUNS_TOTAL.labels(status="started").inc()
         logger.info("--- Starting RAG evaluation ---")
 
+        auth_token = get_service_auth_token()
+        if not auth_token:
+            logger.error("Skipping evaluation run due to authentication failure.")
+            EVALUATION_RUNS_TOTAL.labels(status="failed").inc()
+            return
+
+        EVALUATION_RUNS_TOTAL.labels(status="started").inc()
+
         documents = load_documents_from_s3()
         if not documents:
             EVALUATION_RUNS_TOTAL.labels(status="completed").inc()
@@ -225,7 +250,7 @@ async def run_evaluation_task():
         logger.info("Running RAG pipeline...")
         results = []
         for item in testset_data:
-            rag_output = run_rag_pipeline(item["question"])
+            rag_output = run_rag_pipeline(item["question"], auth_token)
             if rag_output["answer"]:
                 results.append({"question": item["question"], "contexts": rag_output["contexts"], "answer": rag_output["answer"], "ground_truth": item["ground_truth"]})
         if not results:

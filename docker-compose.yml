@@ -41,6 +41,8 @@ services:
     environment:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SERVICE_ACCOUNT_EMAIL=${SERVICE_ACCOUNT_EMAIL:-service@service.account}
+      - SERVICE_ACCOUNT_PASSWORD=${SERVICE_ACCOUNT_PASSWORD:-service_password}
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
       - DB_NAME=${DB_NAME:-rag_db}
@@ -214,6 +216,8 @@ services:
     ports:
       - "8004:8004"
     environment:
+      - SERVICE_ACCOUNT_EMAIL=${SERVICE_ACCOUNT_EMAIL:-service@service.account}
+      - SERVICE_ACCOUNT_PASSWORD=${SERVICE_ACCOUNT_PASSWORD:-service_password}
       - RAG_CORE_URL=http://rag-core:8001
       - LLM_GATEWAY_URL=http://llm-gateway:8002
       - GENERATOR_LLM=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}

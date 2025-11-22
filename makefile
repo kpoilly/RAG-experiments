@@ -177,6 +177,7 @@ format:
 			-v ./src/$$service:/app \
 			$$service-linter sh -c "ruff check . --fix && black ."; \
 	done
+	@$(MAKE) clean-folders
 
 
 # --- GIT ---

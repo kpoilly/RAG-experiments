@@ -8,6 +8,7 @@ from api.routers import auth, chat, documents, history
 from core.config import settings as env
 from database.database import create_db_and_tables
 from rag.retriever import init_components
+from utils.utils import create_service_user
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ async def startup_event():
         logger.info("Initializing database and creating tables if they don't exist...")
         create_db_and_tables()
         logger.info("Database tables are ready.")
+        create_service_user()
+
         model_info_url = f"{env.LLM_GATEWAY_URL}/model/info"
         async with httpx.AsyncClient() as client:
             response = await client.get(model_info_url)
