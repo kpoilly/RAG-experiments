@@ -38,14 +38,13 @@ async def startup_event():
             if response.status_code == 200:
                 data = response.json()
                 for model in data.get("data", []):
-                    model_name = model.get("model_name")
                     model_info = model.get("model_info", {})
                     if model_info:
-                        LLM_MODEL_CONTEXT_WINDOW.labels(model=model_name).set(model_info.get("max_input_tokens"))
+                        LLM_MODEL_CONTEXT_WINDOW.labels(model=model_info.get("key", "unknown")).set(model_info.get("max_input_tokens"))
                     model_params = model.get("litellm_params", {})
                     if model_params:
-                        LLM_MODEL_RPM.labels(model=model_name).set(model_params.get("rpm"))
-                        LLM_MODEL_TPM.labels(model=model_name).set(model_params.get("tpm"))
+                        LLM_MODEL_RPM.labels(model=model_params.get("model", "unknown")).set(model_params.get("rpm"))
+                        LLM_MODEL_TPM.labels(model=model_params.get("model", "unknown")).set(model_params.get("tpm"))
 
                 logger.info("Model info metrics populated.")
         except Exception as e:

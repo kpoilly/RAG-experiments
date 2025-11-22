@@ -237,7 +237,7 @@
       },
       "id": 10,
       "panels": [],
-      "title": "Model: groq-llama-scout",
+      "title": "Model: $main_model",
       "type": "row"
     },
     {
@@ -291,8 +291,8 @@
       "targets": [
         {
           "datasource": "${DS_PROMETHEUS}",
-          "editorMode": "code",
-          "expr": "llm_model_context_window{model=\"groq-llama-scout\"}",
+          "editorMode": "builder",
+          "expr": "llm_model_context_window{model=\"$main_model\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -352,8 +352,8 @@
       "targets": [
         {
           "datasource": "${DS_PROMETHEUS}",
-          "editorMode": "code",
-          "expr": "llm_model_rpm{model=\"groq-llama-scout\"}",
+          "editorMode": "builder",
+          "expr": "llm_model_rpm{model=\"$main_model\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -414,7 +414,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "llm_model_tpm{model=\"groq-llama-scout\"}",
+          "expr": "llm_model_tpm{model=\"$main_model\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -479,7 +479,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(increase(llm_requests_total{model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}[24h]))",
+          "expr": "sum(increase(llm_requests_total{model=\"$main_model\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -544,7 +544,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(increase(llm_tokens_estimated_total{model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}[24h]))",
+          "expr": "sum(increase(llm_tokens_estimated_total{model=\"$main_model\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -611,7 +611,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(rate(llm_requests_total{model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}[1m])) * 60",
+          "expr": "sum(rate(llm_requests_total{model=\"$main_model\"}[1m])) * 60",
           "legendFormat": "Current RPM",
           "range": true,
           "refId": "A"
@@ -705,7 +705,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(rate(llm_tokens_estimated_total{model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}[1m])) * 60",
+          "expr": "sum(rate(llm_tokens_estimated_total{model=\"$main_model\"}[1m])) * 60",
           "legendFormat": "Current TPM",
           "range": true,
           "refId": "A"
@@ -827,7 +827,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(rate(llm_requests_total{model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}[5m]))",
+          "expr": "sum(rate(llm_requests_total{model=\"$main_model\"}[5m]))",
           "legendFormat": "Request Rate",
           "range": true,
           "refId": "A"
@@ -854,7 +854,7 @@
       },
       "id": 20,
       "panels": [],
-      "title": "Model: groq-llama-instant",
+      "title": "Model: $side_model",
       "type": "row"
     },
     {
@@ -908,8 +908,8 @@
       "targets": [
         {
           "datasource": "${DS_PROMETHEUS}",
-          "editorMode": "code",
-          "expr": "llm_model_context_window{model=\"groq-llama-instant\"}",
+          "editorMode": "builder",
+          "expr": "llm_model_context_window{model=\"$side_model\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -969,8 +969,8 @@
       "targets": [
         {
           "datasource": "${DS_PROMETHEUS}",
-          "editorMode": "code",
-          "expr": "llm_model_rpm{model=\"groq-llama-instant\"}",
+          "editorMode": "builder",
+          "expr": "llm_model_rpm{model=\"$side_model\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1030,8 +1030,8 @@
       "targets": [
         {
           "datasource": "${DS_PROMETHEUS}",
-          "editorMode": "code",
-          "expr": "llm_model_tpm{model=\"groq-llama-instant\"}",
+          "editorMode": "builder",
+          "expr": "llm_model_tpm{model=\"$side_model\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1096,7 +1096,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(increase(llm_requests_total{model=\"groq/llama-3.1-8b-instant\"}[24h]))",
+          "expr": "sum(increase(llm_requests_total{model=\"$side_model\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1161,7 +1161,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(increase(llm_tokens_estimated_total{model=\"groq/llama-3.1-8b-instant\"}[24h]))",
+          "expr": "sum(increase(llm_tokens_estimated_total{model=\"$side_model\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1228,7 +1228,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(rate(llm_requests_total{model=\"groq/llama-3.1-8b-instant\"}[1m])) * 60",
+          "expr": "sum(rate(llm_requests_total{model=\"$side_model\"}[1m])) * 60",
           "legendFormat": "Current RPM",
           "range": true,
           "refId": "A"
@@ -1323,7 +1323,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(rate(llm_tokens_estimated_total{model=\"groq/llama-3.1-8b-instant\"}[1m])) * 60",
+          "expr": "sum(rate(llm_tokens_estimated_total{model=\"$side_model\"}[1m])) * 60",
           "legendFormat": "Current TPM",
           "range": true,
           "refId": "A"
@@ -1445,7 +1445,7 @@
         {
           "datasource": "${DS_PROMETHEUS}",
           "editorMode": "builder",
-          "expr": "sum(rate(llm_requests_total{model=\"groq/llama-3.1-8b-instant\"}[5m]))",
+          "expr": "sum(rate(llm_requests_total{model=\"$side_model\"}[5m]))",
           "legendFormat": "Request Rate",
           "range": true,
           "refId": "A"
@@ -1774,7 +1774,57 @@
   "schemaVersion": 42,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allowCustomValue": true,
+        "current": {
+          "text": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+          "value": "groq/meta-llama/llama-4-scout-17b-16e-instruct"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "DS_PROMETHEUS"
+        },
+        "definition": "label_values(model)",
+        "description": "Main LLM model.",
+        "label": "Main model",
+        "name": "main_model",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(model)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "sort": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "groq/llama-3.1-8b-instant",
+          "value": "groq/llama-3.1-8b-instant"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "DS_PROMETHEUS"
+        },
+        "definition": "label_values(model)",
+        "description": "Side LLM model.",
+        "label": "Side model",
+        "name": "side_model",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(model)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
@@ -1784,5 +1834,5 @@
   "timezone": "",
   "title": "LLM Dashboard",
   "uid": "llm-dashboard",
-  "version": 5
+  "version": 9
 }
