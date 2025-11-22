@@ -6,6 +6,8 @@
 
 *Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
+-   Golden corpus pour l'évaluation qui sera upload sur le s3 du serviice user au moment de run une eval. à voir pour la source (dossier data ? Google drive ? (lien dans .env ?))
+
 -   **Monitoring et Analyse de la Latence :**
     -   Mettre en place **Prometheus/Grafana/Loki**.
     -   Metrics des APIs rag-core (metrics rag), et llm-gateway (metrics llm)

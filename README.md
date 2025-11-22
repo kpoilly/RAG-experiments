@@ -147,7 +147,9 @@ These variables control the behavior of the RAG pipeline and database connection
 | **DB_USER** | `rag_user` | Username for connecting to the PostgreSQL database. | Database access. |
 | **DB_PASSWORD** | `rag_password` | Password for connecting to the PostgreSQL database. | Database access. |
 | **DB_NAME** | `rag_db` | Name of the database to use within the PostgreSQL instance. | Specifies the target database. |
-| **COLLECTION_NAME** | `rag_documents` | Name of the logical "collection" within PGVector. This isolates the project's documents. | Filters searches to only include documents from this project. |
+| **SERVICE_ACCOUNT_EMAIL** | `service@service.account` | Email to create the service user. | Used when a service needs credentials (eg. Evals). |
+| **SERVICE_ACCOUNT_PASSWORD** | `service_password` | Password to create the service usef. | Used when a service needs credentials (eg. Evals). |
+
 
 
 ---
