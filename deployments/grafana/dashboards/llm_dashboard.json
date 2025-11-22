@@ -15,7 +15,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -622,7 +622,7 @@
             "uid": "DS_PROMETHEUS"
           },
           "editorMode": "builder",
-          "expr": "llm_model_rpm{model=\"groq-llama-scout\"}",
+          "expr": "llm_model_rpm{model=\"$main_model\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -638,7 +638,7 @@
             "configRefId": "B",
             "mappings": [
               {
-                "fieldName": "{__name__=\"llm_model_rpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq-llama-scout\"}",
+                "fieldName": "{__name__=\"llm_model_rpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}",
                 "handlerKey": "max"
               }
             ]
@@ -716,7 +716,7 @@
             "uid": "DS_PROMETHEUS"
           },
           "editorMode": "builder",
-          "expr": "llm_model_tpm{model=\"groq-llama-scout\"}",
+          "expr": "llm_model_tpm{model=\"$main_model\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -732,7 +732,7 @@
             "configRefId": "B",
             "mappings": [
               {
-                "fieldName": "{__name__=\"llm_model_tpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq-llama-scout\"}",
+                "fieldName": "{__name__=\"llm_model_tpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq/meta-llama/llama-4-scout-17b-16e-instruct\"}",
                 "handlerKey": "max"
               }
             ]
@@ -1239,7 +1239,7 @@
             "uid": "DS_PROMETHEUS"
           },
           "editorMode": "builder",
-          "expr": "llm_model_rpm{model=\"groq-llama-instant\"}",
+          "expr": "llm_model_rpm{model=\"$side_model\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -1255,7 +1255,7 @@
             "configRefId": "B",
             "mappings": [
               {
-                "fieldName": "{__name__=\"llm_model_rpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq-llama-instant\"}",
+                "fieldName": "{__name__=\"llm_model_rpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq/llama-3.1-8b-instant\"}",
                 "handlerKey": "max"
               }
             ]
@@ -1334,7 +1334,7 @@
             "uid": "DS_PROMETHEUS"
           },
           "editorMode": "builder",
-          "expr": "llm_model_tpm{model=\"groq-llama-instant\"}",
+          "expr": "llm_model_tpm{model=\"$side_model\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -1350,7 +1350,7 @@
             "configRefId": "B",
             "mappings": [
               {
-                "fieldName": "{__name__=\"llm_model_tpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq-llama-instant\"}",
+                "fieldName": "{__name__=\"llm_model_tpm\", instance=\"llm-gateway:8002\", job=\"llm-gateway\", model=\"groq/llama-3.1-8b-instant\"}",
                 "handlerKey": "max"
               }
             ]
@@ -1834,5 +1834,5 @@
   "timezone": "",
   "title": "LLM Dashboard",
   "uid": "llm-dashboard",
-  "version": 9
+  "version": 1
 }
