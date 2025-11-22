@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from core.config import settings as env
 from core.models import ExpandedQueries
 from database import crud
+from metrics import RAG_RETRIEVAL_LATENCY, RAG_RETRIEVED_DOCS
 from utils.utils import value_deserializer, value_serializer
 
 from . import retriever_utils
@@ -153,9 +154,13 @@ async def orchestrate_rag_flow(
     reranker = get_reranker()
 
     query_expansion_chain = get_query_expansion_chain()
-    expanded_queries = await retriever_utils.expand_query(query, history, query_expansion_chain)
-    retrieved_docs = await retriever_utils.retrieve_and_deduplicate_documents(retriever, expanded_queries)
-    final_docs = retriever_utils.rerank_documents(query, retrieved_docs, reranker, rerank_threshold)
+
+    with RAG_RETRIEVAL_LATENCY.time():
+        expanded_queries = await retriever_utils.expand_query(query, history, query_expansion_chain)
+        retrieved_docs = await retriever_utils.retrieve_and_deduplicate_documents(retriever, expanded_queries)
+        final_docs = retriever_utils.rerank_documents(query, retrieved_docs, reranker, rerank_threshold)
+
+    RAG_RETRIEVED_DOCS.observe(len(final_docs))
 
     messages, token_count, source_chunks = retriever_utils.build_final_prompt(query, history, final_docs, strict_mode)
 

@@ -2,14 +2,14 @@ model_list:
   - model_name: groq-llama-scout
     litellm_params:
       model: groq/meta-llama/llama-4-scout-17b-16e-instruct
-      rpm: 30
-      tpm: 30000
+      rpm: 1000
+      tpm: 300000
 
   - model_name: groq-llama-instant
     litellm_params:
       model: groq/llama-3.1-8b-instant
-      rpm: 30
-      tpm: 6000
+      rpm: 1000
+      tpm: 250000
 
 general_settings:
   set_verbose: True

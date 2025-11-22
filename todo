@@ -9,10 +9,8 @@
 -   Golden corpus pour l'évaluation qui sera upload sur le s3 du serviice user au moment de run une eval. à voir pour la source (dossier data ? Google drive ? (lien dans .env ?))
 
 -   **Monitoring et Analyse de la Latence :**
-    -   Mettre en place **Prometheus/Grafana/Loki**.
-    -   Metrics des APIs rag-core (metrics rag), et llm-gateway (metrics llm)
-    -   Dashboard grafana associés, pour chaque services aussi, se servir des metrics RAGAS également
-
+    -   Mettre en place **Loki**.
+    -   Plus de dashboards pour les différents services.
 ---
 
 #### **Phase 3 : MLOps & Architecture API-First**

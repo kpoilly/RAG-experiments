@@ -3,10 +3,12 @@ import logging
 
 import httpx
 from fastapi import FastAPI, HTTPException, status
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.routers import auth, chat, documents, history
 from core.config import settings as env
 from database.database import create_db_and_tables
+from metrics import update_metrics
 from rag.retriever import init_components
 from utils.utils import create_service_user
 
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # --- init ---
 app = FastAPI(title="RAG Core Service")
+Instrumentator().instrument(app).expose(app)
 app.state.rad_ready = False
 app.state.startup_error = None
 
@@ -64,6 +67,8 @@ async def startup_event():
 
         await asyncio.to_thread(init_components)
         app.state.rad_ready = True
+        asyncio.create_task(update_metrics())
+
         logger.info("Application startup complete. Ready to serve requests.")
     except Exception as e:
         logger.error(f"FATAL: RAG initialization failed during startup: {e}", exc_info=True)
