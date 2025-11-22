@@ -220,3 +220,6 @@ The project includes a complete monitoring stack:
 <img width="1915" height="908" alt="image" src="https://github.com/user-attachments/assets/8d4f5d15-e2ee-47a1-af0f-613671491040" />
 
 <img width="2198" height="1166" alt="image" src="https://github.com/user-attachments/assets/0ed09652-0a6f-464c-a266-210288f98e86" />
+
+<img width="2206" height="1178" alt="image" src="https://github.com/user-attachments/assets/1fb0b467-96e1-41ef-82bb-c36152918678" />
+
