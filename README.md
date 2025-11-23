@@ -232,11 +232,11 @@ The project includes a complete monitoring stack:
 
 ### Preview Screenshots
 
-<img width="1913" height="907" alt="image" src="https://github.com/user-attachments/assets/a306cdb4-3197-4101-891f-743f8bd93c80" />
+<img width="1913" height="904" alt="image" src="https://github.com/user-attachments/assets/c3423cd8-7a5f-4923-abdf-612c14d9aacb" />
 
-<img width="1912" height="905" alt="image" src="https://github.com/user-attachments/assets/b4aaa7e9-9201-4f23-9de7-9e21f8211faa" />
+<img width="1913" height="904" alt="image" src="https://github.com/user-attachments/assets/afc26289-4ecd-4c34-b426-4fe7073048c4" />
 
-<img width="1915" height="907" alt="image" src="https://github.com/user-attachments/assets/0830fe69-1542-4d9e-945b-ed8286aaa8a5" />
+<img width="1913" height="904" alt="image" src="https://github.com/user-attachments/assets/65fa8b8b-c95c-478c-876c-959a302172b6" />
 
 
 <img width="2198" height="1166" alt="image" src="https://github.com/user-attachments/assets/0ed09652-0a6f-464c-a266-210288f98e86" />
