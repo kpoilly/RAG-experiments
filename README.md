@@ -163,21 +163,25 @@ You can manage your knowledge base (PDF, DOCX, MD) in three ways:
 
 1.  **Via the UI (Recommended):** Use the upload and remove features in the web interface.
 2.  **Via API (Automation):**
+    *   First you'll need to register and generate a JWT Token via the `register` and `login` endpoints.
     *   **To upload a document:**
         ```bash
         # Replace with the actual path to your local file
-        curl -X POST -F "file=@/path/to/your/document.pdf" http://localhost/api/documents
+        curl -X POST -F "file=@/path/to/your/document.pdf" http://localhost/api/documents \
+        -H "Authorization: Bearer $TOKEN"
         ```
     *   **To list all documents:**
         ```bash
-        curl -X GET http://localhost/api/documents
+        curl -X GET http://localhost/api/documents \
+        -H "Authorization: Bearer $TOKEN"
         ```
     *   **To delete a document:**
         ```bash
         # Replace with the name of the file in the bucket
-        curl -X DELETE http://localhost/api/documents/document.pdf
+        curl -X DELETE http://localhost/api/documents/document.pdf \
+        -H "Authorization: Bearer $TOKEN"
         ```
-3.  **Via MinIO Console:** Access `http://localhost/minio` (`make minio`) (User/Pass: `minioadmin`).
+4.  **Via MinIO Console:** Access `http://localhost/minio` (`make minio`) (User/Pass: `minioadmin`).
     * *Note:* If you upload via MinIO, run `make ingest` to trigger indexing manually.
 
 
