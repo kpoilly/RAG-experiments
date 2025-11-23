@@ -15,19 +15,21 @@ export function DocumentSidebar() {
 	};
 
 	return (
-		<div className="w-80 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-full transition-colors duration-300">
+		<div className="w-80 bg-surface-50 dark:bg-surface-950 flex flex-col h-full transition-colors duration-300 border-l border-surface-200 dark:border-surface-800">
 			{/* Header - Fixed Height for Alignment */}
-			<div className="h-16 flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800 shrink-0">
-				<h2 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-					<FileText className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+			<div className="h-20 flex items-center justify-between px-6 shrink-0">
+				<h2 className="font-bold text-lg text-surface-900 dark:text-surface-100 flex items-center gap-3">
+					<div className="p-2 bg-primary-100 dark:bg-primary-500/10 rounded-xl">
+						<FileText className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+					</div>
 					Documents
 				</h2>
-				<span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+				<span className="text-xs font-bold px-3 py-1.5 rounded-full bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300">
 					{documents.length}
 				</span>
 			</div>
 
-			<div className="flex-1 overflow-y-auto p-4 space-y-4">
+			<div className="flex-1 overflow-y-auto p-6 space-y-6">
 				{/* Upload Area */}
 				<div
 					onClick={() => fileInputRef.current?.click()}
@@ -50,7 +52,7 @@ export function DocumentSidebar() {
 							uploadDocument(file);
 						}
 					}}
-					className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/5 transition-all group"
+					className="border-2 border-dashed border-surface-300 dark:border-surface-700 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/5 transition-all duration-300 group"
 				>
 					<input
 						type="file"
@@ -59,36 +61,40 @@ export function DocumentSidebar() {
 						accept=".pdf,.md,.docx"
 						onChange={handleFileChange}
 					/>
-					<div className="w-10 h-10 bg-primary-100 dark:bg-primary-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-						<Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+					<div className="w-14 h-14 bg-primary-100 dark:bg-primary-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+						<Upload className="w-7 h-7 text-primary-600 dark:text-primary-400" />
 					</div>
-					<p className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload documents</p>
-					<p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Drag & drop or click to upload</p>
-					<p className="text-[10px] text-gray-400 mt-1">PDF, MD, DOCX</p>
+					<p className="font-semibold text-surface-700 dark:text-surface-300">Upload documents</p>
+					<p className="text-xs text-surface-500 dark:text-surface-500 mt-1">Drag & drop or click to upload</p>
+					<div className="flex gap-2 mt-3">
+						<span className="text-[10px] font-mono bg-surface-200 dark:bg-surface-800 px-2 py-1 rounded-md text-surface-600 dark:text-surface-400">PDF</span>
+						<span className="text-[10px] font-mono bg-surface-200 dark:bg-surface-800 px-2 py-1 rounded-md text-surface-600 dark:text-surface-400">MD</span>
+						<span className="text-[10px] font-mono bg-surface-200 dark:bg-surface-800 px-2 py-1 rounded-md text-surface-600 dark:text-surface-400">DOCX</span>
+					</div>
 				</div>
 
 				{/* Document List */}
-				<div className="space-y-2">
+				<div className="space-y-3">
 					{isLoading && (
-						<div className="flex items-center justify-center py-4 text-gray-400">
-							<Loader2 className="w-5 h-5 animate-spin" />
+						<div className="flex items-center justify-center py-8 text-surface-400">
+							<Loader2 className="w-6 h-6 animate-spin text-primary-500" />
 						</div>
 					)}
 
 					{documents.map((doc) => (
 						<div
 							key={doc}
-							className="group flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all"
+							className="group flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-surface-900 hover:shadow-md border border-transparent hover:border-surface-200 dark:hover:border-surface-700 transition-all duration-300"
 						>
-							<div className="flex items-center gap-3 min-w-0">
-								<div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center shrink-0 border border-gray-200 dark:border-gray-600">
-									<File className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+							<div className="flex items-center gap-4 min-w-0">
+								<div className="w-10 h-10 rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0 text-surface-500 dark:text-surface-400 group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors">
+									<File className="w-5 h-5" />
 								</div>
-								<span className="text-sm text-gray-700 dark:text-gray-300 truncate font-medium">{doc}</span>
+								<span className="text-sm text-surface-700 dark:text-surface-300 truncate font-medium">{doc}</span>
 							</div>
 							<button
 								onClick={() => deleteDocument(doc)}
-								className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-all"
+								className="opacity-0 group-hover:opacity-100 p-2 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all duration-200"
 								title="Delete document"
 							>
 								<Trash2 className="w-4 h-4" />
@@ -97,7 +103,7 @@ export function DocumentSidebar() {
 					))}
 
 					{documents.length === 0 && !isLoading && (
-						<div className="text-center py-8 text-gray-400 dark:text-gray-500">
+						<div className="text-center py-12 text-surface-400 dark:text-surface-500">
 							<p className="text-sm">No documents uploaded yet</p>
 						</div>
 					)}

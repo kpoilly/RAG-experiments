@@ -4,36 +4,63 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    @apply bg-surface-50 text-surface-900 dark:bg-surface-950 dark:text-surface-50 font-sans antialiased selection:bg-primary-200 selection:text-primary-900 dark:selection:bg-primary-800 dark:selection:text-primary-100;
   }
 }
 
 @theme {
-  /* Semantic Color System - Change these hex values to change the entire theme */
+  /* Material You Inspired Palette */
 
-  /* Primary brand color (currently teal) */
-  --color-primary-50: #e9f4f1ff;
-  --color-primary-100: #cae6e0ff;
-  --color-primary-200: #abe3d8ff;
-  --color-primary-300: #79d1c4ff;
+  /* Primary: Vibrant Teal */
+  --color-primary-50: #f0fdfa;
+  --color-primary-100: #ccfbf1;
+  --color-primary-200: #99f6e4;
+  --color-primary-300: #5eead4;
   --color-primary-400: #2dd4bf;
   --color-primary-500: #14b8a6;
-  /* Main brand color */
   --color-primary-600: #0d9488;
   --color-primary-700: #0f766e;
   --color-primary-800: #115e59;
   --color-primary-900: #134e4a;
+  --color-primary-950: #042f2e;
 
-  /* Accent color (currently orange for assistant icon) */
+  /* Secondary/Accent: Energetic Orange */
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd5;
+  --color-accent-200: #fed7aa;
+  --color-accent-300: #fdba74;
   --color-accent-400: #fb923c;
+  --color-accent-500: #f97316;
+  --color-accent-600: #ea580c;
+  --color-accent-700: #c2410c;
+  --color-accent-800: #9a3412;
+  --color-accent-900: #7c2d12;
+  --color-accent-950: #431407;
+
+  /* Surface: Tinted Neutrals (Slate/Teal-ish Gray) */
+  --color-surface-50: #f8fafc;
+  --color-surface-100: #f1f5f9;
+  --color-surface-200: #e2e8f0;
+  --color-surface-300: #cbd5e1;
+  --color-surface-400: #94a3b8;
+  --color-surface-500: #64748b;
+  --color-surface-600: #475569;
+  --color-surface-700: #334155;
+  --color-surface-800: #1e293b;
+  --color-surface-900: #0f172a;
+  --color-surface-950: #020617;
+
+  /* Extended Radius for Material You */
+  --radius-4xl: 2rem;
+  --radius-5xl: 2.5rem;
 }
 
 @layer utilities {
 
-  /* Custom Scrollbar */
+  /* Custom Scrollbar - Slim & Minimal */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -41,6 +68,15 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-700 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors;
+    @apply bg-surface-300 dark:bg-surface-700 rounded-full hover:bg-surface-400 dark:hover:bg-surface-600 transition-colors;
+  }
+
+  /* Glassmorphism Utilities */
+  .glass {
+    @apply bg-white/70 dark:bg-surface-900/70 backdrop-blur-lg border border-white/20 dark:border-surface-700/30;
+  }
+
+  .glass-panel {
+    @apply bg-white/50 dark:bg-surface-900/50 backdrop-blur-md border border-white/10 dark:border-surface-700/20 shadow-xl;
   }
 }

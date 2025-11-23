@@ -29,9 +29,9 @@ export function ChatPage() {
 	return (
 		<div className="flex h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
 			{/* Main Chat Area */}
-			<div className="flex-1 flex flex-col min-w-0">
-				{/* Header - Fixed Height for Alignment */}
-				<div className="h-16 flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+			<div className="flex-1 flex flex-col min-w-0 bg-surface-50 dark:bg-surface-950">
+				{/* Header - Transparent/Glass */}
+				<div className="h-20 flex items-center justify-between px-8 shrink-0">
 					<h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Chat</h2>
 					<button
 						onClick={clearHistory}
@@ -66,23 +66,28 @@ export function ChatPage() {
 					)}
 				</div>
 
-				{/* Input Area */}
-				<div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+				{/* Input Area - Floating Pill */}
+				<div className="p-6 bg-transparent shrink-0">
 					<form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
-						<input
-							ref={inputRef}
-							type="text"
-							placeholder="Ask a question..."
-							className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400"
-							disabled={isLoading}
-						/>
-						<button
-							type="submit"
-							disabled={isLoading}
-							className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors shadow-sm"
-						>
-							{isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-						</button>
+						<div className="relative group">
+							<div className="absolute -inset-0.5 bg-gradient-to-r from-primary-500 to-accent-500 rounded-full opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
+							<div className="relative flex items-center bg-surface-50 dark:bg-surface-900 rounded-full shadow-xl border border-surface-200 dark:border-surface-700 p-2 transition-transform duration-300 focus-within:scale-[1.01]">
+								<input
+									ref={inputRef}
+									type="text"
+									placeholder="Ask anything..."
+									className="flex-1 bg-transparent text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 px-6 py-3 focus:outline-none text-lg"
+									disabled={isLoading}
+								/>
+								<button
+									type="submit"
+									disabled={isLoading}
+									className="p-3 bg-primary-600 text-white rounded-full hover:bg-primary-500 disabled:opacity-50 disabled:hover:bg-primary-600 transition-all duration-300 hover:rotate-90 hover:scale-110 shadow-lg shadow-primary-500/30"
+								>
+									{isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+								</button>
+							</div>
+						</div>
 					</form>
 				</div>
 			</div>

@@ -12,55 +12,58 @@ export function SettingsPage() {
 	};
 
 	return (
-		<div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-8 transition-colors duration-300">
-			<div className="max-w-2xl mx-auto space-y-8">
-				<div className="flex items-center gap-3 pb-6 border-b border-gray-200 dark:border-gray-800">
-					<div className="p-2 bg-primary-100 dark:bg-primary-500/10 rounded-lg">
-						<SettingsIcon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+		<div className="flex-1 overflow-y-auto bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 p-8 transition-colors duration-300">
+			<div className="max-w-3xl mx-auto space-y-8">
+				<div className="flex items-center gap-4 pb-6">
+					<div className="p-3 bg-primary-100 dark:bg-primary-500/10 rounded-2xl">
+						<SettingsIcon className="w-8 h-8 text-primary-600 dark:text-primary-400" />
 					</div>
-					<h1 className="text-2xl font-bold">Application Settings</h1>
+					<div>
+						<h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+						<p className="text-surface-500 dark:text-surface-400">Manage your AI preferences</p>
+					</div>
 				</div>
 
 				{/* Models Configuration */}
 				<div className="space-y-6">
-					<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+					<h3 className="text-xl font-semibold text-surface-900 dark:text-surface-100 flex items-center gap-2 ml-2">
 						<Database className="w-5 h-5 text-primary-500" />
 						Model Configuration
 					</h3>
 
-					<div className="grid gap-4">
+					<div className="grid gap-4 md:grid-cols-2">
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-gray-700 dark:text-gray-300">Main LLM Model</label>
-							<div className="px-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-mono text-sm">
+							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Main LLM Model</label>
+							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
 								{settings.llmModel1 || 'Loading...'}
 							</div>
 						</div>
 
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-gray-700 dark:text-gray-300">Secondary LLM Model</label>
-							<div className="px-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-mono text-sm">
+							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Secondary LLM Model</label>
+							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
 								{settings.llmModel2 || 'Loading...'}
 							</div>
 						</div>
 
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-gray-700 dark:text-gray-300">Embedding Model</label>
-							<div className="px-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-mono text-sm">
+							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Embedding Model</label>
+							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
 								{settings.embeddingModel || 'Loading...'}
 							</div>
 						</div>
 
 						<div className="space-y-2">
-							<label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reranker Model</label>
-							<div className="px-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-mono text-sm">
+							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Reranker Model</label>
+							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
 								{settings.rerankerModel || 'Loading...'}
 							</div>
 						</div>
 					</div>
 
-					<div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl border border-primary-100 dark:border-primary-800 flex gap-3">
-						<Info className="w-5 h-5 text-primary-600 dark:text-primary-400 shrink-0" />
-						<p className="text-sm text-primary-700 dark:text-primary-300">
+					<div className="p-5 bg-primary-50 dark:bg-primary-900/20 rounded-[1.5rem] border border-primary-100 dark:border-primary-800 flex gap-4 items-start">
+						<Info className="w-5 h-5 text-primary-600 dark:text-primary-400 shrink-0 mt-0.5" />
+						<p className="text-sm text-primary-700 dark:text-primary-300 leading-relaxed">
 							Model configuration is managed by the backend environment. To change these models, please update the server configuration.
 						</p>
 					</div>
@@ -68,20 +71,20 @@ export function SettingsPage() {
 
 				{/* RAG Behavior Section */}
 				<section className="space-y-6">
-					<h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-						<Zap className="w-5 h-5 text-yellow-500" />
+					<h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100 flex items-center gap-2 ml-2">
+						<Zap className="w-5 h-5 text-accent-500" />
 						RAG Behavior
 					</h2>
 
-					<div className="p-6 bg-white dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-800 space-y-6">
+					<div className="p-8 bg-white dark:bg-surface-900 rounded-[2rem] border border-surface-200 dark:border-surface-800 shadow-sm space-y-8">
 						{/* Strict Mode */}
 						<div className="flex items-center justify-between">
 							<div className="space-y-1">
 								<div className="flex items-center gap-2">
-									<Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-500" />
-									<span className="font-medium">Strict RAG Mode</span>
+									<Shield className="w-5 h-5 text-emerald-500" />
+									<span className="font-medium text-lg">Strict RAG Mode</span>
 								</div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">Restrict answers to provided documents only</p>
+								<p className="text-surface-500 dark:text-surface-400">Restrict answers to provided documents only</p>
 							</div>
 							<label className="relative inline-flex items-center cursor-pointer">
 								<input
@@ -90,18 +93,18 @@ export function SettingsPage() {
 									checked={settings.strictMode}
 									onChange={(e) => updateSettings({ strictMode: e.target.checked })}
 								/>
-								<div className="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+								<div className="w-14 h-8 bg-surface-200 dark:bg-surface-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary-500 transition-colors"></div>
 							</label>
 						</div>
 
 						{/* Temperature */}
-						<div className="space-y-3">
+						<div className="space-y-4">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-2">
-									<Thermometer className="w-4 h-4 text-orange-600 dark:text-orange-500" />
-									<span className="font-medium">Temperature</span>
+									<Thermometer className="w-5 h-5 text-accent-500" />
+									<span className="font-medium text-lg">Temperature</span>
 								</div>
-								<span className="text-sm font-mono bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-gray-700 dark:text-gray-300">
+								<span className="text-sm font-mono font-bold bg-surface-100 dark:bg-surface-800 px-3 py-1 rounded-lg text-surface-700 dark:text-surface-300">
 									{settings.temperature}
 								</span>
 							</div>
@@ -113,19 +116,19 @@ export function SettingsPage() {
 								value={settings.temperature}
 								onChange={(e) => updateSettings({ temperature: parseFloat(e.target.value) })}
 								style={getSliderStyle(settings.temperature, 0, 2)}
-								className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+								className="w-full h-3 rounded-full appearance-none cursor-pointer accent-primary-500"
 							/>
-							<p className="text-xs text-gray-500 dark:text-gray-500">Controls randomness: Lower values are more deterministic</p>
+							<p className="text-sm text-surface-500 dark:text-surface-400">Controls randomness: Lower values are more deterministic</p>
 						</div>
 
 						{/* Rerank Threshold */}
-						<div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700/50">
+						<div className="space-y-4 pt-6 border-t border-surface-100 dark:border-surface-800">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-2">
-									<Sliders className="w-4 h-4 text-purple-600 dark:text-purple-500" />
-									<span className="font-medium">Reranker Threshold</span>
+									<Sliders className="w-5 h-5 text-purple-500" />
+									<span className="font-medium text-lg">Reranker Threshold</span>
 								</div>
-								<span className="text-sm font-mono bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-gray-700 dark:text-gray-300">
+								<span className="text-sm font-mono font-bold bg-surface-100 dark:bg-surface-800 px-3 py-1 rounded-lg text-surface-700 dark:text-surface-300">
 									{settings.rerankThreshold}
 								</span>
 							</div>
@@ -137,9 +140,9 @@ export function SettingsPage() {
 								value={settings.rerankThreshold}
 								onChange={(e) => updateSettings({ rerankThreshold: parseFloat(e.target.value) })}
 								style={getSliderStyle(settings.rerankThreshold, -10, 10)}
-								className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+								className="w-full h-3 rounded-full appearance-none cursor-pointer accent-primary-500"
 							/>
-							<p className="text-xs text-gray-500 dark:text-gray-500">Minimum score for retrieved documents to be included</p>
+							<p className="text-sm text-surface-500 dark:text-surface-400">Minimum score for retrieved documents to be included</p>
 						</div>
 					</div>
 				</section>

@@ -17,10 +17,10 @@ export function Layout() {
 	};
 
 	return (
-		<div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden font-sans antialiased selection:bg-blue-500/30 transition-colors duration-300">
+		<div className="flex h-screen bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 overflow-hidden font-sans antialiased selection:bg-primary-200 selection:text-primary-900 transition-colors duration-300">
 			{/* Mobile Menu Button */}
 			<button
-				className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-lg border border-gray-200 dark:border-gray-700"
+				className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-surface-50/80 dark:bg-surface-900/80 backdrop-blur-md rounded-2xl text-surface-600 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors shadow-lg border border-surface-200 dark:border-surface-700"
 				onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
 			>
 				{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -29,28 +29,32 @@ export function Layout() {
 			{/* Theme Toggle - Absolute Position */}
 			<button
 				onClick={toggleTheme}
-				className="fixed top-4 right-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-lg border border-gray-200 dark:border-gray-700"
+				className="fixed top-4 right-4 z-50 p-3 bg-surface-50/80 dark:bg-surface-900/80 backdrop-blur-md rounded-2xl text-surface-600 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors shadow-lg border border-surface-200 dark:border-surface-700 group"
 				title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
 			>
-				{theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+				{theme === 'dark' ? (
+					<Sun className="w-5 h-5 group-hover:text-amber-500 transition-colors" />
+				) : (
+					<Moon className="w-5 h-5 group-hover:text-primary-500 transition-colors" />
+				)}
 			</button>
 
 			{/* Sidebar - Desktop */}
-			<div className="hidden lg:block h-full shadow-xl z-10 relative border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+			<div className="hidden lg:block h-full w-80 z-10 relative">
 				<Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
 			</div>
 
 			{/* Sidebar - Mobile */}
 			{isMobileMenuOpen && (
-				<div className="lg:hidden fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm transition-opacity">
-					<div className="w-64 h-full shadow-2xl bg-white dark:bg-gray-900">
+				<div className="lg:hidden fixed inset-0 z-40 bg-surface-900/50 backdrop-blur-sm transition-opacity">
+					<div className="w-80 h-full">
 						<Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
 					</div>
 					<div className="absolute inset-0 -z-10" onClick={() => setIsMobileMenuOpen(false)} />
 				</div>
 			)}
 
-			<main className="flex-1 flex flex-col min-w-0 overflow-hidden relative w-full lg:pl-0 pl-0 pt-0 bg-gray-50 dark:bg-gray-900">
+			<main className="flex-1 flex flex-col min-w-0 overflow-hidden relative w-full lg:pl-0 pl-0 pt-0">
 				<Outlet />
 			</main>
 		</div>

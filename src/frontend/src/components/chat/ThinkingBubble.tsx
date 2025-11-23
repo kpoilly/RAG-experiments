@@ -7,7 +7,7 @@ export function ThinkingBubble() {
 				<Bot className="w-5 h-5 text-white" />
 			</div>
 
-			<div className="flex-1 px-4 py-3 rounded-2xl max-w-[85%] bg-white dark:bg-gray-800 rounded-tl-none border border-gray-200 dark:border-gray-800">
+			<div className="flex-1 px-6 py-4 max-w-[85%] bg-surface-100 dark:bg-surface-800 rounded-t-[2rem] rounded-br-[2rem] rounded-bl-sm shadow-sm">
 				<div className="flex items-center gap-1 h-6">
 					<div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
 					<div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>

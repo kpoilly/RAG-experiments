@@ -45,10 +45,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 			</div>
 
 			<div className={cn(
-				"flex-1 px-4 py-3 rounded-2xl max-w-[85%]",
+				"flex-1 px-6 py-4 max-w-[85%] shadow-sm",
 				isUser
-					? "bg-primary-50/60 dark:bg-primary-600/10 text-gray-900 dark:text-primary-100 rounded-tr-none"
-					: "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-none border border-gray-200 dark:border-gray-800"
+					? "bg-primary-600 text-white rounded-t-[2rem] rounded-bl-[2rem] rounded-br-sm"
+					: "bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-surface-100 rounded-t-[2rem] rounded-br-[2rem] rounded-bl-sm"
 			)}>
 				<ReactMarkdown
 					components={{
