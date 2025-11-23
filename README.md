@@ -163,7 +163,17 @@ You can manage your knowledge base (PDF, DOCX, MD) in three ways:
 
 1.  **Via the UI (Recommended):** Use the upload and remove features in the web interface.
 2.  **Via API (Automation):**
-    *   First you'll need to register and generate a JWT Token via the `register` and `login` endpoints.
+    *   First you'll need to register and generate a JWT Token via the `/register` and `/login` endpoints :
+        ```bash
+        curl -X POST "http://localhost/api/auth/register" \
+	      -H "Content-Type: application/json" \
+	      -d '{"email": "email@email.com", "password": "password"}'
+
+        curl -X POST "http://localhost/api/auth/token" \
+      	-H "Content-Type: application/x-www-form-urlencoded" \
+      	-d "username=email@email.com&password=password"
+        ```
+        You can then use your $TOKEN with the following commands :
     *   **To upload a document:**
         ```bash
         # Replace with the actual path to your local file
