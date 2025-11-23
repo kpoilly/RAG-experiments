@@ -1,9 +1,11 @@
 import datetime
 import uuid
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, LargeBinary, String
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
+from core.config import settings as env
 
 from .database import Base
 
@@ -14,6 +16,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    document_limit = Column(Integer, nullable=False, default=env.USER_DOCUMENT_LIMIT)
     encrypted_api_key = Column(LargeBinary, nullable=True)
     llm_model = Column(String, nullable=True)
     llm_side_model = Column(String, nullable=True)

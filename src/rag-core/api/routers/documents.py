@@ -38,19 +38,18 @@ async def upload_document(file: UploadFile = File(...), current_user: models.Use
     """
     Receives a file, validates it, uploads it to S3, and triggers ingestion.
     """
+
+    # Validate
     import magic
 
     file_header = await file.read(2048)
     await file.seek(0)
 
     mime_type = magic.from_buffer(file_header, mime=True)
-
-    # Map extensions to allowed mime types
+    allowed_mimes = {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "text/markdown"}
     # PDF: application/pdf
     # DOCX: application/vnd.openxmlformats-officedocument.wordprocessingml.document
     # MD: text/plain, text/markdown
-
-    allowed_mimes = {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "text/markdown"}
 
     if mime_type not in allowed_mimes:
         # Fallback for markdown if it's detected as something else but has .md extension and is text
@@ -63,13 +62,17 @@ async def upload_document(file: UploadFile = File(...), current_user: models.Use
     file.file.seek(0, 2)
     file_size = file.file.tell()
     file.file.seek(0)
-
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail=f"File size exceeds the 50MB limit. Current size: {file_size / (1024 * 1024):.2f} MB")
 
-    # Upload
     user_id = str(current_user.id)
     s3_repo = S3Repository()
+
+    current_doc_count = len(s3_repo.get_user_files(user_id=user_id))
+    if current_doc_count >= current_user.document_limit:
+        raise HTTPException(status_code=400, detail=f"Document limit reached. Your current plan allows for {current_user.document_limit} documents.")
+
+    # Upload
     try:
         s3_repo.upload_file(user_id=user_id, file_stream=file.file, filename=file.filename)
         logger.info(f"Successfully uploaded '{file.filename}' to S3 for user {user_id}.")

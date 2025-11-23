@@ -45,10 +45,13 @@ class Settings(BaseSettings):
     # --- Security ---
     JWT_SECRET_KEY: str
     ENCRYPTION_KEY: str
-
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # --- User Settings ---
+    USER_DOCUMENT_LIMIT: int = 20
+
+    # --- Service Account ---
     SERVICE_ACCOUNT_EMAIL: str
     SERVICE_ACCOUNT_PASSWORD: str
 
