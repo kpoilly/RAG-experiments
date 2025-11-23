@@ -1,4 +1,8 @@
 services:
+  frontend:
+    volumes:
+      - ./src/frontend:/app
+
   cli:
     volumes:
       - ./src/cli:/app

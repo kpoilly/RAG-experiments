@@ -6,6 +6,9 @@ services:
     restart: unless-stopped
     ports:
       - "5173:5173"
+    depends_on:
+      rag-core:
+        condition: service_healthy
     networks:
       - rag_network
 
@@ -15,9 +18,6 @@ services:
     container_name: cli
     stdin_open: true
     tty: true
-    environment:
-      - API_URL=http://nginx/api
-      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
     networks:
       - rag_network
 
@@ -311,13 +311,13 @@ services:
     networks:
       - rag_network
 
+
 volumes:
   postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:
   minio_data:
-
 
 networks:
   rag_network:
