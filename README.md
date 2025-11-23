@@ -1,5 +1,5 @@
 <p align="center">
-   <img src="https://github.com/user-attachments/assets/744672e4-9716-4d91-8ac3-a00abe5a4cb2" width="300" height="300">
+   <img src="https://github.com/user-attachments/assets/744672e4-9716-4d91-8ac3-a00abe5a4cb2" width="250" height="250">
 </p>
 
 # 📚 Document-Grounded Conversational Assistant (RAG)
