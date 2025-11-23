@@ -65,7 +65,7 @@ export function DocumentSidebar() {
 						<Upload className="w-7 h-7 text-primary-600 dark:text-primary-400" />
 					</div>
 					<p className="font-semibold text-surface-700 dark:text-surface-300">Upload documents</p>
-					<p className="text-xs text-surface-500 dark:text-surface-500 mt-1">Drag & drop or click to upload</p>
+					<p className="text-xs text-surface-500 dark:text-surface-500 mt-1">50mb max.</p>
 					<div className="flex gap-2 mt-3">
 						<span className="text-[10px] font-mono bg-surface-200 dark:bg-surface-800 px-2 py-1 rounded-md text-surface-600 dark:text-surface-400">PDF</span>
 						<span className="text-[10px] font-mono bg-surface-200 dark:bg-surface-800 px-2 py-1 rounded-md text-surface-600 dark:text-surface-400">MD</span>

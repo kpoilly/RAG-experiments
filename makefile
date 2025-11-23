@@ -16,11 +16,11 @@ all: bootstrap build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
-	docker compose -f docker-compose.yml build
+	docker compose build
 
 up:
 	@echo "🚀 Starting all services..."
-	docker compose -f docker-compose.yml up -d
+	docker compose up -d
 	@echo "✨ All services have been started. Access UI with 'make ui' or at http://localhost/"
 
 down:
