@@ -88,7 +88,6 @@ This project comes pre-configured to use **Groq** (specifically Llama 3 models) 
         ```env
         GROQ_API_KEY=gsk_...
         ```
-    *   *That's it! The system will automatically generate all other required security keys for you.*
 
 3.  **Run:**
     ```bash
