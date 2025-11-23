@@ -1,3 +1,7 @@
+<p align="center">
+   <img src="https://github.com/user-attachments/assets/744672e4-9716-4d91-8ac3-a00abe5a4cb2" width="250" height="250">
+</p>
+
 # 📚 Document-Grounded Conversational Assistant (RAG)
 
 This project provides a **production-ready, multi-tenant platform** for deploying Document-Grounded Conversational Assistants. Built on a robust **RAG** (Retrieval-Augmented Generation) architecture, the system allows multiple users to securely manage their own private document collections and interact with a context-aware AI through a modern web interface.
