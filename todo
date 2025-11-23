@@ -6,7 +6,7 @@
 
 *Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
 
--   Golden corpus pour l'évaluation qui sera upload sur le s3 du serviice user au moment de run une eval. à voir pour la source (dossier data ? Google drive ? (lien dans .env ?))
+-   Golden corpus pour l'évaluation qui sera upload sur le s3 du service user au moment de run une eval. à voir pour la source (dossier data ? Google drive ? (lien dans .env ?))
 
 -   **Monitoring et Analyse de la Latence :**
     -   Mettre en place **Loki**.
@@ -18,11 +18,10 @@
 *Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
 
 -   **Sécurité :**
-    -   Ajouter la validation du type de fichier avec `python-magic`.
     -   Gestion des Quotas :
         -   Permettre aux utilisateurs de stocker leur propre clé API de manière sécurisée (chiffrée en base de données).
         -   Modifier le llm-gateway pour qu'il transmette la clé de l'utilisateur au Proxy LiteLLM pour chaque requête.
-        -   Ajouter une logique de limitation d'usage (ex: nombre de documents, nombre de requêtes par mois) pour chaque utilisateur.
+        -   Ajouter une logique de limitation d'usage (ex: nombre de documents, taille de documents) pour chaque utilisateur.
 
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
