@@ -3,10 +3,7 @@
 .env.prod
 .env.test
 .auth_token
-data_backup/
-data/*.pdf
-data/*.md
-data/*.docx
+data/
 
 src/cli/__pycache__/
 src/cli/.ruff_cache/
