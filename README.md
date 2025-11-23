@@ -88,7 +88,6 @@ This project comes pre-configured to use **Groq** (specifically Llama 3 models) 
         ```env
         GROQ_API_KEY=gsk_...
         ```
-    *   *That's it! The system will automatically generate all other required security keys for you.*
 
 3.  **Run:**
     ```bash
@@ -164,21 +163,35 @@ You can manage your knowledge base (PDF, DOCX, MD) in three ways:
 
 1.  **Via the UI (Recommended):** Use the upload and remove features in the web interface.
 2.  **Via API (Automation):**
+    *   First you'll need to register and generate a JWT Token via the `/register` and `/login` endpoints :
+        ```bash
+        curl -X POST "http://localhost/api/auth/register" \
+	      -H "Content-Type: application/json" \
+	      -d '{"email": "email@email.com", "password": "password"}'
+
+        curl -X POST "http://localhost/api/auth/token" \
+      	-H "Content-Type: application/x-www-form-urlencoded" \
+      	-d "username=email@email.com&password=password"
+        ```
+        You can then use your $TOKEN with the following commands :
     *   **To upload a document:**
         ```bash
         # Replace with the actual path to your local file
-        curl -X POST -F "file=@/path/to/your/document.pdf" http://localhost/api/documents
+        curl -X POST -F "file=@/path/to/your/document.pdf" http://localhost/api/documents \
+        -H "Authorization: Bearer $TOKEN"
         ```
     *   **To list all documents:**
         ```bash
-        curl -X GET http://localhost/api/documents
+        curl -X GET http://localhost/api/documents \
+        -H "Authorization: Bearer $TOKEN"
         ```
     *   **To delete a document:**
         ```bash
         # Replace with the name of the file in the bucket
-        curl -X DELETE http://localhost/api/documents/document.pdf
+        curl -X DELETE http://localhost/api/documents/document.pdf \
+        -H "Authorization: Bearer $TOKEN"
         ```
-3.  **Via MinIO Console:** Access `http://localhost/minio` (`make minio`) (User/Pass: `minioadmin`).
+4.  **Via MinIO Console:** Access `http://localhost/minio` (`make minio`) (User/Pass: `minioadmin`).
     * *Note:* If you upload via MinIO, run `make ingest` to trigger indexing manually.
 
 
@@ -219,9 +232,12 @@ The project includes a complete monitoring stack:
 
 ### Preview Screenshots
 
-<img width="1908" height="898" alt="image" src="https://github.com/user-attachments/assets/8b1c48f8-7481-418f-ad10-ceb1dbdaf1e1" />
+<img width="1913" height="904" alt="image" src="https://github.com/user-attachments/assets/c3423cd8-7a5f-4923-abdf-612c14d9aacb" />
 
-<img width="1915" height="908" alt="image" src="https://github.com/user-attachments/assets/8d4f5d15-e2ee-47a1-af0f-613671491040" />
+<img width="1913" height="904" alt="image" src="https://github.com/user-attachments/assets/afc26289-4ecd-4c34-b426-4fe7073048c4" />
+
+<img width="1913" height="904" alt="image" src="https://github.com/user-attachments/assets/65fa8b8b-c95c-478c-876c-959a302172b6" />
+
 
 <img width="2198" height="1166" alt="image" src="https://github.com/user-attachments/assets/0ed09652-0a6f-464c-a266-210288f98e86" />
 
