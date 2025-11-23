@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from database import crud, models
-from database.schemas import Message
+from schemas.message_schemas import Message
 
 from .. import deps
 

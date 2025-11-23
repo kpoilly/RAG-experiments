@@ -12,10 +12,6 @@ services:
     volumes:
       - ./src/llm-gateway:/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
-
-  streamlit-ui:
-    volumes:
-      - ./src/streamlit-ui:/app
   
   evaluation-runner:
     volumes:

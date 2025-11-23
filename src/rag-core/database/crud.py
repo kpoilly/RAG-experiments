@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from core import security
 
-from . import models, schemas
+from . import models
+from schemas import user_schemas
 
 
 # --- User Crud ---
@@ -12,7 +13,7 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def create_user(db: Session, user: schemas.UserCreate, encrypted_api_key: bytes | None):
+def create_user(db: Session, user: user_schemas.UserCreate, encrypted_api_key: bytes | None):
     hashed_password = security.get_password_hash(user.password)
     encrypted_key = security.encrypt_data(user.groq_api_key)
     db_user = models.User(
@@ -31,7 +32,7 @@ def authenticate_user(db: Session, email: str, password: str):
     return user
 
 
-def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate):
+def update_user(db: Session, user: models.User, user_update: user_schemas.UserUpdate):
     if user_update.groq_api_key is not None:
         user.encrypted_api_key = security.encrypt_data(user_update.groq_api_key)
     if user_update.llm_model is not None:

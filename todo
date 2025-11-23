@@ -85,6 +85,4 @@
 
 -   Voir pour passer au Cloud pour le stockage, un changement des logins dans le .env devrait suffir (code S3 ready).
 
--   Site internet comme UI.
-
 -   Red teaming : Chaos Mesh (pour Kub), Locust ou k6 pour DDOS

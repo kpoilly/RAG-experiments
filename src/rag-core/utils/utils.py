@@ -6,8 +6,9 @@ import tiktoken
 from langchain_classic.load import dumps, loads
 
 from core.config import settings as env
-from database import crud, schemas
+from database import crud
 from database.database import SessionLocal
+from schemas import user_schemas
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def create_service_user():
         if not service_user:
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' not found. Creating it...")
 
-            user_create_schema = schemas.UserCreate(email=env.SERVICE_ACCOUNT_EMAIL, password=env.SERVICE_ACCOUNT_PASSWORD)
+            user_create_schema = user_schemas.UserCreate(email=env.SERVICE_ACCOUNT_EMAIL, password=env.SERVICE_ACCOUNT_PASSWORD)
             crud.create_user(db, user=user_create_schema, encrypted_api_key=None)
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' created successfully.")
         else:

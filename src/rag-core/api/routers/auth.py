@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from core import security
 from core.config import settings as env
-from database import crud, models, schemas
+from database import crud, models
+from schemas import user_schemas, security_schemas
 
 from .. import deps
 
@@ -22,8 +23,8 @@ router = APIRouter(
 )
 
 
-@router.post("/register", response_model=schemas.User)
-def register_user(user: schemas.UserCreate, db: Session = Depends(deps.get_db)):
+@router.post("/register", response_model=user_schemas.User)
+def register_user(user: user_schemas.UserCreate, db: Session = Depends(deps.get_db)):
     """
     Handles user registration.
     Creates a new user in the database with a hashed password.
@@ -39,7 +40,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(deps.get_db)):
     return crud.create_user(db=db, user=user, encrypted_api_key=encrypted_key)
 
 
-@router.post("/token", response_model=schemas.Token)
+@router.post("/token", response_model=security_schemas.Token)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(deps.get_db)):
     """
     Handles user login.
@@ -59,7 +60,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/users/me", response_model=schemas.User)
+@router.get("/users/me", response_model=user_schemas.User)
 async def read_users_me(current_user: Annotated[models.User, Depends(deps.get_current_user)]):
     """
     Fetches the current logged-in user's information.
@@ -68,8 +69,8 @@ async def read_users_me(current_user: Annotated[models.User, Depends(deps.get_cu
     return current_user
 
 
-@router.put("/users/me", response_model=schemas.User)
-async def update_user_me(user_update: schemas.UserUpdate, current_user: models.User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)):
+@router.put("/users/me", response_model=user_schemas.User)
+async def update_user_me(user_update: user_schemas.UserUpdate, current_user: models.User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)):
     """
     Allows a user to update their own API keys and model preferences.
     """

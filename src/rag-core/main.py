@@ -5,7 +5,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, status
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from api.routers import auth, chat, documents, history
+from api.routers import auth, chat, documents, history, service
 from core.config import settings as env
 from database.database import create_db_and_tables
 from metrics import update_metrics
@@ -78,6 +78,7 @@ app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(history.router)
+app.include_router(service.router)
 
 
 # --- Endpoints ---

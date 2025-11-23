@@ -1,6 +1,6 @@
 # 📚 Document-Grounded Conversational Assistant (RAG)
 
-This project provides a **production-ready, multi-tenant platform** for deploying Document-Grounded Conversational Assistants. Built on a robust **RAG** (Retrieval-Augmented Generation) architecture, the system allows multiple users to securely manage their own private document collections and interact with a context-aware AI.
+This project provides a **production-ready, multi-tenant platform** for deploying Document-Grounded Conversational Assistants. Built on a robust **RAG** (Retrieval-Augmented Generation) architecture, the system allows multiple users to securely manage their own private document collections and interact with a context-aware AI through a modern web interface.
 
 
 ---
@@ -48,7 +48,7 @@ The goal of this system is to be architected as a secure, robust, scalable, and 
 
 | Category | Tools/Libraries | Primary Role |
 | :--- | :--- | :--- |
-| **User Interface** | Streamlit | Interactive UI for chat and real-time document management. |
+| **User Interface** | React, TypeScript, Tailwind CSS | Modern, responsive, and scalable web application for chat and real-time document management. |
 | **Authentication**| JWT, Passlib, Cryptography | Secure user registration, login, and session management. |
 | **LLM Orchestration** | LiteLLM Proxy | Central hub for LLM routing, fallback, caching, and rate limiting. |
 | **Embedding & Rerank**| FastEmbed (ONNX) | Lightweight, quantized inference. |
@@ -158,7 +158,7 @@ These variables control the behavior of the RAG pipeline and database connection
 
 You can manage your knowledge base (PDF, DOCX, MD) in three ways:
 
-1.  **Via the UI (Recommended):** Use the upload and remove features in the Streamlit web interface.
+1.  **Via the UI (Recommended):** Use the upload and remove features in the web interface.
 2.  **Via API (Automation):**
     *   **To upload a document:**
         ```bash

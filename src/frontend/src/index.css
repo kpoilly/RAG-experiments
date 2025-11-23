@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  }
+}
+
+@theme {
+  /* Semantic Color System - Change these hex values to change the entire theme */
+
+  /* Primary brand color (currently teal) */
+  --color-primary-50: #e9f4f1ff;
+  --color-primary-100: #cae6e0ff;
+  --color-primary-200: #abe3d8ff;
+  --color-primary-300: #79d1c4ff;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #14b8a6;
+  /* Main brand color */
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+  --color-primary-800: #115e59;
+  --color-primary-900: #134e4a;
+
+  /* Accent color (currently orange for assistant icon) */
+  --color-accent-400: #fb923c;
+}
+
+@layer utilities {
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-700 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors;
+  }
+}

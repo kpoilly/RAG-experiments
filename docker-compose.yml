@@ -1,4 +1,14 @@
 services:
+  frontend:
+    build:
+      context: src/frontend
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    networks:
+      - rag_network
+
   cli:
     build:
       context: src/cli
@@ -11,28 +21,6 @@ services:
     networks:
       - rag_network
 
-  streamlit-ui:
-    build:
-      context: src/streamlit-ui
-    container_name: streamlit-ui
-    restart: unless-stopped
-    environment:
-      - API_URL=http://nginx/api
-      - MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
-      - LLM_MODEL=${LLM_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
-      - LLM_SIDE_MODEL=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG:-False}
-      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.03}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-optimal}
-      - RERANKER_MODEL=${RERANKER_MODEL:-jinaai/jina-reranker-v2-base-multilingual}
-      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD:-0.0}
-      - CHUNK_SIZE_P=${CHUNK_SIZE_P:-1500}
-      - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P:-200}
-      - CHUNK_SIZE_C=${CHUNK_SIZE_C:-300}
-      - CHUNK_OVERLAP_C=${CHUNK_OVERLAP_C:-50}
-    networks:
-      - rag_network
-    
   rag-core:
     build:
       context: src/rag-core
@@ -79,12 +67,12 @@ services:
     networks:
       - rag_network
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8001/health\"); r.raise_for_status()'"]
+      test: [ "CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8001/health\"); r.raise_for_status()'" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-  
+
   llm-gateway:
     build:
       context: src/llm-gateway
@@ -98,7 +86,7 @@ services:
     networks:
       - rag_network
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8002/health\"); r.raise_for_status()'"]
+      test: [ "CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8002/health\"); r.raise_for_status()'" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -118,9 +106,9 @@ services:
         condition: service_healthy
     networks:
       - rag_network
-    command: ["--config", "/app/config.yaml", "--port", "8003"]
+    command: [ "--config", "/app/config.yaml", "--port", "8003" ]
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import requests; r = requests.get(\"http://localhost:8003/health/readiness\"); r.raise_for_status()'"]
+      test: [ "CMD-SHELL", "python -c 'import requests; r = requests.get(\"http://localhost:8003/health/readiness\"); r.raise_for_status()'" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -137,11 +125,11 @@ services:
     networks:
       - rag_network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
-  
+
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -159,7 +147,7 @@ services:
       - rag_network
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -180,7 +168,7 @@ services:
     networks:
       - rag_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rag_user} -d ${DB_NAME:-rag_db}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-rag_user} -d ${DB_NAME:-rag_db}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -199,7 +187,7 @@ services:
         condition: service_started
     networks:
       - rag_network
-  
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
@@ -213,7 +201,7 @@ services:
         condition: service_started
     networks:
       - rag_network
-  
+
   evaluation-runner:
     build:
       context: src/evaluation-runner
@@ -246,7 +234,7 @@ services:
       llm-gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8004/health\"); r.raise_for_status()'"]
+      test: [ "CMD-SHELL", "python -c 'import httpx; r = httpx.get(\"http://localhost:8004/health\"); r.raise_for_status()'" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -277,7 +265,7 @@ services:
         condition: service_healthy
     networks:
       - rag_network
-  
+
   prometheus:
     image: prom/prometheus:v3.7.3
     container_name: prometheus
@@ -329,6 +317,7 @@ volumes:
   prometheus_data:
   grafana_data:
   minio_data:
+
 
 networks:
   rag_network:
