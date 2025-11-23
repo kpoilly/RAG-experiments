@@ -56,7 +56,7 @@ def get_history_for_user(db: Session, user_id: str) -> List[Dict[str, str]]:
     return sorted(conversation.messages, key=lambda msg: msg.created_at)
 
 
-def add_message_to_history(db: Session, user_id: str, role: str, content: str) -> models.Message:
+def add_message_to_history(db: Session, user_id: str, role: str, content: str, sources: List[Dict] = None) -> models.Message:
     """
     Add a new message to the user's history.
     """
@@ -67,7 +67,7 @@ def add_message_to_history(db: Session, user_id: str, role: str, content: str) -
         db.commit()
         db.refresh(conversation)
 
-    db_message = models.Message(conversation_id=conversation.id, role=role, content=content)
+    db_message = models.Message(conversation_id=conversation.id, role=role, content=content, sources=sources)
     db.add(db_message)
     db.commit()
     db.refresh(db_message)

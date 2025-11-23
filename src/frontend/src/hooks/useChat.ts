@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Message, Source } from '../types';
 import { useAuth } from './useAuth';
+import { useSettings } from './useSettings';
 
 export function useChat() {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const { token } = useAuth();
+	const { settings } = useSettings();
 
 	const fetchHistory = useCallback(async () => {
 		if (!token) return;
@@ -57,9 +59,9 @@ export function useChat() {
 				},
 				body: JSON.stringify({
 					query: content,
-					temperature: 0.3, // TODO: Get from settings
-					strict_rag: false, // TODO: Get from settings
-					rerank_threshold: 0.0 // TODO: Get from settings
+					temperature: settings.temperature,
+					strict_rag: settings.strictMode,
+					rerank_threshold: settings.rerankThreshold
 				}),
 			});
 
@@ -70,15 +72,16 @@ export function useChat() {
 			let fullContent = '';
 			let sources: Source[] = [];
 			let isFirstChunk = true;
+			let buffer = '';
 
 			if (reader) {
 				while (true) {
 					const { done, value } = await reader.read();
+
 					if (done) {
-						// Flush any remaining bytes
-						const chunk = decoder.decode();
-						if (chunk) {
-							const lines = chunk.split('\n');
+						// Process any remaining buffer
+						if (buffer.trim()) {
+							const lines = buffer.split('\n');
 							for (const line of lines) {
 								if (line.startsWith('data: ')) {
 									const dataStr = line.slice(6).trim();
@@ -97,56 +100,63 @@ export function useChat() {
 						break;
 					}
 
-					const chunk = decoder.decode(value, { stream: true });
-					const lines = chunk.split('\n');
+					buffer += decoder.decode(value, { stream: true });
 
-					for (const line of lines) {
-						if (line.startsWith('data: ')) {
-							const dataStr = line.slice(6).trim();
-							if (dataStr === '[DONE]') continue;
+					// Process complete messages in buffer
+					// SSE messages are separated by double newline
+					const parts = buffer.split('\n\n');
 
-							try {
-								const data = JSON.parse(dataStr);
-								if (data.type === 'sources') {
-									sources = data.data;
-									// Update sources immediately if message exists
-									if (!isFirstChunk) {
-										setMessages(prev => {
-											const newMessages = [...prev];
-											const lastMsg = newMessages[newMessages.length - 1];
-											if (lastMsg.role === 'assistant') {
-												lastMsg.sources = sources;
-											}
-											return newMessages;
-										});
+					// Keep the last part in buffer as it might be incomplete
+					// unless the buffer ends with \n\n, in which case the last part is empty
+					buffer = parts.pop() || '';
+
+					for (const part of parts) {
+						const lines = part.split('\n');
+						for (const line of lines) {
+							if (line.startsWith('data: ')) {
+								const dataStr = line.slice(6).trim();
+								if (dataStr === '[DONE]') continue;
+
+								try {
+									const data = JSON.parse(dataStr);
+									if (data.type === 'sources') {
+										sources = data.data;
+										if (!isFirstChunk) {
+											setMessages(prev => {
+												const newMessages = [...prev];
+												const lastMsg = newMessages[newMessages.length - 1];
+												if (lastMsg.role === 'assistant') {
+													lastMsg.sources = sources;
+												}
+												return newMessages;
+											});
+										}
+									} else if (data.choices?.[0]?.delta?.content) {
+										const content = data.choices[0].delta.content;
+										fullContent += content;
+
+										if (isFirstChunk) {
+											const assistantMessage: Message = {
+												role: 'assistant',
+												content: fullContent,
+												sources: sources
+											};
+											setMessages(prev => [...prev, assistantMessage]);
+											isFirstChunk = false;
+										} else {
+											setMessages(prev => {
+												const newMessages = [...prev];
+												const lastMsg = newMessages[newMessages.length - 1];
+												if (lastMsg.role === 'assistant') {
+													lastMsg.content = fullContent;
+												}
+												return newMessages;
+											});
+										}
 									}
-								} else if (data.choices?.[0]?.delta?.content) {
-									const content = data.choices[0].delta.content;
-									fullContent += content;
-
-									if (isFirstChunk) {
-										// Create the assistant message with the first chunk of content
-										const assistantMessage: Message = {
-											role: 'assistant',
-											content: fullContent,
-											sources: sources
-										};
-										setMessages(prev => [...prev, assistantMessage]);
-										isFirstChunk = false;
-									} else {
-										// Update existing message
-										setMessages(prev => {
-											const newMessages = [...prev];
-											const lastMsg = newMessages[newMessages.length - 1];
-											if (lastMsg.role === 'assistant') {
-												lastMsg.content = fullContent;
-											}
-											return newMessages;
-										});
-									}
+								} catch (e) {
+									console.error('Error parsing SSE data:', e);
 								}
-							} catch (e) {
-								console.error('Error parsing SSE data:', e);
 							}
 						}
 					}

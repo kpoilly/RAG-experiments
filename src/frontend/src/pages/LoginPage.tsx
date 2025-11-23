@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
-import { Lock, Mail, UserPlus, LogIn, Loader2, Bot } from 'lucide-react';
+import { Lock, Mail, UserPlus, LogIn, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
 	const [isLogin, setIsLogin] = useState(true);
@@ -46,8 +46,8 @@ export function LoginPage() {
 			<div className="w-full max-w-md">
 				{/* Logo & Title */}
 				<div className="text-center mb-8">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl shadow-lg shadow-primary-500/20 mb-4">
-						<Bot className="w-8 h-8 text-white" />
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl shadow-lg shadow-primary-500/20 mb-4 overflow-hidden">
+						<img src="/favicon-dark.png" alt="Logo" className="w-full h-full object-cover" />
 					</div>
 					<h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
 						RAG Assistant
@@ -65,8 +65,8 @@ export function LoginPage() {
 							<button
 								onClick={() => setIsLogin(true)}
 								className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${isLogin
-										? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-										: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+									? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+									: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
 									}`}
 							>
 								Login
@@ -74,8 +74,8 @@ export function LoginPage() {
 							<button
 								onClick={() => setIsLogin(false)}
 								className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${!isLogin
-										? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-										: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+									? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+									: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
 									}`}
 							>
 								Register
@@ -85,8 +85,8 @@ export function LoginPage() {
 						<form onSubmit={handleSubmit} className="space-y-5">
 							{error && (
 								<div className={`p-3 rounded-xl text-sm ${error.includes('successful')
-										? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-										: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
+									? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
+									: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
 									}`}>
 									{error}
 								</div>

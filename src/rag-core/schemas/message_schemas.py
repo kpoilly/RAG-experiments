@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 class MessageBase(BaseModel):
     role: str
     content: str
+    sources: Optional[List[dict]] = None
 
 
 class Message(MessageBase):

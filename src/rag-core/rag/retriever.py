@@ -183,5 +183,5 @@ async def orchestrate_rag_flow(
         yield chunk
 
     if full_assistant_response:
-        crud.add_message_to_history(db, user_id=user_id, role="assistant", content=full_assistant_response)
+        crud.add_message_to_history(db, user_id=user_id, role="assistant", content=full_assistant_response, sources=source_chunks)
     logger.info("RAG flow finished.")
