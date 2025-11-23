@@ -37,7 +37,6 @@ clean-data:
 
 
 # --- INTERACTIONS ---
-TOKEN_FILE := .auth_token
 
 register:
 	@curl -X POST "http://localhost/api/auth/register" \
@@ -51,12 +50,10 @@ login:
 
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
-	@TOKEN=$$(cat $(TOKEN_FILE)); \
-	curl -X POST "http://localhost/api/documents/ingest" \
+	@curl -X POST "http://localhost/api/documents/ingest" \
 	-H "Authorization: Bearer $$TOKEN"
 
 list-docs:
-	@TOKEN=$$(cat $(TOKEN_FILE)); \
 	curl -X GET "http://localhost/api/documents" \
 	-H "Authorization: Bearer $$TOKEN"
 
