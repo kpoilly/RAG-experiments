@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class RAGConfigResponse(BaseModel):
     llm_model: str
     llm_side_model: str

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from core import security
 from core.config import settings as env
 from database import crud, models
-from schemas import user_schemas, security_schemas
+from schemas import security_schemas, user_schemas
 
 from .. import deps
 

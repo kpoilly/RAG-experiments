@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends
 
-from .. import deps
 from core.config import settings as env
 from database import models
 from schemas.service_schemas import RAGConfigResponse
+
+from .. import deps
 
 router = APIRouter(
     tags=["Service Info"],
 )
 
+
 @router.get("/config", response_model=RAGConfigResponse)
-async def get_rag_configuration(
-    current_user: models.User = Depends(deps.get_current_user)
-):
+async def get_rag_configuration(current_user: models.User = Depends(deps.get_current_user)):
     """
     Returns the current configuration of the RAG pipeline,
     such as model names and chunking settings.

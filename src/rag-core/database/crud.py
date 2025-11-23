@@ -3,9 +3,9 @@ from typing import Dict, List
 from sqlalchemy.orm import Session
 
 from core import security
+from schemas import user_schemas
 
 from . import models
-from schemas import user_schemas
 
 
 # --- User Crud ---

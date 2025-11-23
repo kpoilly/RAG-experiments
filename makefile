@@ -1,4 +1,4 @@
-SERVICES ?= cli rag-core llm-gateway streamlit-ui evaluation-runner
+SERVICES ?= cli rag-core llm-gateway evaluation-runner
 ifeq ($(SERVICE),)
   TARGET_SERVICES := $(SERVICES)
 else
