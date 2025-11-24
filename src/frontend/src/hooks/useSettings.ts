@@ -41,10 +41,23 @@ export function useSettings() {
 		return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
 	});
 	const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+	const [maskedApiKey, setMaskedApiKey] = useState<string | null>(null);
+	const [maskedSideApiKey, setMaskedSideApiKey] = useState<string | null>(null);
 	const { token, logout } = useAuth();
 
+	// Save only non-sensitive settings to localStorage
 	useEffect(() => {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+		const settingsToStore = {
+			temperature: settings.temperature,
+			strictMode: settings.strictMode,
+			rerankThreshold: settings.rerankThreshold,
+			llmModel1: settings.llmModel1,
+			llmModel2: settings.llmModel2,
+			embeddingModel: settings.embeddingModel,
+			rerankerModel: settings.rerankerModel,
+			useMainAsSide: settings.useMainAsSide,
+		};
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsToStore));
 	}, [settings]);
 
 	useEffect(() => {
@@ -77,10 +90,14 @@ export function useSettings() {
 					llmModel2: userData.llm_side_model || configData.llm_side_model,
 					embeddingModel: configData.embedding_model,
 					rerankerModel: configData.reranker_model,
-					// We don't get the actual API keys back for security, but we might want to know if they are set?
-					// For now, let's leave them empty in UI or handle it differently if needed.
-					// The user wants to input them.
+					// Keep input fields empty - masked keys will be shown as placeholders
+					apiKey: '',
+					sideApiKey: '',
 				}));
+
+				// Store masked keys separately for display in placeholders
+				setMaskedApiKey(userData.masked_api_key || null);
+				setMaskedSideApiKey(userData.masked_side_api_key || null);
 
 			} catch (error: any) {
 				if (error.response?.status === 401) {
@@ -120,6 +137,23 @@ export function useSettings() {
 				await axios.put('/api/auth/users/me', updatePayload, {
 					headers: { Authorization: `Bearer ${token}` }
 				});
+
+				// After successful update, refetch user data to get masked keys
+				if (newSettings.apiKey !== undefined || newSettings.sideApiKey !== undefined) {
+					const userResponse = await axios.get('/api/auth/users/me', {
+						headers: { Authorization: `Bearer ${token}` }
+					});
+					const userData = userResponse.data;
+
+					// Update masked keys for display and clear input fields
+					setMaskedApiKey(userData.masked_api_key || null);
+					setMaskedSideApiKey(userData.masked_side_api_key || null);
+					setSettings(prev => ({
+						...prev,
+						apiKey: '',
+						sideApiKey: '',
+					}));
+				}
 			} catch (error: any) {
 				if (error.response?.status === 401) {
 					logout();
@@ -130,5 +164,5 @@ export function useSettings() {
 		}
 	};
 
-	return { settings, updateSettings, availableModels };
+	return { settings, updateSettings, availableModels, maskedApiKey, maskedSideApiKey };
 }

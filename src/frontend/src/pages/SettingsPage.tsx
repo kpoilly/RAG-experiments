@@ -40,7 +40,7 @@ function ApiKeyInput({ value, onChange, onBlur, placeholder, disabled }: ApiKeyI
 }
 
 export function SettingsPage() {
-	const { settings, updateSettings, availableModels } = useSettings();
+	const { settings, updateSettings, availableModels, maskedApiKey, maskedSideApiKey } = useSettings();
 
 	const getSliderStyle = (value: number, min: number, max: number) => {
 		const percentage = ((value - min) / (max - min)) * 100;
@@ -56,8 +56,9 @@ export function SettingsPage() {
 		else return 'API key...';
 	};
 
-	const main_key_placeholder = getApiKeyPlaceholder(settings.llmModel1);
-	const side_key_placeholder = getApiKeyPlaceholder(settings.llmModel2);
+	// Use masked keys as placeholders if available, otherwise use default placeholders
+	const main_key_placeholder = maskedApiKey || getApiKeyPlaceholder(settings.llmModel1);
+	const side_key_placeholder = maskedSideApiKey || getApiKeyPlaceholder(settings.llmModel2);
 
 	return (
 		<div className="flex-1 overflow-y-auto bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 p-8 transition-colors duration-300">

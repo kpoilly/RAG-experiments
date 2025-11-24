@@ -64,8 +64,37 @@ async def read_users_me(current_user: Annotated[models.User, Depends(deps.get_cu
     """
     Fetches the current logged-in user's information.
     A protected endpoint to verify token validity.
+    Returns masked API keys for security.
     """
-    return current_user
+    # Decrypt and mask API keys
+    masked_api_key = None
+    masked_side_api_key = None
+
+    if current_user.encrypted_api_key:
+        decrypted_key = security.decrypt_data(current_user.encrypted_api_key)
+        if decrypted_key and len(decrypted_key) >= 8:
+            masked_api_key = f"{decrypted_key[:4]}**...**{decrypted_key[-4:]}"
+        elif decrypted_key:
+            masked_api_key = "***...***"
+
+    if current_user.encrypted_side_api_key:
+        decrypted_side_key = security.decrypt_data(current_user.encrypted_side_api_key)
+        if decrypted_side_key and len(decrypted_side_key) >= 8:
+            masked_side_api_key = f"{decrypted_side_key[:4]}**...**{decrypted_side_key[-4:]}"
+        elif decrypted_side_key:
+            masked_side_api_key = "***...***"
+
+    # Create user response with masked keys
+    user_dict = {
+        "id": current_user.id,
+        "email": current_user.email,
+        "llm_model": current_user.llm_model,
+        "llm_side_model": current_user.llm_side_model,
+        "masked_api_key": masked_api_key,
+        "masked_side_api_key": masked_side_api_key,
+    }
+
+    return user_schemas.User(**user_dict)
 
 
 @router.put("/users/me", response_model=user_schemas.User)
