@@ -86,19 +86,20 @@ Choose the method that fits your needs.
     * You will be greeted with a login page. Go to the "Register" tab and create your first user account, then Log in with your credentials.
     * Go to the "Settings" tab, chose your LLM model(s) and add you API Key(s).
     * All set! You can now upload documents and interact with your private conversational assistant.
+
     *You can adjust settings to modify the Assistant's behavior or switch models at any time.*
 
-### **Settings**
+### **Settings:**
 
-**Main LLM Model** : Name of the LLM model that you will directly interact with via the chat interface.
+- **Main LLM Model** : Name of the LLM model that you will directly interact with via the chat interface.
 
-**Secondary LLM Model** : Name of the LLM model that will be used for internal tasks: Query Expansion, Evaluation generation, Data extraction...
+- **Secondary LLM Model** : Name of the LLM model that will be used for internal tasks: Query Expansion, Evaluation generation, Data extraction...
 
-**Strict RAG Mode**: Determines whether the model can use its internal knowledge or not. If enabled, the model will only use the documents you have uploaded. If disabled, the model can use its internal knowledge (*warning: this may lead to hallucinations or unexpected results.*).
+- **Strict RAG Mode**: Determines whether the model can use its internal knowledge or not. If enabled, the model will only use the documents you have uploaded. If disabled, the model can use its internal knowledge (*warning: this may lead to hallucinations or unexpected results.*).
 
-**Temperature**: Controls the randomness of the model's responses. Lower values make the model more deterministic, while higher values make it more creative (*warning: higher values may lead to hallucinations or unexpected results.*).
+- **Temperature**: Controls the randomness of the model's responses. Lower values make the model more deterministic, while higher values make it more creative (*warning: higher values may lead to hallucinations or unexpected results.*).
 
-**Reranker Threshold**: Determines the minimum relevance score for documents to be included in the final response (*warning: lower values may lead to unprecise results, while higher values may lead to the assistant missing relevant information.*).
+- **Reranker Threshold**: Determines the minimum relevance score for documents to be included in the final response (*warning: lower values may lead to unprecise results, while higher values may lead to the assistant missing relevant information.*).
 
 
 ---
