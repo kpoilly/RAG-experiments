@@ -17,5 +17,6 @@ src/evaluation-runner/.ruff_cache/
 
 kubectl
 kubeconfig
+kubeconfig.yaml
 kubectl.conf
 config

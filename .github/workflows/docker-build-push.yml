@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - kubernetes-first-steps
 
 jobs:
   build-and-push:
