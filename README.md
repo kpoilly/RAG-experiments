@@ -89,7 +89,7 @@ Choose the method that fits your needs.
 
     *You can adjust settings to modify the Assistant's behavior or switch models at any time.*
 
-### **Settings:**
+#### Settings:
 
 - **Main LLM Model** : Name of the LLM model that you will directly interact with via the chat interface.
 
@@ -113,7 +113,7 @@ The **LiteLLM Proxy** (`deployments/litellm/litellm_config.yaml`) manages provid
 #### 2. Environment Variables Reference
 The service's behavior is controlled by the following environment variables. They must be defined in an .env file at the project root.
 
-#### Main Application Configuration
+#### Main Application Configuration:
 These variables control the behavior of the RAG pipeline and database connections.
 
 | Variable | Default Value | Description |
@@ -146,6 +146,59 @@ These variables control the behavior of the RAG pipeline and database connection
 
 ---
 
+## 💻 Access via API
+
+Once the server is running, you can access the API via the `/api` endpoint.
+
+### 🔐 Authentication
+
+You can authenticate via the `/api/auth/register` endpoint.
+```bash
+curl -X POST "http://localhost/api/auth/token" \
+	-H "Content-Type: application/x-www-form-urlencoded" \
+	-d "username=email@email.com&password=password"
+```
+
+Get your JWT token to interact with the rest of the API via the `/api/auth/token` endpoint :
+```bash
+curl -X POST "http://localhost/api/auth/token" \
+	-H "Content-Type: application/x-www-form-urlencoded" \
+	-d "username=email@email.com&password=password"
+```
+
+### 👤 User Management
+
+You can manage users via the `/api/auth/users/me` endpoint.
+
+Add your LLM's model name and API Keys with:
+```bash
+curl -X PUT "http://localhost/api/users/me" \
+	-H "Authorization: Bearer $TOKEN" \
+	-H "Content-Type: application/json" \
+	-d '{"llm_model": "model_name", "llm_side_model": "model_name", "api_key": "api_key", "side_api_key": "api_key"}'
+```
+
+View your user information with:
+```bash
+curl -X GET "http://localhost/api/auth/users/me" \
+	-H "Authorization: Bearer $TOKEN"
+```
+
+### 🤖 Interact with your assistant
+*First, make sure to add documents to your knowledge base by following the document management section below.*
+
+You can then interact with your assistant via the `/api/chat` endpoint.
+```bash
+curl -X POST "http://localhost/api/chat" \
+	-H "Authorization: Bearer $TOKEN" \
+	-H "Content-Type: application/json" \
+	-d '{"query": "Your query here", "temperature": 0.2, "strict_rag": true, "rerank_threshold": 0.0}'
+```
+*Adjust the settings to your needs.* **query is required** *, the others are optional (default values are shown in the example).*
+
+---
+
+
 ## 📂 Document Management
 
 You can manage your knowledge base (PDF, DOCX, MD) in three ways:
@@ -153,15 +206,6 @@ You can manage your knowledge base (PDF, DOCX, MD) in three ways:
 1.  **Via the UI (Recommended):** Use the upload and remove features in the web interface.
 2.  **Via API (Automation):**
     *   First you'll need to register and generate a JWT Token via the `/register` and `/login` endpoints :
-        ```bash
-        curl -X POST "http://localhost/api/auth/register" \
-	      -H "Content-Type: application/json" \
-	      -d '{"email": "email@email.com", "password": "password"}'
-
-        curl -X POST "http://localhost/api/auth/token" \
-      	-H "Content-Type: application/x-www-form-urlencoded" \
-      	-d "username=email@email.com&password=password"
-        ```
         You can then use your $TOKEN with the following commands :
     *   **To upload a document:**
         ```bash
