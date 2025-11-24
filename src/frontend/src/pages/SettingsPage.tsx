@@ -1,6 +1,43 @@
 import { useSettings } from '../hooks/useSettings';
-import { Settings as SettingsIcon, Thermometer, Shield, Sliders, Database, Info, Zap } from 'lucide-react';
+import { Settings as SettingsIcon, Thermometer, Shield, Sliders, Database, Info, Zap, Eye, EyeOff } from 'lucide-react';
 import { CustomSelect } from '../components/ui/CustomSelect';
+import { useState } from 'react';
+
+interface ApiKeyInputProps {
+	value: string;
+	onChange: (value: string) => void;
+	onBlur?: (value: string) => void;
+	placeholder?: string;
+	disabled?: boolean;
+}
+
+function ApiKeyInput({ value, onChange, onBlur, placeholder, disabled }: ApiKeyInputProps) {
+	const [showPassword, setShowPassword] = useState(false);
+	const isShort = value.length < 10;
+	const inputType = isShort || showPassword ? 'text' : 'password';
+
+	return (
+		<div className="relative">
+			<input
+				type={inputType}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				onBlur={(e) => onBlur?.(e.target.value)}
+				placeholder={placeholder}
+				disabled={disabled}
+				className="w-full px-5 py-4 pr-12 bg-surface-50 dark:bg-surface-950 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+			/>
+			<button
+				type="button"
+				onClick={() => setShowPassword(!showPassword)}
+				disabled={disabled}
+				className="absolute right-4 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors"
+			>
+				{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+			</button>
+		</div>
+	);
+}
 
 export function SettingsPage() {
 	const { settings, updateSettings, availableModels } = useSettings();
@@ -11,6 +48,16 @@ export function SettingsPage() {
 			background: `linear-gradient(to right, var(--color-primary-500) 0%, var(--color-primary-500) ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`
 		};
 	};
+
+	const getApiKeyPlaceholder = (model: string) => {
+		if (model.includes('groq')) return 'gsk_...';
+		else if (model.includes('openai') || model.includes('gpt')) return 'sk_...';
+		else if (model.includes('anthropic')) return 'sk-ant_...';
+		else return 'API key...';
+	};
+
+	const main_key_placeholder = getApiKeyPlaceholder(settings.llmModel1);
+	const side_key_placeholder = getApiKeyPlaceholder(settings.llmModel2);
 
 	return (
 		<div className="flex-1 overflow-y-auto bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-50 p-8 transition-colors duration-300">
@@ -39,26 +86,18 @@ export function SettingsPage() {
 								label="Main LLM Model"
 								value={settings.llmModel1}
 								onChange={(value) => {
-									const model = value;
-									let prefix = '';
-									if (model.includes('openai')) prefix = 'sk_';
-									else if (model.includes('groq')) prefix = 'gsk_';
-									else if (model.includes('anthropic')) prefix = 'sk-ant_';
-
-									updateSettings({ llmModel1: model, apiKey: prefix });
+									updateSettings({ llmModel1: value, apiKey: '' });
 								}}
 								options={availableModels.map(m => ({ value: m.model_id, label: m.model_name }))}
 								placeholder="Select a model"
 							/>
 							<div className="space-y-2">
 								<label className="text-sm font-bold text-surface-700 dark:text-surface-300 ml-1">API Key</label>
-								<input
-									type="password"
+								<ApiKeyInput
 									value={settings.apiKey}
-									onChange={(e) => updateSettings({ apiKey: e.target.value }, false)}
-									onBlur={(e) => updateSettings({ apiKey: e.target.value }, true)}
-									placeholder="sk-..."
-									className="w-full px-5 py-4 bg-surface-50 dark:bg-surface-950 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+									onChange={(value) => updateSettings({ apiKey: value }, false)}
+									onBlur={(value) => updateSettings({ apiKey: value }, true)}
+									placeholder={main_key_placeholder}
 								/>
 							</div>
 						</div>
@@ -69,13 +108,7 @@ export function SettingsPage() {
 								label="Secondary LLM Model"
 								value={settings.llmModel2}
 								onChange={(value) => {
-									const model = value;
-									let prefix = '';
-									if (model.includes('openai')) prefix = 'sk_';
-									else if (model.includes('groq')) prefix = 'gsk_';
-									else if (model.includes('anthropic')) prefix = 'sk-ant_';
-
-									updateSettings({ llmModel2: model, sideApiKey: prefix });
+									updateSettings({ llmModel2: value, sideApiKey: '' });
 								}}
 								options={availableModels.map(m => ({ value: m.model_id, label: m.model_name }))}
 								disabled={settings.useMainAsSide}
@@ -83,14 +116,12 @@ export function SettingsPage() {
 							/>
 							<div className="space-y-2">
 								<label className="text-sm font-bold text-surface-700 dark:text-surface-300 ml-1">Side API Key</label>
-								<input
-									type="password"
+								<ApiKeyInput
 									value={settings.sideApiKey}
-									onChange={(e) => updateSettings({ sideApiKey: e.target.value }, false)}
-									onBlur={(e) => updateSettings({ sideApiKey: e.target.value }, true)}
-									placeholder="sk-..."
+									onChange={(value) => updateSettings({ sideApiKey: value }, false)}
+									onBlur={(value) => updateSettings({ sideApiKey: value }, true)}
+									placeholder={side_key_placeholder}
 									disabled={settings.useMainAsSide}
-									className="w-full px-5 py-4 bg-surface-50 dark:bg-surface-950 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
 								/>
 							</div>
 						</div>

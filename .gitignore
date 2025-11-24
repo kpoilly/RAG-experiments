@@ -1,3 +1,4 @@
+.apikeys
 .env
 .env.dev
 .env.prod

@@ -19,5 +19,7 @@ class UserUpdate(BaseModel):
 class User(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    llm_model: Optional[str] = None
+    llm_side_model: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

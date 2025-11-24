@@ -6,7 +6,7 @@ import { useSettings } from './useSettings';
 export function useChat() {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
-	const { token } = useAuth();
+	const { token, logout } = useAuth();
 	const { settings } = useSettings();
 
 	const fetchHistory = useCallback(async () => {
@@ -17,6 +17,10 @@ export function useChat() {
 					'Authorization': `Bearer ${token}`
 				}
 			});
+			if (response.status === 401) {
+				logout();
+				return;
+			}
 			if (response.ok) {
 				const data = await response.json();
 				setMessages(data);
@@ -33,12 +37,16 @@ export function useChat() {
 	const clearHistory = useCallback(async () => {
 		if (!token) return;
 		try {
-			await fetch('/api/history', {
+			const response = await fetch('/api/history', {
 				method: 'DELETE',
 				headers: {
 					'Authorization': `Bearer ${token}`
 				}
 			});
+			if (response.status === 401) {
+				logout();
+				return;
+			}
 			setMessages([]);
 		} catch (error) {
 			console.error('Failed to clear history:', error);
@@ -64,6 +72,12 @@ export function useChat() {
 					rerank_threshold: settings.rerankThreshold
 				}),
 			});
+
+			if (response.status === 401) {
+				logout();
+				setIsLoading(false);
+				return;
+			}
 
 			if (!response.ok) {
 				// Try to read error message from response
@@ -212,7 +226,7 @@ export function useChat() {
 				const newMessages = [...prev];
 				const lastMsg = newMessages[newMessages.length - 1];
 				if (lastMsg.role === 'assistant') {
-					lastMsg.content = 'Sorry, I encountered an error. Please try again.';
+					lastMsg.content = `Sorry, I encountered an error. Please try again.\n\nDetails: ${error.message}`;
 				}
 				return newMessages;
 			});

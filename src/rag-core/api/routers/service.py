@@ -48,11 +48,11 @@ async def get_available_models():
 
         available_models = []
         if "data" in data and isinstance(data["data"], list):
-            logger.info(f"Received: {data}")
             for model_obj in data["data"]:
                 model_name = model_obj.get("model_name")
                 if model_name and "/" not in model_name:
-                    available_models.append(ModelInfo(model_name=model_name, model_id=model_name))
+                    if not any(m.model_name == model_name for m in available_models):
+                        available_models.append(ModelInfo(model_name=model_name, model_id=model_name))
 
         if not available_models:
             logger.warning("Could not parse a list of models from the LLM Gateway response.")

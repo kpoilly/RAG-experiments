@@ -5,7 +5,7 @@ import { useAuth } from './useAuth';
 export function useDocuments() {
 	const [documents, setDocuments] = useState<string[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
-	const { token } = useAuth();
+	const { token, logout } = useAuth();
 
 	const fetchDocuments = useCallback(async () => {
 		if (!token) return;
@@ -16,7 +16,11 @@ export function useDocuments() {
 				headers: { Authorization: `Bearer ${token}` }
 			});
 			setDocuments(response.data);
-		} catch (error) {
+		} catch (error: any) {
+			if (error.response?.status === 401) {
+				logout();
+				return;
+			}
 			console.error('Failed to fetch documents', error);
 			// setDocuments(['manual.pdf', 'guidelines.docx']); // Mock
 		}
@@ -39,7 +43,11 @@ export function useDocuments() {
 				headers: { Authorization: `Bearer ${token}` }
 			});
 			await fetchDocuments();
-		} catch (error) {
+		} catch (error: any) {
+			if (error.response?.status === 401) {
+				logout();
+				return;
+			}
 			console.error('Failed to upload document', error);
 		} finally {
 			setIsLoading(false);
@@ -53,7 +61,11 @@ export function useDocuments() {
 				headers: { Authorization: `Bearer ${token}` }
 			});
 			await fetchDocuments();
-		} catch (error) {
+		} catch (error: any) {
+			if (error.response?.status === 401) {
+				logout();
+				return;
+			}
 			console.error('Failed to delete document', error);
 		}
 	};

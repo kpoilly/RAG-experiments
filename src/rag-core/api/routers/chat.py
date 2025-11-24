@@ -29,7 +29,7 @@ async def generate(request: GenerationRequest, current_user: models.User = Depen
         user = crud.get_user_by_id(db, user_id=user_id)
         if not user.encrypted_api_key or not user.encrypted_side_api_key:
             logger.error("API key not found for user.")
-            return StreamingResponse(content=json.dumps({"type": "error", "content": "API key not found."}), media_type="application/jsonlines", status_code=401)
+            return StreamingResponse(content=json.dumps({"type": "error", "content": "API key not found."}), media_type="application/jsonlines", status_code=403)
         formated_query = re.sub(r"(\b[ldjstnmc]|qu)'", r"\1 ", request.query.lower())
         response_generator = orchestrate_rag_flow(formated_query, user_id, db, request.temperature, request.strict_rag, request.rerank_threshold)
         return StreamingResponse(content=response_generator, media_type="text/event-stream")

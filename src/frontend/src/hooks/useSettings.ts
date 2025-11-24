@@ -41,7 +41,7 @@ export function useSettings() {
 		return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
 	});
 	const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
-	const { token } = useAuth();
+	const { token, logout } = useAuth();
 
 	useEffect(() => {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -82,7 +82,11 @@ export function useSettings() {
 					// The user wants to input them.
 				}));
 
-			} catch (error) {
+			} catch (error: any) {
+				if (error.response?.status === 401) {
+					logout();
+					return;
+				}
 				console.error('Failed to fetch settings data:', error);
 			}
 		};
@@ -116,7 +120,11 @@ export function useSettings() {
 				await axios.put('/api/auth/users/me', updatePayload, {
 					headers: { Authorization: `Bearer ${token}` }
 				});
-			} catch (error) {
+			} catch (error: any) {
+				if (error.response?.status === 401) {
+					logout();
+					return;
+				}
 				console.error('Failed to update user settings:', error);
 			}
 		}
