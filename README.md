@@ -85,7 +85,7 @@ Choose the method that fits your needs.
     * Access the UI at: `http://localhost` or with `make ui`.
     * You will be greeted with a login page. Go to the "Register" tab and create your first user account, then Log in with your credentials.
     * Go to the "Settings" tab, chose your LLM model(s) and add you API Key(s).
-    * All set! You can now upload documents and interact with your private conversational assistant.
+    * **All set!** You can now upload documents and interact with your private conversational assistant.
 
     *You can adjust settings to modify the Assistant's behavior or switch models at any time.*
 
@@ -196,8 +196,8 @@ curl -X POST "http://localhost/api/chat" \
 ```
 *Adjust the settings to your needs.* **query is required** *, the others are optional (default values are shown in the example).*
 
----
 
+---
 
 ## 📂 Document Management
 
