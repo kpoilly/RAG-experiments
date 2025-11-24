@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 
 from sqlalchemy.orm import Session
@@ -7,18 +8,22 @@ from schemas import user_schemas
 
 from . import models
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
 
 # --- User Crud ---
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def create_user(db: Session, user: user_schemas.UserCreate, encrypted_api_key: bytes | None):
+def get_user_by_id(db: Session, user_id: str):
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+
+def create_user(db: Session, user: user_schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
-    encrypted_key = security.encrypt_data(user.groq_api_key)
-    db_user = models.User(
-        email=user.email, hashed_password=hashed_password, encrypted_api_key=encrypted_key, llm_model=user.llm_model, llm_side_model=user.llm_side_model
-    )
+    db_user = models.User(email=user.email, hashed_password=hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -33,12 +38,19 @@ def authenticate_user(db: Session, email: str, password: str):
 
 
 def update_user(db: Session, user: models.User, user_update: user_schemas.UserUpdate):
-    if user_update.groq_api_key is not None:
-        user.encrypted_api_key = security.encrypt_data(user_update.groq_api_key)
+    if user_update.api_key is not None:
+        user.encrypted_api_key = security.encrypt_data(user_update.api_key)
     if user_update.llm_model is not None:
         user.llm_model = user_update.llm_model
+        logger.info(f"Updated user {user.id}'s LLM model to {user.llm_model}")
+    if user_update.side_api_key is not None:
+        user.encrypted_side_api_key = security.encrypt_data(user_update.side_api_key)
     if user_update.llm_side_model is not None:
         user.llm_side_model = user_update.llm_side_model
+        logger.info(f"Updated user {user.id}'s LLM side model to {user.llm_side_model}")
+    if user_update.use_main_api_key_for_side:
+        user.encrypted_side_api_key = user.encrypted_api_key
+        logger.info(f"Copied main API key to side API key for user {user.id}")
 
     db.commit()
     db.refresh(user)

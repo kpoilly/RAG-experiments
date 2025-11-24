@@ -1,12 +1,10 @@
 import asyncio
 import logging
 
-import httpx
 from fastapi import FastAPI, HTTPException, status
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.routers import auth, chat, documents, history, service
-from core.config import settings as env
 from database.database import create_db_and_tables
 from metrics import update_metrics
 from rag.retriever import init_components
@@ -34,36 +32,6 @@ async def startup_event():
         create_db_and_tables()
         logger.info("Database tables are ready.")
         create_service_user()
-
-        model_info_url = f"{env.LLM_GATEWAY_URL}/model/info"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(model_info_url)
-            response.raise_for_status()
-            all_models_info = response.json()
-
-            models_list = all_models_info.get("data", [])
-            model_config = next(
-                (
-                    model
-                    for model in models_list
-                    if (
-                        model.get("model_name") == env.LLM_MODEL
-                        or model.get("litellm_params", {}).get("model") == env.LLM_MODEL
-                        or model.get("model_info", {}).get("key") == env.LLM_MODEL
-                    )
-                ),
-                None,
-            )
-
-            context_window = None
-            if model_config:
-                context_window = model_config.get("model_info", {}).get("max_input_tokens")
-            if context_window is None:
-                logger.warning(f"Context window info not found for model {env.LLM_MODEL}. Using default value: {env.LLM_MAX_CONTEXT_TOKENS}.")
-            else:
-                env.LLM_MAX_CONTEXT_TOKENS = context_window
-                logger.info(f"Successfully retrieved and set context window for {env.LLM_MODEL}: {env.LLM_MAX_CONTEXT_TOKENS} tokens.")
-            logger.info(f"Context window for {env.LLM_MODEL}: {env.LLM_MAX_CONTEXT_TOKENS} tokens")
 
         await asyncio.to_thread(init_components)
         app.state.rad_ready = True

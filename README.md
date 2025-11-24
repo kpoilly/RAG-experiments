@@ -72,73 +72,63 @@ The goal of this system is to be architected as a secure, robust, scalable, and 
 
 Choose the method that fits your needs.
 
-### ⚡ Option 1: The "Easy Way"
+### ⚡ Option 1: The "User Experience"
 *Best for testing the project immediately without complex configuration.*
 
-This project comes pre-configured to use **Groq** (specifically Llama 3 models) because it offers **free, ultra-fast inference**.
-
-1.  **Get a Free API Key:**
-    * Go to [Groq Cloud Console](https://console.groq.com/keys).
-    * Create an account if you don't have one.
-    * Generate a new API Key.
-
-2.  **Configure the Environment:**
-    * Create a `.env` file in the project root.
-    * Add the following line, pasting your key:
-        ```env
-        GROQ_API_KEY=gsk_...
-        ```
-
-3.  **Run:**
+1. **Start the project:**
     ```bash
     make
     ```
-    * That's it! The system handles security keys generation, database creation, and UI startup automatically.
+    *That's it! The system handles security keys generation, database creation, and UI startup automatically.*
+
+2. **Access the UI:**
     * Access the UI at: `http://localhost` or with `make ui`.
     * You will be greeted with a login page. Go to the "Register" tab and create your first user account, then Log in with your credentials.
-    * You can now upload documents and interact with your private conversational assistant.
+    * Go to the "Settings" tab, chose your LLM model(s) and add you API Key(s).
+    * All set! You can now upload documents and interact with your private conversational assistant.
+    *You can adjust settings to modify the Assistant's behavior or switch models at any time.*
+
+### **Settings**
+
+**Main LLM Model** : Name of the LLM model that you will directly interact with via the chat interface.
+
+**Secondary LLM Model** : Name of the LLM model that will be used for internal tasks: Query Expansion, Evaluation generation, Data extraction...
+
+**Strict RAG Mode**: Determines whether the model can use its internal knowledge or not. If enabled, the model will only use the documents you have uploaded. If disabled, the model can use its internal knowledge (*warning: this may lead to hallucinations or unexpected results.*).
+
+**Temperature**: Controls the randomness of the model's responses. Lower values make the model more deterministic, while higher values make it more creative (*warning: higher values may lead to hallucinations or unexpected results.*).
+
+**Reranker Threshold**: Determines the minimum relevance score for documents to be included in the final response (*warning: lower values may lead to unprecise results, while higher values may lead to the assistant missing relevant information.*).
 
 
 ---
 
 ### 🔧 Option 2: Advanced Configuration (Dev)
-*For developers who want to switch providers (OpenAI, Anthropic), tune RAG parameters, or change embedding models.*
+*For developers who want to add model providers,tune RAG parameters, change embedding models or storage locations (and more!).*
 
 #### 1. Provider Configuration
-The **LiteLLM Proxy** (`deployments/litellm/litellm_config.yaml`) manages providers. You can add OpenAI, Azure, or Anthropic models there.
-If you change the provider, update the corresponding API Key in `.env` (e.g., `OPENAI_API_KEY`).
+The **LiteLLM Proxy** (`deployments/litellm/litellm_config.yaml`) manages providers. You can add OpenAI, Azure, Anthropic, Google (*and other providers supported by LiteLLM*) models there.
 
 #### 2. Environment Variables Reference
 The service's behavior is controlled by the following environment variables. They must be defined in an .env file at the project root.
-
-#### Provider-Specific API Keys
-You **must** provide the API key for the LLM provider you intend to use. The LiteLLM Proxy will automatically detect them.
-
-| Variable | Example | Description |
-| :--- | :--- | :--- |
-| **GROQ_API_KEY** | `gsk_...` | API key for the Groq platform. |
-| **OPENAI_API_KEY** | `sk-...` | API key for the OpenAI platform. |
-| **ANTHROPIC_API_KEY** | `sk-ant-...` | API key for the Anthropic platform. |
-| *(and others...)* | | See LiteLLM documentation for more. |
 
 #### Main Application Configuration
 These variables control the behavior of the RAG pipeline and database connections.
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| **LLM_MODEL** | `groq/meta-llama/llama-4-scout-17b-16e-instruct` | Name of the LLM model to call via the gateway, or its **alias** as defined in `litellm_config.yaml`. |
-| **LLM_SIDE_MODEL** | `groq/meta-llama/llama-3.1-8b-instant` | Name or alias of a cheaper/caster model used for internal tasks: Query Expansion, Evaluation generation, and Data extraction. |
-| **LLM_TEMPERATURE** | `0.3` | Generation temperature for the LLM. |
-| **LLM_MAX_CONTEXT_TOKENS** | `30000` | **(Optional Fallback)** The system **automatically detects** the context window from the LLM Gateway at startup. This value is only used if the automatic detection fails. |
-| **LLM_STRICT_RAG** | `False` | Determines whether the model can use its internal knowledge. | If **`True`**, the system instruction **forces** the model to respond ONLY with the provided context. If it cannot find the answer, it must explicitly state so (Strict RAG mode). If **`False`** (Relaxed RAG mode), the model is allowed to use its general knowledge when the context is insufficient. **WARNING**: Setting this to `False` may lead to answers that are not 100% faithful to the document and potentially increase the risk of **hallucinations**. |
-| **EMBEDDING_MODEL** | `optimal` | **Choice of the embedding model used for vectorization:**<br>You can provide either a **preset alias** OR a **specific model name** supported by FastEmbed.<br><br>**1. Presets (Recommended):**<br>• **`fast`**: Ultra-fast, low RAM (Dim: 384). Ideal for weak CPUs. (Uses `e5-small`).<br>• **`optimal`**: Best balance Speed/Quality (Dim: 768). **Default**. (Uses `e5-base`).<br>• **`quality`**: Maximum precision (Dim: 1024). Slower. (Uses `e5-large`).<br><br>**2. Custom / Native:**<br>Any model name from the [FastEmbed supported list](https://qdrant.github.io/fastembed/examples/Supported_Models/#supported-text-embedding-models)<br><br>**Note:** Ensure to clean the database volume after switching models (data will be lost but the dimension is different so it's necessary). |
+| **ENCRYPTION_KEY** | `change_me` | Encryption key for sensitive data. |
+| **JWT_SECRET_KEY** | `change_me` | JWT secret key for authentication. |
+| **USER_DOCUMENT_LIMIT** | `20` | Number of documents a user can upload on S3. | Specifies the maximum number of documents a user can upload. |
 | **RERANKER_MODEL** | `jinaai/jina-reranker-v2-base-multilingual` | Name of the **Cross-Encoder** model used to re-rank documents. <br>**Important:** Must be supported by **FastEmbed**. <br>Recommended: `jinaai/jina-reranker-v2-base-multilingual` or `BAAI/bge-reranker-base`.<br>[See FastEmbed supported models list](https://qdrant.github.io/fastembed/examples/Supported_Models/#supported-rerank-cross-encoder-models). |
-| **RERANKER_THRESHOLD** | `0.0` | **Relevance Cutoff:**<br>Documents with a score below this are discarded. <br>**Note:** Cross-Encoders output raw logits (not always 0-1). Start with `0` or negative values depending on the model. |
+| **EMBEDDING_MODEL** | `optimal` | **Choice of the embedding model used for vectorization:**<br>You can provide either a **preset alias** OR a **specific model name** supported by FastEmbed.<br><br>**1. Presets (Recommended):**<br>• **`fast`**: Ultra-fast, low RAM (Dim: 384). Ideal for weak CPUs. (Uses `e5-small`).<br>• **`optimal`**: Best balance Speed/Quality (Dim: 768). **Default**. (Uses `e5-base`).<br>• **`quality`**: Maximum precision (Dim: 1024). Slower. (Uses `e5-large`).<br><br>**2. Custom / Native:**<br>Any model name from the [FastEmbed supported list](https://qdrant.github.io/fastembed/examples/Supported_Models/#supported-text-embedding-models)<br><br>**Note:** Ensure to clean the database volume after switching models (data will be lost but the dimension is different so it's necessary). |
 | **CHUNK_SIZE_P** | `1500` | **Parent Chunk Size:** Number of characters for the large chunks stored in the DocStore. Provides the full context to the LLM. |
 | **CHUNK_OVERLAP_P** | `200` | **Parent Overlap:** Number of overlapping characters between parent chunks to maintain context continuity. |
 | **CHUNK_SIZE_C** | `300` | **Child Chunk Size:** Number of characters for the small chunks embedded in PGVector. Ensures high-precision semantic search. |
 | **CHUNK_OVERLAP_C** | `50` | **Child Overlap:** Overlap for child chunks. |
-| **EVAL_TESTSET_SIZE** | `10` | Number of synthetic QA pairs to generate for the periodic Ragas evaluation runner. |
+| **SERVICE_ACCOUNT_PASSWORD** | `service_password` | Password to create the service usef. | Used when a service needs credentials (eg. Evals). |
+| **SERVICE_ACCOUNT_EMAIL** | `service@service.account` | Email to create the service user. | Used when a service needs credentials (eg. Evals). |
+| **LLM_MAX_CONTEXT_TOKENS** | `30000` | **(Optional Fallback)** The system **automatically detects** the context window of user's selected LLM. This value is only used if the automatic detection fails. |
 | **MINIO_ROOT_USER** | `minioadmin` | Admin username for the MinIO server. |
 | **MINIO_ROOT_PASSWORD** | `minioadmin` | Admin password for the MinIO server. |
 | **S3_ENDPOINT_URL** | `http://minio:9000` | S3 API endpoint. For local dev, this points to the MinIO container. |
@@ -150,10 +140,7 @@ These variables control the behavior of the RAG pipeline and database connection
 | **DB_USER** | `rag_user` | Username for connecting to the PostgreSQL database. | Database access. |
 | **DB_PASSWORD** | `rag_password` | Password for connecting to the PostgreSQL database. | Database access. |
 | **DB_NAME** | `rag_db` | Name of the database to use within the PostgreSQL instance. | Specifies the target database. |
-| **USER_DOCUMENT_LIMIT** | `20` | Number of documents a user can upload on S3. | Specifies the maximum number of documents a user can upload. |
-| **SERVICE_ACCOUNT_EMAIL** | `service@service.account` | Email to create the service user. | Used when a service needs credentials (eg. Evals). |
-| **SERVICE_ACCOUNT_PASSWORD** | `service_password` | Password to create the service usef. | Used when a service needs credentials (eg. Evals). |
-
+| **EVAL_TESTSET_SIZE** | `10` | Number of synthetic QA pairs to generate for the periodic Ragas evaluation runner. |
 
 
 ---
@@ -204,7 +191,7 @@ The project includes a complete monitoring stack:
 
 1.  **Ragas Evaluation Runner:**
     * Runs in the background to evaluate the RAG pipeline (or by using `make eval`).
-    * Generates a synthetic testset from your documents using the `LLM_SIDE_MODEL`.
+    * Generates a synthetic testset from your documents using the `LLM_GENERATOR_MODEL`.
     * Computes metrics: *Faithfulness*, *Answer Relevance*, *Context Precision*, *Context Recall* and *Answer Correctness*.
 
 2.  **Interfaces:**
@@ -223,9 +210,9 @@ The project includes a complete monitoring stack:
 | :--- | :--- |
 | `make` | **Start everything.** Builds containers and starts the stack. |
 | `make down` | Stop all containers. |
-| `make ingest` | Force synchronization between S3 and the Vector DB. |
 | `make ui` | Open the Web UI in browser. |
 | `make cli` | Run the command-line interface version of the chat *(outdated, need a security and docs management update)*. |
+| `make ingest` | Force synchronization between S3 and the Vector DB. |
 | `make clean-data` | **Reset Data.** Removes volumes (DB & S3). **Use this when changing embedding models.** |
 
 

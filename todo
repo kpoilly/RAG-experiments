@@ -17,11 +17,6 @@
 
 *Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
 
--   **Sécurité :**
-    -   Gestion des Quotas :
-        -   Permettre aux utilisateurs de stocker leur propre clé API de manière sécurisée (chiffrée en base de données).
-        -   Modifier le llm-gateway pour qu'il transmette la clé de l'utilisateur au Proxy LiteLLM pour chaque requête.
-
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
     -   Écrire un **test d'intégration** simple pour l'endpoint `/health` et pour vérifier que les endpoints fonctionnent correctement.
@@ -47,7 +42,6 @@
 #### **Phase 5 : Déploiement Cloud-Native sur Kubernetes**
 
 *Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
-
 
 -   **Écrire les Manifestes complets :**
     -   Créer les fichiers `Deployment`, `Service`, `ConfigMap`, `Secret` pour chaque microservice.

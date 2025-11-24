@@ -70,6 +70,7 @@ async def chat(request: Request):
 
     request_body = await request.json()
     model = request_body.get("model", "unknown")
+    logger.info(f"New chat request received for model {model}.")
     LLM_REQUESTS_TOTAL.labels(model=model).inc()
 
     try:
@@ -81,14 +82,33 @@ async def chat(request: Request):
     except Exception as e:
         logger.warning(f"Failed to count tokens: {e}")
 
-    async def stream_proxy():
-        async with httpx.AsyncClient() as client:
-            async with client.stream("POST", url, json=request_body) as proxy_response:
-                proxy_response.raise_for_status()
-                async for chunk in proxy_response.aiter_bytes():
-                    yield chunk
+    # Extract Authorization header
+    auth_header = request.headers.get("Authorization")
+    headers = {}
+    if auth_header:
+        headers["Authorization"] = auth_header
+        key = auth_header.replace("Bearer ", "").strip()
+        request_body["api_key"] = key
 
-    return StreamingResponse(stream_proxy(), media_type="text/event-stream")
+    try:
+
+        async def stream_proxy():
+            async with httpx.AsyncClient() as client:
+                async with client.stream("POST", url, json=request_body, headers=headers) as proxy_response:
+                    if proxy_response.status_code >= 400:
+                        error_content = await proxy_response.aread()
+                        logger.error(f"LiteLLM Proxy Error ({proxy_response.status_code}): {error_content.decode()}")
+                        yield error_content
+                        return
+
+                    proxy_response.raise_for_status()
+                    async for chunk in proxy_response.aiter_bytes():
+                        yield chunk
+
+        return StreamingResponse(stream_proxy(), media_type="text/event-stream")
+    except Exception as e:
+        logger.error(f"Failed to proxy chat request: {e}")
+        raise HTTPException(status_code=500, detail="Failed to proxy chat request.")
 
 
 @app.get("/model/info")

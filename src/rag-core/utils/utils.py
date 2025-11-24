@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, Dict, List
 
+import httpx
 import tiktoken
 from langchain_classic.load import dumps, loads
 
@@ -85,9 +86,40 @@ def create_service_user():
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' not found. Creating it...")
 
             user_create_schema = user_schemas.UserCreate(email=env.SERVICE_ACCOUNT_EMAIL, password=env.SERVICE_ACCOUNT_PASSWORD)
-            crud.create_user(db, user=user_create_schema, encrypted_api_key=None)
+            crud.create_user(db, user=user_create_schema)
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' created successfully.")
         else:
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' already exists.")
     finally:
         db.close()
+
+
+async def get_context_window(model_name: str):
+    model_info_url = f"{env.LLM_GATEWAY_URL}/model/info"
+    async with httpx.AsyncClient() as client:
+        response = await client.get(model_info_url)
+        response.raise_for_status()
+        all_models_info = response.json()
+        models_list = all_models_info.get("data", [])
+        model_config = next(
+            (
+                model
+                for model in models_list
+                if (
+                    model.get("model_name") == model_name
+                    or model.get("litellm_params", {}).get("model") == model_name
+                    or model.get("model_info", {}).get("key") == model_name
+                )
+            ),
+            None,
+        )
+
+        context_window = None
+        if model_config:
+            context_window = model_config.get("model_info", {}).get("max_input_tokens")
+        if context_window is None:
+            context_window = env.LLM_MAX_CONTEXT_TOKENS
+            logger.warning(f"Context window info not found for model {model_name}. Using default value: {context_window}.")
+        else:
+            logger.info(f"Successfully retrieved and set context window for {model_name}: {context_window} tokens.")
+        return context_window

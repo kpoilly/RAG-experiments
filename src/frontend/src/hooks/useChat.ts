@@ -6,7 +6,7 @@ import { useSettings } from './useSettings';
 export function useChat() {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
-	const { token } = useAuth();
+	const { token, logout } = useAuth();
 	const { settings } = useSettings();
 
 	const fetchHistory = useCallback(async () => {
@@ -17,6 +17,10 @@ export function useChat() {
 					'Authorization': `Bearer ${token}`
 				}
 			});
+			if (response.status === 401) {
+				logout();
+				return;
+			}
 			if (response.ok) {
 				const data = await response.json();
 				setMessages(data);
@@ -33,12 +37,16 @@ export function useChat() {
 	const clearHistory = useCallback(async () => {
 		if (!token) return;
 		try {
-			await fetch('/api/history', {
+			const response = await fetch('/api/history', {
 				method: 'DELETE',
 				headers: {
 					'Authorization': `Bearer ${token}`
 				}
 			});
+			if (response.status === 401) {
+				logout();
+				return;
+			}
 			setMessages([]);
 		} catch (error) {
 			console.error('Failed to clear history:', error);
@@ -65,7 +73,28 @@ export function useChat() {
 				}),
 			});
 
-			if (!response.ok) throw new Error('Network response was not ok');
+			if (response.status === 401) {
+				logout();
+				setIsLoading(false);
+				return;
+			}
+
+			if (!response.ok) {
+				// Try to read error message from response
+				const errorData = await response.json().catch(() => ({}));
+				const errorMessage = errorData.content || 'Network response was not ok';
+
+				setMessages(prev => {
+					// Remove the user message we optimistically added? Or just add an error message?
+					// Let's add an error message from assistant
+					const assistantMessage: Message = {
+						role: 'assistant',
+						content: `Error: ${errorMessage}`
+					};
+					return [...prev, assistantMessage];
+				});
+				throw new Error(errorMessage);
+			}
 
 			const reader = response.body?.getReader();
 			const decoder = new TextDecoder();
@@ -119,6 +148,22 @@ export function useChat() {
 
 								try {
 									const data = JSON.parse(dataStr);
+
+									// Handle error messages from backend
+									if (data.type === 'error') {
+										const errorMessage = data.content || 'An error occurred';
+										setMessages(prev => {
+											const newMessages = [...prev];
+											const lastMsg = newMessages[newMessages.length - 1];
+											if (lastMsg.role === 'assistant') {
+												lastMsg.content = `Error: ${errorMessage}`;
+											}
+											return newMessages;
+										});
+										// Stop processing further
+										return;
+									}
+
 									if (data.type === 'sources') {
 										sources = data.data;
 										if (!isFirstChunk) {
@@ -181,7 +226,7 @@ export function useChat() {
 				const newMessages = [...prev];
 				const lastMsg = newMessages[newMessages.length - 1];
 				if (lastMsg.role === 'assistant') {
-					lastMsg.content = 'Sorry, I encountered an error. Please try again.';
+					lastMsg.content = `Sorry, I encountered an error. Please try again.\n\nDetails: ${error.message}`;
 				}
 				return newMessages;
 			});

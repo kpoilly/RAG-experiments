@@ -45,14 +45,9 @@ services:
       - CHUNK_OVERLAP_P=${CHUNK_OVERLAP_P:-200}
       - CHUNK_SIZE_C=${CHUNK_SIZE_C:-300}
       - CHUNK_OVERLAP_C=${CHUNK_OVERLAP_C:-50}
-      - LLM_MODEL=${LLM_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
-      - LLM_SIDE_MODEL=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}
       - LLM_MAX_CONTEXT_TOKENS=${LLM_MAX_CONTEXT_TOKENS:-30000}
-      - LLM_STRICT_RAG=${LLM_STRICT_RAG:-False}
       - LLM_GATEWAY_URL=http://llm-gateway:8002
-      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.03}
       - RERANKER_MODEL=${RERANKER_MODEL:-jinaai/jina-reranker-v2-base-multilingual}
-      - RERANKER_THRESHOLD=${RERANKER_THRESHOLD:-0.0}
       - USER_DOCUMENT_LIMIT=${USER_DOCUMENT_LIMIT:-20}
       - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2}
       - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT}
@@ -100,8 +95,6 @@ services:
       - "8003:8003"
     volumes:
       - ./deployments/litellm_proxy/litellm_config.yaml:/app/config.yaml
-    environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       redis:
         condition: service_healthy
@@ -215,8 +208,8 @@ services:
       - SERVICE_ACCOUNT_PASSWORD=${SERVICE_ACCOUNT_PASSWORD:-service_password}
       - RAG_CORE_URL=http://rag-core:8001
       - LLM_GATEWAY_URL=http://llm-gateway:8002
-      - GENERATOR_LLM=${LLM_SIDE_MODEL:-groq/llama-3.1-8b-instant}
-      - CRITIC_LLM=${LLM_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
+      - GENERATOR_LLM=${EVAL_GENERATOR_MODEL:-groq/llama-3.1-8b-instant}
+      - CRITIC_LLM=${EVAL_CRITIC_MODEL:-groq/meta-llama/llama-4-scout-17b-16e-instruct}
       - EVAL_TESTSET_SIZE=${EVAL_TESTSET_SIZE:-10}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-optimal}
       - CHUNK_SIZE=${CHUNK_SIZE_P:-1500}
