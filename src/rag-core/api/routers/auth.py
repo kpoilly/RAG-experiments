@@ -84,7 +84,6 @@ async def read_users_me(current_user: Annotated[models.User, Depends(deps.get_cu
         elif decrypted_side_key:
             masked_side_api_key = "***...***"
 
-    # Create user response with masked keys
     user_dict = {
         "id": current_user.id,
         "email": current_user.email,
@@ -93,7 +92,6 @@ async def read_users_me(current_user: Annotated[models.User, Depends(deps.get_cu
         "masked_api_key": masked_api_key,
         "masked_side_api_key": masked_side_api_key,
     }
-
     return user_schemas.User(**user_dict)
 
 

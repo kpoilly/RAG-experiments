@@ -10,6 +10,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
     api_key: Optional[str] = None
     llm_model: Optional[str] = None
     side_api_key: Optional[str] = None
