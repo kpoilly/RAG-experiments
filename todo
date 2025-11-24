@@ -1,21 +1,17 @@
 ### ✅ To-Do List du Projet RAG "Boilerplate"
 
----
 
-#### **Phase 2 : Monitoring et Évaluation**
-
-*Objectif : Mesurer objectivement la performance du RAG et l'améliorer sur la base de données concrètes.*
-
--   Golden corpus pour l'évaluation qui sera upload sur le s3 du service user au moment de run une eval. à voir pour la source (dossier data ? Google drive ? (lien dans .env ?))
-
--   **Monitoring et Analyse de la Latence :**
-    -   Mettre en place **Loki**.
-    -   Plus de dashboards pour les différents services.
----
-
-#### **Phase 3 : MLOps & Architecture API-First**
+#### **Phase 3 : MLOps, Monitoring++ et Évaluation**
 
 *Objectif : Mettre en place l'outillage pour garantir la qualité, la sécurité, l'automatisation et construire une API robuste et sécurisée.*
+
+-   **Monitoring et Analyse de la Latence :**
+    -   Plus de dashboards pour les différents services.
+    -   Alertes Prometheus et/ou Grafana (surcharge, latence, etc).
+    -   Mettre en place **Loki**.
+
+-   **Evaluation :**
+    -   Golden corpus pour l'évaluation qui sera upload sur le s3 du service user au moment de run une eval. à voir pour la source (dossier data ? Google drive ? (lien dans .env ?))
 
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).
@@ -27,23 +23,15 @@
 
 ---
 
-### **Phase 4 : Architecture de Déploiement et Cloud :**
-
-*Objectif : Préparer et maîtriser le déploiement de l'application sur une infrastructure cloud scalable.*
-
--   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
-
--   **Préparation pour Kubernetes :**
-    -   Installer et configurer **Kind** ou **Minikube**.
-    -   Commencer à écrire les manifestes Kubernetes, en utilisant un Ingress Controller (Nginx) comme équivalent du reverse proxy.
-
----
-
-#### **Phase 5 : Déploiement Cloud-Native sur Kubernetes**
+#### **Phase 4 : Déploiement Cloud-Native sur Kubernetes**
 
 *Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
 
--   **Écrire les Manifestes complets :**
+-   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
+
+-   **Kubernetes :**
+    -   Installer et configurer **Kind** ou **Minikube**.
+    -   Ecrire les manifestes Kubernetes, en utilisant un Ingress Controller (Nginx) comme équivalent du reverse proxy.
     -   Créer les fichiers `Deployment`, `Service`, `ConfigMap`, `Secret` pour chaque microservice.
 
 -   **Gérer les Environnements (`staging` vs. `production`) :**
@@ -54,16 +42,16 @@
     -   Automatiser le déploiement sur **staging**.
     -   Mettre en place une **approbation manuelle** pour le déploiement en **production**.
 
--   **Porter ça sur GCP**
+-   **Porter sur GCP, AWS ou autre (selon la gentillesse du free tier)**
 
 ---
 
-#### **Phase 6 : Expansion des Capacités de l'Agent**
+#### **Phase 5 : Expansion des Capacités de l'Agent**
 
 *Objectif : Enrichir l'agent avec de nouvelles compétences et sources d'information.*
 
--   **Ajouter des Outils Externes :**
-    -   Intégrer un outil **Web Search** (ex: `Tavily`).
+-   **Tools :**
+    -   **Web Search** (ex: `Tavily`).
     -   Outil de génération de document pdf.
     -   Outil de génération de présentation Google Slides.
 
@@ -75,6 +63,9 @@
     -   Ingestion : Plusieurs vector store (1 par thème des doucments). Au moment de l'ingestion, appel LLM pour déterminer le thème du nouveau doc, si dispo parmis la liste -> ajout au vector store en question, sinon, création d'un nouveau. (Voir simplifier, sans appel LLM, un endpoint qui permet d'ingérer plusieurs documents dans un nouveau vector store avec thème donné manuellement, oui ça peut tout casser si le user fait n'importe quoi mais bon ce serait super utile pour moi.)
     -   Retrieval : Utiliser la requête du query expander (opti de coûts et de requêtes) pour demander de choisir le thème le plus pertinent pour la query parmis la liste de vector store dispo (si aucune alors connaissances du llm pour répondre) pour choisir dans quel vector store aller chercher l'info (gros gain de qualité de réponse potentiel si plusieurs documents sur sujets variés).
 
--   Voir pour passer au Cloud pour le stockage, un changement des logins dans le .env devrait suffir (code S3 ready).
+-   **Stockage sur le Cloud**
+    -   Passer au Cloud pour le stockage quand projet complet, un changement des logins dans le .env devrait suffir (code S3 ready).
 
--   Red teaming : Chaos Mesh (pour Kub), Locust ou k6 pour DDOS
+-   **Red Teaming** :
+    -   Chaos Mesh pour Kub.
+    -   Locust ou k6 pour tester la performance de l'API et identifier les points de faiblesse (DDOS).
