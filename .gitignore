@@ -15,6 +15,7 @@ src/llm-gateway/.ruff_cache/
 src/evaluation-runner/__pycache__
 src/evaluation-runner/.ruff_cache/
 
+kubectl
 kubeconfig
 kubectl.conf
 config
