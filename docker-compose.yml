@@ -4,8 +4,6 @@ services:
       context: src/frontend
     container_name: frontend
     restart: unless-stopped
-    ports:
-      - "5173:5173"
     depends_on:
       rag-core:
         condition: service_healthy
@@ -186,6 +184,8 @@ services:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     restart: unless-stopped
+    ports:
+      - "5050:80"
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@admin.com
       - PGADMIN_DEFAULT_PASSWORD=admin

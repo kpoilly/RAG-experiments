@@ -226,7 +226,7 @@ export function useChat() {
 				const newMessages = [...prev];
 				const lastMsg = newMessages[newMessages.length - 1];
 				if (lastMsg.role === 'assistant') {
-					lastMsg.content = `Sorry, I encountered an error. Please try again.\n\nDetails: ${error.message}`;
+					lastMsg.content = `Sorry, I encountered an error. Please try again.\n\nDetails: ${error instanceof Error ? error.message : String(error)}`;
 				}
 				return newMessages;
 			});
