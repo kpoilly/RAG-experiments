@@ -78,7 +78,7 @@ export function useSettings() {
 				});
 				const userData = userResponse.data;
 
-				// Fetch system config for defaults
+				// Fetch system config for RAG settings (embedding and reranker models)
 				const configResponse = await axios.get('/api/config', {
 					headers: { Authorization: `Bearer ${token}` }
 				});
@@ -86,8 +86,8 @@ export function useSettings() {
 
 				setSettings(prev => ({
 					...prev,
-					llmModel1: userData.llm_model || configData.llm_model,
-					llmModel2: userData.llm_side_model || configData.llm_side_model,
+					llmModel1: userData.llm_model || '',
+					llmModel2: userData.llm_side_model || '',
 					embeddingModel: configData.embedding_model,
 					rerankerModel: configData.reranker_model,
 					// Keep input fields empty - masked keys will be shown as placeholders
@@ -123,7 +123,8 @@ export function useSettings() {
 		if (newSettings.llmModel1 !== undefined ||
 			newSettings.llmModel2 !== undefined ||
 			newSettings.apiKey !== undefined ||
-			newSettings.sideApiKey !== undefined) {
+			newSettings.sideApiKey !== undefined ||
+			(newSettings as any).use_main_api_key_for_side !== undefined) {
 
 			if (!token) return;
 
@@ -133,13 +134,16 @@ export function useSettings() {
 				if (newSettings.llmModel2 !== undefined) updatePayload.llm_side_model = newSettings.llmModel2;
 				if (newSettings.apiKey !== undefined) updatePayload.api_key = newSettings.apiKey;
 				if (newSettings.sideApiKey !== undefined) updatePayload.side_api_key = newSettings.sideApiKey;
+				if ((newSettings as any).use_main_api_key_for_side !== undefined) {
+					updatePayload.use_main_api_key_for_side = (newSettings as any).use_main_api_key_for_side;
+				}
 
 				await axios.put('/api/auth/users/me', updatePayload, {
 					headers: { Authorization: `Bearer ${token}` }
 				});
 
 				// After successful update, refetch user data to get masked keys
-				if (newSettings.apiKey !== undefined || newSettings.sideApiKey !== undefined) {
+				if (newSettings.apiKey !== undefined || newSettings.sideApiKey !== undefined || (newSettings as any).use_main_api_key_for_side) {
 					const userResponse = await axios.get('/api/auth/users/me', {
 						headers: { Authorization: `Bearer ${token}` }
 					});

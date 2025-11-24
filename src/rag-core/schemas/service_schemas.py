@@ -4,8 +4,6 @@ from pydantic import BaseModel, Field
 
 
 class RAGConfigResponse(BaseModel):
-    llm_model: str
-    llm_side_model: str
     embedding_model: str
     reranker_model: str
     chunk_size_p: int

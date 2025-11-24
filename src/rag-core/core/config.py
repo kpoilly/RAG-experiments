@@ -10,21 +10,16 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     # --- LLM & Gateway Settings ---
-    LLM_MODEL: str = "groq/meta-llama/llama-4-scout-17b-16e-instruct"
-    LLM_SIDE_MODEL: str = "groq/llama-3.1-8b-instant"
     LLM_GATEWAY_URL: str = "http://llm-gateway:8002"
-    LLM_TEMPERATURE: float = 0.0
     LLM_MAX_CONTEXT_TOKENS: int = 30000
-    LLM_STRICT_RAG: bool = False
 
     # --- Embedding & Reranking Models ---
+    RERANKER_MODEL: str = "jinaai/jina-reranker-v2-base-multilingual"
     EMBEDDING_MODEL: str = "optimal"
     CHUNK_SIZE_P: int = 1500
     CHUNK_OVERLAP_P: int = 200
     CHUNK_SIZE_C: int = 300
     CHUNK_OVERLAP_C: int = 50
-    RERANKER_MODEL: str = "jinaai/jina-reranker-v2-base-multilingual"
-    RERANKER_THRESHOLD: float = 0.0
 
     # --- Database & Data Storage Settings ---
     DB_HOST: str = "postgres"

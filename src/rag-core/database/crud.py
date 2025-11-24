@@ -48,6 +48,9 @@ def update_user(db: Session, user: models.User, user_update: user_schemas.UserUp
     if user_update.llm_side_model is not None:
         user.llm_side_model = user_update.llm_side_model
         logger.info(f"Updated user {user.id}'s LLM side model to {user.llm_side_model}")
+    if user_update.use_main_api_key_for_side:
+        user.encrypted_side_api_key = user.encrypted_api_key
+        logger.info(f"Copied main API key to side API key for user {user.id}")
 
     db.commit()
     db.refresh(user)

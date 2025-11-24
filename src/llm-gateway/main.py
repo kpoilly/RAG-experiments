@@ -12,8 +12,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 LITELLM_PROXY_URL = os.getenv("LITELLM_PROXY_URL", "http://litellm-proxy:8003")
-DEV = os.getenv("DEV", False).lower() == "true"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # --- init ---
 app = FastAPI(title="LLM Gateway")
@@ -73,9 +71,6 @@ async def chat(request: Request):
     request_body = await request.json()
     model = request_body.get("model", "unknown")
     logger.info(f"New chat request received for model {model}.")
-    if request_body.get("api_key") is None and DEV is True:
-        request_body["api_key"] = GROQ_API_KEY
-        logger.info("API key not provided, using default DEV API key.")
     LLM_REQUESTS_TOTAL.labels(model=model).inc()
 
     try:

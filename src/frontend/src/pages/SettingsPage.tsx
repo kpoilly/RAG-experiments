@@ -137,11 +137,18 @@ export function SettingsPage() {
 								checked={settings.useMainAsSide}
 								onChange={(e) => {
 									const checked = e.target.checked;
-									updateSettings({
-										useMainAsSide: checked,
-										llmModel2: checked ? settings.llmModel1 : settings.llmModel2,
-										sideApiKey: checked ? settings.apiKey : settings.sideApiKey
-									});
+									if (checked) {
+										// When checked, copy main model to side and signal backend to copy API key
+										updateSettings({
+											useMainAsSide: true,
+											llmModel2: settings.llmModel1,
+										});
+										// Send special flag to backend to copy the API key server-side
+										updateSettings({ use_main_api_key_for_side: true } as any);
+									} else {
+										// When unchecked, just update the flag
+										updateSettings({ useMainAsSide: false });
+									}
 								}}
 							/>
 							<div className="w-11 h-6 bg-surface-200 dark:bg-surface-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500 transition-colors"></div>

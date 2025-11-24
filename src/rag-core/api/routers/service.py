@@ -22,8 +22,6 @@ async def get_rag_configuration():
     such as model names and chunking settings.
     """
     return RAGConfigResponse(
-        llm_model=env.LLM_MODEL,
-        llm_side_model=env.LLM_SIDE_MODEL,
         embedding_model=env.EMBEDDING_MODEL,
         reranker_model=env.RERANKER_MODEL,
         chunk_size_p=env.CHUNK_SIZE_P,

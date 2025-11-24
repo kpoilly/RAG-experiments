@@ -14,6 +14,7 @@ class UserUpdate(BaseModel):
     llm_model: Optional[str] = None
     side_api_key: Optional[str] = None
     llm_side_model: Optional[str] = None
+    use_main_api_key_for_side: Optional[bool] = None
 
 
 class User(BaseModel):

@@ -19,7 +19,7 @@ from core.config import settings as env
 from core.models import ExpandedQueries
 from database import crud
 from metrics import RAG_RETRIEVAL_LATENCY, RAG_RETRIEVED_DOCS
-from utils.utils import value_deserializer, value_serializer
+from utils.utils import get_context_window, value_deserializer, value_serializer
 
 from . import retriever_utils
 from .ingestion import get_embeddings
@@ -112,7 +112,7 @@ def get_query_expansion_chain(model: str, api_key: str) -> Optional[RunnableSequ
 
 
 async def orchestrate_rag_flow(
-    query: str, user_id: str, db: Session, temp: float = env.LLM_TEMPERATURE, strict: bool = env.LLM_STRICT_RAG, rerank_threshold: float = env.RERANKER_THRESHOLD
+    query: str, user_id: str, db: Session, temp: float = 0.2, strict_mode: bool = True, rerank_threshold: float = 0.0
 ) -> AsyncGenerator[str, None]:
     """
     Executes the entire RAG flow by orchestrating calls to specialized functions.
@@ -127,10 +127,10 @@ async def orchestrate_rag_flow(
     user = crud.get_user_by_id(db, user_id=user_id)
     user_api_key = security.decrypt_data(user.encrypted_api_key if user.encrypted_api_key else None)
     user_side_api_key = security.decrypt_data(user.encrypted_side_api_key if user.encrypted_side_api_key else None)
-    user_llm_model = user.llm_model if user.llm_model else env.LLM_MODEL
-    user_llm_side_model = user.llm_side_model if user.llm_side_model else env.LLM_SIDE_MODEL
+    user_llm_model = user.llm_model
+    user_llm_side_model = user.llm_side_model
+    window_size = await get_context_window(user.llm_model)
 
-    strict_mode = strict if strict is not None else env.LLM_STRICT_RAG
     logger.info(f"Starting RAG flow for query: {query[:50]}... (strict mode: {strict_mode}))")
 
     crud.add_message_to_history(db, user_id=user_id, role="user", content=query)
@@ -143,14 +143,7 @@ async def orchestrate_rag_flow(
         yield json.dumps({"type": "error", "content": "System Error: Retriever not available."}) + "\n"
         return
     reranker = get_reranker()
-
     query_expansion_chain = get_query_expansion_chain(model=user_llm_side_model, api_key=user_side_api_key)
-
-    if user_side_api_key:
-        masked_side_key = f"{user_side_api_key[:4]}...{user_side_api_key[-4:]}" if len(user_side_api_key) > 8 else "SHORT_KEY"
-        logger.info(f"Using side model {user_llm_side_model} with key: {masked_side_key}")
-    else:
-        logger.warning(f"Using side model {user_llm_side_model} with NO key provided.")
 
     with RAG_RETRIEVAL_LATENCY.time():
         expanded_queries = await retriever_utils.expand_query(query, history, query_expansion_chain)
@@ -159,7 +152,7 @@ async def orchestrate_rag_flow(
 
     RAG_RETRIEVED_DOCS.observe(len(final_docs))
 
-    messages, token_count, source_chunks = retriever_utils.build_final_prompt(query, history, final_docs, strict_mode)
+    messages, token_count, source_chunks = retriever_utils.build_final_prompt(query, history, final_docs, strict_mode, window_size)
 
     # We do this because evaluation-runner needs the context texts and metadatas
     sources_payload = {"type": "sources", "data": source_chunks}

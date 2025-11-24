@@ -76,7 +76,7 @@ async def retrieve_and_deduplicate_documents(retriever: ParentDocumentRetriever,
     return unique_docs
 
 
-def rerank_documents(query: str, docs: List, reranker: Optional[TextCrossEncoder] = None, threshold: float = env.RERANKER_THRESHOLD) -> List:
+def rerank_documents(query: str, docs: List, reranker: Optional[TextCrossEncoder] = None, threshold: float = 0.0) -> List:
     """
     Reranks a list of documents based on relevance to the query.
 
@@ -91,8 +91,6 @@ def rerank_documents(query: str, docs: List, reranker: Optional[TextCrossEncoder
     """
     if not reranker or not docs:
         return docs
-    if threshold is None:
-        threshold = env.RERANKER_THRESHOLD
 
     MAX_DOCS_TO_RERANK = 15
     docs_to_rerank = docs[:MAX_DOCS_TO_RERANK]
@@ -175,7 +173,7 @@ def build_prompt_with_context(query: str, context: str, history: List[Dict[str, 
     return system_instruction, messages
 
 
-def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, strict: bool) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
+def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, strict: bool, window_size: int) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
     """
     Assembles the final prompt for the LLM, managing token budgets for context and history.
 
@@ -192,8 +190,8 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
         - The source chunks for frontend.
     """
     # Defining budgets
-    RESPONSE_BUDGET = int(env.LLM_MAX_CONTEXT_TOKENS * 0.1)
-    CONTEXT_BUDGET = int(env.LLM_MAX_CONTEXT_TOKENS * 0.6)
+    RESPONSE_BUDGET = int(window_size * 0.1)
+    CONTEXT_BUDGET = int(window_size * 0.6)
     SAFETY_MARGIN = 0.95
 
     # Calculating token counts
@@ -203,7 +201,7 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
     prompt_template_tokens = count_tokens(prompt_template + strict_rule)
 
     # Truncate history if necessary to fit budget
-    history_budget = (env.LLM_MAX_CONTEXT_TOKENS * SAFETY_MARGIN) - (query_tokens + prompt_template_tokens + CONTEXT_BUDGET + RESPONSE_BUDGET)
+    history_budget = (window_size * SAFETY_MARGIN) - (query_tokens + prompt_template_tokens + CONTEXT_BUDGET + RESPONSE_BUDGET)
     final_history = truncate_history(history, history_budget)
     history_tokens = sum(count_tokens(message.get("content", "")) for message in final_history)
 
@@ -243,7 +241,7 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
 
 
 async def stream_llm_response(
-    messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None, model: Optional[str] = None, api_key: Optional[str] = None
+    messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = 0.2, model: Optional[str] = None, api_key: Optional[str] = None
 ) -> AsyncGenerator[str, None]:
     """
     Constructs the final prompt, calls the LLM, and streams the response.
@@ -256,7 +254,6 @@ async def stream_llm_response(
     Yields:
         JSON strings representing chunks of the LLM's response or an error.
     """
-    temp = temp if temp is not None else env.LLM_TEMPERATURE
     logger.info(f"Invoking LLM... (model: {model}, temp: {temp}, tokens: {token_count})")
 
     try:
