@@ -65,7 +65,22 @@ export function useChat() {
 				}),
 			});
 
-			if (!response.ok) throw new Error('Network response was not ok');
+			if (!response.ok) {
+				// Try to read error message from response
+				const errorData = await response.json().catch(() => ({}));
+				const errorMessage = errorData.content || 'Network response was not ok';
+
+				setMessages(prev => {
+					// Remove the user message we optimistically added? Or just add an error message?
+					// Let's add an error message from assistant
+					const assistantMessage: Message = {
+						role: 'assistant',
+						content: `Error: ${errorMessage}`
+					};
+					return [...prev, assistantMessage];
+				});
+				throw new Error(errorMessage);
+			}
 
 			const reader = response.body?.getReader();
 			const decoder = new TextDecoder();
@@ -119,6 +134,22 @@ export function useChat() {
 
 								try {
 									const data = JSON.parse(dataStr);
+
+									// Handle error messages from backend
+									if (data.type === 'error') {
+										const errorMessage = data.content || 'An error occurred';
+										setMessages(prev => {
+											const newMessages = [...prev];
+											const lastMsg = newMessages[newMessages.length - 1];
+											if (lastMsg.role === 'assistant') {
+												lastMsg.content = `Error: ${errorMessage}`;
+											}
+											return newMessages;
+										});
+										// Stop processing further
+										return;
+									}
+
 									if (data.type === 'sources') {
 										sources = data.data;
 										if (!isFirstChunk) {

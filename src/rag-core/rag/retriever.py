@@ -14,6 +14,7 @@ from langchain_openai import ChatOpenAI
 from langchain_postgres.vectorstores import PGVector
 from sqlalchemy.orm import Session
 
+from core import security
 from core.config import settings as env
 from core.models import ExpandedQueries
 from database import crud
@@ -33,15 +34,13 @@ with open("/app/prompts/query_expansion.json", "r") as f:
 
 
 _RERANKER: Optional[TextCrossEncoder] = None
-_LLM_QUERY_GEN: Optional[ChatOpenAI] = None
-_QUERY_EXPANSION_CHAIN: Optional[RunnableSequence] = None
 
 
 def init_components():
     """
     Initialize heavy components (Embedder, Reranker, LLM).
     """
-    global _RERANKER, _LLM_QUERY_GEN
+    global _RERANKER
     logger.info("Initializing Embedder, Reranker and LLM...")
 
     get_embeddings()
@@ -50,12 +49,6 @@ def init_components():
         logger.info(f"Initializing reranker model... ({env.RERANKER_MODEL})")
         _RERANKER = TextCrossEncoder(model_name=env.RERANKER_MODEL)
         logger.info("Reranker model loaded.")
-
-    if _LLM_QUERY_GEN is None:
-        logger.info("Initializing LLM query generator...")
-        get_llm_query_gen()
-        get_query_expansion_chain()
-        logger.info("LLM query generator initialized.")
 
     logger.info("Embedder, Reranker and LLM chain initialized.")
 
@@ -89,38 +82,30 @@ async def get_retriever_for_user(user_id: str) -> ParentDocumentRetriever:
     return retriever
 
 
-def get_llm_query_gen() -> Optional[ChatOpenAI]:
+def get_llm_query_gen(model: str, api_key: str) -> Optional[ChatOpenAI]:
     """
     Gets the non-streaming LLM instance for internal tasks like query generation.
     """
-    global _LLM_QUERY_GEN
-    if _LLM_QUERY_GEN is None:
-        _LLM_QUERY_GEN = ChatOpenAI(model_name=env.LLM_SIDE_MODEL, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key="not needed", temperature=0.0, streaming=False)
-    return _LLM_QUERY_GEN
+    return ChatOpenAI(model_name=model, openai_api_base=env.LLM_GATEWAY_URL, openai_api_key=api_key, temperature=0.0, streaming=False)
 
 
-def get_query_expansion_chain() -> Optional[RunnableSequence]:
+def get_query_expansion_chain(model: str, api_key: str) -> Optional[RunnableSequence]:
     """
     Get the query expansion chain.
     """
-    global _QUERY_EXPANSION_CHAIN
-    if _QUERY_EXPANSION_CHAIN is None:
-        logger.info("Initializing query expansion chain...")
-        llm = get_llm_query_gen()
-        if not llm:
-            logger.error("Cannot initialize query expansion chain without LLM.")
-            return None
+    llm = get_llm_query_gen(model, api_key)
+    if not llm:
+        logger.error("Cannot initialize query expansion chain without LLM.")
+        return None
 
-        output_parser = PydanticOutputParser(pydantic_object=ExpandedQueries)
-        prompt = PromptTemplate(
-            template=QUERY_EXP_PROMPTS["instructions"],
-            input_variables=["question", "chat_history"],
-            partial_variables={"format_instructions": output_parser.get_format_instructions()},
-        )
+    output_parser = PydanticOutputParser(pydantic_object=ExpandedQueries)
+    prompt = PromptTemplate(
+        template=QUERY_EXP_PROMPTS["instructions"],
+        input_variables=["question", "chat_history"],
+        partial_variables={"format_instructions": output_parser.get_format_instructions()},
+    )
 
-        _QUERY_EXPANSION_CHAIN = prompt | llm | output_parser
-        logger.info("Query expansion chain initialized.")
-    return _QUERY_EXPANSION_CHAIN
+    return prompt | llm | output_parser
 
 
 # --- RAG flow ---
@@ -139,6 +124,12 @@ async def orchestrate_rag_flow(
     Yields:
         A stream of JSON strings containing the LLM's answer or an error.
     """
+    user = crud.get_user_by_id(db, user_id=user_id)
+    user_api_key = security.decrypt_data(user.encrypted_api_key if user.encrypted_api_key else None)
+    user_side_api_key = security.decrypt_data(user.encrypted_side_api_key if user.encrypted_side_api_key else None)
+    user_llm_model = user.llm_model if user.llm_model else env.LLM_MODEL
+    user_llm_side_model = user.llm_side_model if user.llm_side_model else env.LLM_SIDE_MODEL
+
     strict_mode = strict if strict is not None else env.LLM_STRICT_RAG
     logger.info(f"Starting RAG flow for query: {query[:50]}... (strict mode: {strict_mode}))")
 
@@ -153,7 +144,13 @@ async def orchestrate_rag_flow(
         return
     reranker = get_reranker()
 
-    query_expansion_chain = get_query_expansion_chain()
+    query_expansion_chain = get_query_expansion_chain(model=user_llm_side_model, api_key=user_side_api_key)
+
+    if user_side_api_key:
+        masked_side_key = f"{user_side_api_key[:4]}...{user_side_api_key[-4:]}" if len(user_side_api_key) > 8 else "SHORT_KEY"
+        logger.info(f"Using side model {user_llm_side_model} with key: {masked_side_key}")
+    else:
+        logger.warning(f"Using side model {user_llm_side_model} with NO key provided.")
 
     with RAG_RETRIEVAL_LATENCY.time():
         expanded_queries = await retriever_utils.expand_query(query, history, query_expansion_chain)
@@ -169,7 +166,7 @@ async def orchestrate_rag_flow(
     yield f"data: {json.dumps(sources_payload)}\n\n"
 
     full_assistant_response = ""
-    async for chunk in retriever_utils.stream_llm_response(messages, token_count, temp):
+    async for chunk in retriever_utils.stream_llm_response(messages, token_count, temp, model=user_llm_model, api_key=user_api_key):
         try:
             if chunk.startswith("data:"):
                 data_str = chunk[5:].strip()

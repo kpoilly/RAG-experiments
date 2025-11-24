@@ -23,6 +23,7 @@ class Message(BaseModel):
 class LLMRequest(BaseModel):
     messages: List[Message]
     model: str
+    api_key: str
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     stream: Optional[bool] = None
 

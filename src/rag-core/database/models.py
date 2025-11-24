@@ -19,6 +19,7 @@ class User(Base):
     document_limit = Column(Integer, nullable=False, default=env.USER_DOCUMENT_LIMIT)
     encrypted_api_key = Column(LargeBinary, nullable=True)
     llm_model = Column(String, nullable=True)
+    encrypted_side_api_key = Column(LargeBinary, nullable=True)
     llm_side_model = Column(String, nullable=True)
 
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")

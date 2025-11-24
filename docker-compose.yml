@@ -81,6 +81,8 @@ services:
     restart: unless-stopped
     environment:
       - LITELLM_PROXY_URL=http://litellm-proxy:8003
+      - DEV=${DEV:-false}
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       litellm-proxy:
         condition: service_healthy
@@ -100,8 +102,6 @@ services:
       - "8003:8003"
     volumes:
       - ./deployments/litellm_proxy/litellm_config.yaml:/app/config.yaml
-    environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       redis:
         condition: service_healthy

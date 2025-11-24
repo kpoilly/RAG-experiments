@@ -36,8 +36,7 @@ def register_user(user: user_schemas.UserCreate, db: Session = Depends(deps.get_
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered.",
         )
-    encrypted_key = security.encrypt_data(user.groq_api_key) if user.groq_api_key else None
-    return crud.create_user(db=db, user=user, encrypted_api_key=encrypted_key)
+    return crud.create_user(db=db, user=user)
 
 
 @router.post("/token", response_model=security_schemas.Token)

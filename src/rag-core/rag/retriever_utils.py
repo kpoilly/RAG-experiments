@@ -242,7 +242,9 @@ def build_final_prompt(query: str, history: List[Dict[str, str]], docs: List, st
     return messages, total_tokens, source_chunks_for_frontend
 
 
-async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None) -> AsyncGenerator[str, None]:
+async def stream_llm_response(
+    messages: List[Dict[str, Any]], token_count: int, temp: Optional[float] = None, model: Optional[str] = None, api_key: Optional[str] = None
+) -> AsyncGenerator[str, None]:
     """
     Constructs the final prompt, calls the LLM, and streams the response.
 
@@ -255,10 +257,10 @@ async def stream_llm_response(messages: List[Dict[str, Any]], token_count: int, 
         JSON strings representing chunks of the LLM's response or an error.
     """
     temp = temp if temp is not None else env.LLM_TEMPERATURE
-    logger.info(f"Invoking LLM... (model: {env.LLM_MODEL}, temp: {temp}, tokens: {token_count})")
+    logger.info(f"Invoking LLM... (model: {model}, temp: {temp}, tokens: {token_count})")
 
     try:
-        request_data = LLMRequest(messages=messages, model=env.LLM_MODEL, temperature=temp, stream=True)
+        request_data = LLMRequest(messages=messages, model=model, api_key=api_key, temperature=temp, stream=True)
         request_payload = request_data.model_dump(exclude_none=True)
         gateway_url = env.LLM_GATEWAY_URL + "/chat/completions"
         async with httpx.AsyncClient(timeout=None) as client:

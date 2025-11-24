@@ -85,7 +85,7 @@ def create_service_user():
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' not found. Creating it...")
 
             user_create_schema = user_schemas.UserCreate(email=env.SERVICE_ACCOUNT_EMAIL, password=env.SERVICE_ACCOUNT_PASSWORD)
-            crud.create_user(db, user=user_create_schema, encrypted_api_key=None)
+            crud.create_user(db, user=user_create_schema)
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' created successfully.")
         else:
             logger.info(f"Service user '{env.SERVICE_ACCOUNT_EMAIL}' already exists.")

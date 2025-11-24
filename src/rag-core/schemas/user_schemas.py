@@ -7,21 +7,17 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    groq_api_key: Optional[str] = None
-    llm_model: Optional[str] = None
-    llm_side_model: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
-    groq_api_key: Optional[str] = None
+    api_key: Optional[str] = None
     llm_model: Optional[str] = None
+    side_api_key: Optional[str] = None
     llm_side_model: Optional[str] = None
 
 
 class User(BaseModel):
     id: uuid.UUID
     email: EmailStr
-    llm_model: Optional[str] = None
-    llm_side_model: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

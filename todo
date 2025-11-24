@@ -19,8 +19,7 @@
 
 -   **Sécurité :**
     -   Gestion des Quotas :
-        -   Permettre aux utilisateurs de stocker leur propre clé API de manière sécurisée (chiffrée en base de données).
-        -   Modifier le llm-gateway pour qu'il transmette la clé de l'utilisateur au Proxy LiteLLM pour chaque requête.
+        -   Set context window en db pour chaque user.
 
 -   **Mettre en place les Tests (`pytest`) :**
     -   Écrire les **tests unitaires** pour les fonctions critiques (utils, config, parsing des prompts).

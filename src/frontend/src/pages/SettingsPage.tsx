@@ -1,8 +1,9 @@
 import { useSettings } from '../hooks/useSettings';
 import { Settings as SettingsIcon, Thermometer, Shield, Sliders, Database, Info, Zap } from 'lucide-react';
+import { CustomSelect } from '../components/ui/CustomSelect';
 
 export function SettingsPage() {
-	const { settings, updateSettings } = useSettings();
+	const { settings, updateSettings, availableModels } = useSettings();
 
 	const getSliderStyle = (value: number, min: number, max: number) => {
 		const percentage = ((value - min) / (max - min)) * 100;
@@ -31,40 +32,95 @@ export function SettingsPage() {
 						Model Configuration
 					</h3>
 
-					<div className="grid gap-4 md:grid-cols-2">
-						<div className="space-y-2">
-							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Main LLM Model</label>
-							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
-								{settings.llmModel1 || 'Loading...'}
+					<div className="grid gap-6 grid-cols-1">
+						{/* Main Model */}
+						<div className="space-y-4 p-5 bg-white dark:bg-surface-900 rounded-[2rem] border border-surface-200 dark:border-surface-800 shadow-sm">
+							<CustomSelect
+								label="Main LLM Model"
+								value={settings.llmModel1}
+								onChange={(value) => {
+									const model = value;
+									let prefix = '';
+									if (model.includes('openai')) prefix = 'sk_';
+									else if (model.includes('groq')) prefix = 'gsk_';
+									else if (model.includes('anthropic')) prefix = 'sk-ant_';
+
+									updateSettings({ llmModel1: model, apiKey: prefix });
+								}}
+								options={availableModels.map(m => ({ value: m.model_id, label: m.model_name }))}
+								placeholder="Select a model"
+							/>
+							<div className="space-y-2">
+								<label className="text-sm font-bold text-surface-700 dark:text-surface-300 ml-1">API Key</label>
+								<input
+									type="password"
+									value={settings.apiKey}
+									onChange={(e) => updateSettings({ apiKey: e.target.value }, false)}
+									onBlur={(e) => updateSettings({ apiKey: e.target.value }, true)}
+									placeholder="sk-..."
+									className="w-full px-5 py-4 bg-surface-50 dark:bg-surface-950 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+								/>
 							</div>
 						</div>
 
-						<div className="space-y-2">
-							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Secondary LLM Model</label>
-							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
-								{settings.llmModel2 || 'Loading...'}
-							</div>
-						</div>
+						{/* Secondary Model */}
+						<div className={`space-y-4 p-5 bg-white dark:bg-surface-900 rounded-[2rem] border border-surface-200 dark:border-surface-800 shadow-sm transition-opacity duration-300 ${settings.useMainAsSide ? 'opacity-50 pointer-events-none' : ''}`}>
+							<CustomSelect
+								label="Secondary LLM Model"
+								value={settings.llmModel2}
+								onChange={(value) => {
+									const model = value;
+									let prefix = '';
+									if (model.includes('openai')) prefix = 'sk_';
+									else if (model.includes('groq')) prefix = 'gsk_';
+									else if (model.includes('anthropic')) prefix = 'sk-ant_';
 
-						<div className="space-y-2">
-							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Embedding Model</label>
-							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
-								{settings.embeddingModel || 'Loading...'}
+									updateSettings({ llmModel2: model, sideApiKey: prefix });
+								}}
+								options={availableModels.map(m => ({ value: m.model_id, label: m.model_name }))}
+								disabled={settings.useMainAsSide}
+								placeholder="Select a model"
+							/>
+							<div className="space-y-2">
+								<label className="text-sm font-bold text-surface-700 dark:text-surface-300 ml-1">Side API Key</label>
+								<input
+									type="password"
+									value={settings.sideApiKey}
+									onChange={(e) => updateSettings({ sideApiKey: e.target.value }, false)}
+									onBlur={(e) => updateSettings({ sideApiKey: e.target.value }, true)}
+									placeholder="sk-..."
+									disabled={settings.useMainAsSide}
+									className="w-full px-5 py-4 bg-surface-50 dark:bg-surface-950 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+								/>
 							</div>
 						</div>
+					</div>
 
-						<div className="space-y-2">
-							<label className="text-sm font-medium text-surface-600 dark:text-surface-300 ml-1">Reranker Model</label>
-							<div className="px-5 py-4 bg-white dark:bg-surface-900 rounded-[1.5rem] border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 font-mono text-sm shadow-sm">
-								{settings.rerankerModel || 'Loading...'}
-							</div>
-						</div>
+					{/* Use Main as Side Toggle */}
+					<div className="flex items-center gap-3 ml-2">
+						<label className="relative inline-flex items-center cursor-pointer">
+							<input
+								type="checkbox"
+								className="sr-only peer"
+								checked={settings.useMainAsSide}
+								onChange={(e) => {
+									const checked = e.target.checked;
+									updateSettings({
+										useMainAsSide: checked,
+										llmModel2: checked ? settings.llmModel1 : settings.llmModel2,
+										sideApiKey: checked ? settings.apiKey : settings.sideApiKey
+									});
+								}}
+							/>
+							<div className="w-11 h-6 bg-surface-200 dark:bg-surface-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500 transition-colors"></div>
+						</label>
+						<span className="text-sm font-medium text-surface-700 dark:text-surface-300">Use Main Model configuration for Secondary Model</span>
 					</div>
 
 					<div className="p-5 bg-primary-50 dark:bg-primary-900/20 rounded-[1.5rem] border border-primary-100 dark:border-primary-800 flex gap-4 items-start">
 						<Info className="w-5 h-5 text-primary-600 dark:text-primary-400 shrink-0 mt-0.5" />
 						<p className="text-sm text-primary-700 dark:text-primary-300 leading-relaxed">
-							Model configuration is managed by the backend environment. To change these models, please update the server configuration.
+							API Keys are encrypted and stored securely. They are only used for your requests.
 						</p>
 					</div>
 				</div>

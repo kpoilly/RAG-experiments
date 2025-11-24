@@ -1,23 +1,25 @@
 model_list:
-  - model_name: groq-llama-scout
+  - model_name: groq-llama-scout-17b
     litellm_params:
       model: groq/meta-llama/llama-4-scout-17b-16e-instruct
       rpm: 1000
       tpm: 300000
 
-  - model_name: groq-llama-instant
+  - model_name: groq-llama-instant-8b
     litellm_params:
       model: groq/llama-3.1-8b-instant
       rpm: 1000
       tpm: 250000
+
+  
 
 general_settings:
   set_verbose: True
 
 litellm_settings:
   fallbacks:
-    - groq-llama-scout:
-      - groq-llama-instant
+    - groq-llama-scout-17b:
+      - groq-llama-instant-8b
 
   retries: 3
 
