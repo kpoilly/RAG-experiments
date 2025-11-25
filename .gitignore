@@ -20,3 +20,5 @@ kubeconfig
 kubeconfig.yaml
 kubectl.conf
 config
+
+charts/rag-app/values.yaml
