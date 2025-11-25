@@ -121,7 +121,7 @@ class VectorDBRepository:
         """Creates vector extension and kv-store table if missing."""
         try:
             with self._get_conn() as conn, conn.cursor() as cur:
-                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                # cur.execute("CREATE EXTENSION IF NOT EXISTS vector;") # Managed by init script
                 cur.execute(
                     f"""
                     CREATE TABLE IF NOT EXISTS {self.docstore_namespace} (

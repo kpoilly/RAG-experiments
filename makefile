@@ -182,3 +182,22 @@ push: format clean-folders
 	git add .
 	git commit -m "$(MSG)"
 	git push origin main
+
+# --- K8S ---
+k8s-update:
+	helm upgrade rag-app charts/rag-app
+
+k8s-up:
+	helm install rag-app charts/rag-app
+
+k8s-down:
+	helm delete rag-app
+
+k8s-restart:
+	kubectl delete pod rag-app-postgresql-0 && kubectl delete pod -l app.kubernetes.io/component=rag-core
+
+k8s-logs:
+	kubectl logs -l app.kubernetes.io/component=$(SERVICE)
+
+k8s-clean-data:
+	kubectl delete pvc data-rag-app-postgresql-0 && kubectl delete pod rag-app-postgresql-0 && kubectl delete pod -l app.kubernetes.io/component=rag-core

@@ -70,7 +70,7 @@ async def get_retriever_for_user(user_id: str) -> ParentDocumentRetriever:
     vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=embedder, async_mode=True)
     doc_store = SQLStore(db_url=env.DB_URL, namespace=namespace, async_mode=True)
     await doc_store.acreate_schema()
-    await vector_store.acreate_vector_extension()
+    # await vector_store.acreate_vector_extension() # Managed init script
     await vector_store.acreate_collection()
     await vector_store.acreate_tables_if_not_exists()
     store = EncoderBackedStore(doc_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)

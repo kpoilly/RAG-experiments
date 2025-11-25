@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rag-app.fullname" . }}-rag-core-config
+data:
+  DB_HOST: {{ index .Values "rag-core" "config" "dbHost" | quote }}
+  DB_PORT: {{ index .Values "rag-core" "config" "dbPort" | quote }}
+  DB_NAME: {{ index .Values "rag-core" "config" "dbName" | quote }}
+  LLM_MAX_CONTEXT_TOKENS: {{ index .Values "rag-core" "config" "llmMaxContextTokens" | quote }}
+  LANGCHAIN_ENDPOINT: {{ index .Values "rag-core" "config" "langchainEndpoint" | quote }}
+  LANGCHAIN_PROJECT: {{ index .Values "rag-core" "config" "langchainProject" | quote }}
+  LANGCHAIN_TRACING_V2: {{ index .Values "rag-core" "config" "langchainTracingV2" | quote }}
+  USER_DOCUMENT_LIMIT: {{ index .Values "rag-core" "config" "userDocumentLimit" | quote }}
+  RERANKER_MODEL: {{ index .Values "rag-core" "config" "rerankerModel" | quote }}
+  EMBEDDING_MODEL: {{ index .Values "rag-core" "config" "embeddingModel" | quote }}
+  CHUNK_SIZE_P: {{ index .Values "rag-core" "config" "chunkSizeP" | quote }}
+  CHUNK_OVERLAP_P: {{ index .Values "rag-core" "config" "chunkOverlapP" | quote }}
+  CHUNK_SIZE_C: {{ index .Values "rag-core" "config" "chunkSizeC" | quote }}
+  CHUNK_OVERLAP_C: {{ index .Values "rag-core" "config" "chunkOverlapC" | quote }}

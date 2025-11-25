@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rag-app.fullname" . }}-frontend-service
+spec:
+  type: {{ index .Values "frontend" "service" "type" }}
+  ports:
+    - port: {{ index .Values "frontend" "service" "port" }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: frontend

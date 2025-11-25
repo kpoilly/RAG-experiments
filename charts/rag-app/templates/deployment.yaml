@@ -1,90 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "rag-app.fullname" . }}
+  name: {{ include "rag-app.fullname" . }}-rag-core
   labels:
-    {{- include "rag-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-core
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+  replicas: 1
   selector:
     matchLabels:
-      {{- include "rag-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rag-core
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       labels:
-        {{- include "rag-app.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        app.kubernetes.io/component: rag-core
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "rag-app.serviceAccountName" . }}
-      {{- with .Values.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
-          {{- with .Values.securityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: rag-core
+          image: "{{ index .Values "rag-core" "image" "repository" }}:{{ index .Values "rag-core" "image" "tag" }}"
+          imagePullPolicy: {{ index .Values "rag-core" "image" "pullPolicy" }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: 8001
               protocol: TCP
-          {{- with .Values.livenessProbe }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.readinessProbe }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
-      volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-containers:
-        - name: rag-core
-          image: "{{ .Values.rag-core.image.repository }}:{{ .Values.rag-core.image.tag }}"
-          imagePullPolicy: {{ .Values.rag-core.image.pullPolicy }}
-
-        - name: llm-gateway
-          image: "{{ .Values.llm-gateway.image.repository }}:{{ .Values.llm-gateway.image.tag }}"
-          imagePullPolicy: {{ .Values.llm-gateway.image.pullPolicy }}
-
-        - name: frontend
-          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
-          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "rag-app.fullname" . }}-rag-core-config
+            - secretRef:
+                name: {{ include "rag-app.fullname" . }}-rag-core-secrets

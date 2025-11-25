@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-app.fullname" . }}-llm-gateway
+  labels:
+    app.kubernetes.io/component: llm-gateway
+spec:
+  replicas: {{ index .Values "llm-gateway" "replicaCount" }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: llm-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: llm-gateway
+    spec:
+      containers:
+        - name: llm-gateway
+          image: "{{ index .Values "llm-gateway" "image" "repository" }}:{{ index .Values "llm-gateway" "image" "tag" }}"
+          imagePullPolicy: {{ index .Values "llm-gateway" "image" "pullPolicy" }}
+          ports:
+            - name: http
+              containerPort: 8002
+              protocol: TCP
+          env:
+            - name: LITELLM_PROXY_URL
+              value: "http://{{ include "rag-app.fullname" . }}-litellm-service:8003"
