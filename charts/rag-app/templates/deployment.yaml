@@ -38,8 +38,22 @@ spec:
               path: {{ index .Values "rag-core" "probes" "readiness" "path" }}
               port: http
             initialDelaySeconds: {{ index .Values "rag-core" "probes" "readiness" "initialDelaySeconds" }}
+          env:
+            - name: HF_HOME
+              value: "/app/model_cache"
           envFrom:
             - configMapRef:
                 name: {{ include "rag-app.fullname" . }}-rag-core-config
             - secretRef:
                 name: {{ include "rag-app.fullname" . }}-rag-core-secrets
+          volumeMounts:
+            {{- if (index .Values "rag-core" "persistence" "enabled") }}
+            - name: model-cache
+              mountPath: "/app/model_cache"
+            {{- end }}
+      volumes:
+        {{- if (index .Values "rag-core" "persistence" "enabled") }}
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ include "rag-app.fullname" . }}-rag-core-cache
+        {{- end }}

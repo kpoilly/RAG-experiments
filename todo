@@ -29,11 +29,6 @@
 
 -   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
 
--   **Kubernetes :**
-    -   Installer et configurer **Kind** ou **Minikube**.
-    -   Ecrire les manifestes Kubernetes, en utilisant un Ingress Controller (Nginx) comme équivalent du reverse proxy.
-    -   Créer les fichiers `Deployment`, `Service`, `ConfigMap`, `Secret` pour chaque microservice.
-
 -   **Gérer les Environnements (`staging` vs. `production`) :**
     -   Mettre en place **Kustomize** pour gérer les variations de configuration.
 

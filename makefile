@@ -185,6 +185,7 @@ push: format clean-folders
 	git commit -m "$(MSG)"
 	git push origin main
 
+
 # --- K8S ---
 k8s-update:
 	helm upgrade rag-app charts/rag-app
@@ -200,8 +201,15 @@ k8s-re: k8s-down k8s-up
 k8s-restart:
 	kubectl delete pod rag-app-postgresql-0 && kubectl delete pod -l app.kubernetes.io/component=rag-core
 
+k8s-create:
+	kind create cluster --config deployments/kind/kind-config.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
 k8s-check:
 	kubectl get pods
+
+k8s-check-nginx:
+	kubectl get pods -n ingress-nginx
 
 k8s-logs:
 	kubectl logs -fl app.kubernetes.io/component=$(SERVICE)
@@ -213,8 +221,3 @@ k8s-nuke:
 	helm delete rag-app
 	kind delete cluster
 
-k8s-clean-install:
-	kind create cluster --config deployments/kind/kind-config.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-	kubectl wait --namespace ingress-nginx --for=condition=ready pod -l app.kubernetes.io/name=ingress-nginx --timeout=360s
-	@$(MAKE) k8s-up

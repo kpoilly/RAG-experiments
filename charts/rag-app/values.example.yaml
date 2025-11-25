@@ -10,11 +10,15 @@ rag-core:
     pullPolicy: Always
   resources:
     requests:
-      cpu: 100m
-      memory: 1Gi
-    limits:
-      cpu: 1000m
+      cpu: "2"
       memory: 4Gi
+    limits:
+      cpu: "8"
+      memory: 12Gi
+  persistence:
+    enabled: true
+    size: 10Gi
+    accessMode: ReadWriteOnce
   probes:
     liveness:
       path: /health
