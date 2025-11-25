@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rag-app.fullname" . }}-litellm-config
+data:
+  litellm_config.yaml: |
+    model_list:
+      - model_name: groq-llama4-scout-17b
+        litellm_params:
+          model: groq/meta-llama/llama-4-scout-17b-16e-instruct
+    
+      - model_name: groq-llama3.1-8b
+        litellm_params:
+          model: groq/llama-3.1-8b-instant
+    
+      - model_name: groq-gpt-oss-120b
+        litellm_params:
+          model: groq/openai/gpt-oss-120b
+      
+      - model_name: groq-gpt-oss-20b
+        litellm_params:
+          model: groq/openai/gpt-oss-20b
+      
+      - model_name: gemini-3.0-pro
+        litellm_params:
+          model: gemini-3-pro-preview
+      
+      - model_name: gemini-2.5-flash-lite
+        litellm_params:
+          model: gemini/gemini-2.5-flash-lite
+      
+      - model_name: gpt-5.1
+        litellm_params:
+          model: openai/gpt-5.1
+    
+      - model_name: gpt-4o-mini
+        litellm_params:
+          model: openai/gpt-4o-mini
+        
+      - model_name: mistral-small
+        litellm_params:
+          model: mistral/mistral-small-2506
+    
+      - model_name: deepseek-v3
+        litellm_params:
+          model: deepseek/deepseek-chat
+    
+    general_settings:
+      set_verbose: True
+    
+    litellm_settings:
+      fallbacks:
+        - groq-llama-scout-17b:
+          - groq-llama-instant-8b
+    
+      retries: 3
+    
+      cache: True
+      cache_params:
+        type: "redis"
+        host: "{{ .Release.Name }}-redis-master"
+        port: 6379
+        password: "{{ .Values.redis.auth.password }}"
+    
+      callbacks: ["prometheus"]
+      prometheus_initialize_budget_metrics: true

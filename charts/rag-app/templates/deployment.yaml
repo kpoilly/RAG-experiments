@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-app.fullname" . }}-rag-core
+  labels:
+    app.kubernetes.io/component: rag-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: rag-core
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: rag-core
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.28
+          command: ['sh', '-c', "until nc -z {{ .Release.Name }}-postgresql 5432; do echo waiting for postgres; sleep 2; done"]
+      containers:
+        - name: rag-core
+          image: "{{ index .Values "rag-core" "image" "repository" }}:{{ index .Values "rag-core" "image" "tag" }}"
+          imagePullPolicy: {{ index .Values "rag-core" "image" "pullPolicy" }}
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+          resources:
+            {{- toYaml (index .Values "rag-core" "resources") | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ index .Values "rag-core" "probes" "liveness" "path" }}
+              port: http
+            initialDelaySeconds: {{ index .Values "rag-core" "probes" "liveness" "initialDelaySeconds" }}
+          readinessProbe:
+            httpGet:
+              path: {{ index .Values "rag-core" "probes" "readiness" "path" }}
+              port: http
+            initialDelaySeconds: {{ index .Values "rag-core" "probes" "readiness" "initialDelaySeconds" }}
+          env:
+            - name: HF_HOME
+              value: "/app/model_cache"
+          envFrom:
+            - configMapRef:
+                name: {{ include "rag-app.fullname" . }}-rag-core-config
+            - secretRef:
+                name: {{ include "rag-app.fullname" . }}-rag-core-secrets
+          volumeMounts:
+            {{- if (index .Values "rag-core" "persistence" "enabled") }}
+            - name: model-cache
+              mountPath: "/app/model_cache"
+            {{- end }}
+      volumes:
+        {{- if (index .Values "rag-core" "persistence" "enabled") }}
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ include "rag-app.fullname" . }}-rag-core-cache
+        {{- end }}

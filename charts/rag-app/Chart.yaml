@@ -1,0 +1,22 @@
+apiVersion: v2
+name: rag-app
+description: A Helm chart for the complete RAG boilerplate application.
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: postgresql
+    version: "18.1.11"
+    repository: "https://charts.bitnami.com/bitnami"
+  - name: redis
+    version: "24.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+  - name: minio
+    version: "5.4.0"
+    repository: "https://charts.min.io/"
+  - name: prometheus
+    version: "27.46.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+  - name: grafana
+    version: "10.2.0"
+    repository: "https://grafana.github.io/helm-charts"

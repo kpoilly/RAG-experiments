@@ -1,0 +1,274 @@
+global:
+  security:
+    allowInsecureImages: true
+
+rag-core:
+  replicaCount: 1
+  image:
+    repository: kpoilly/rag-core
+    tag: latest
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "8"
+      memory: 12Gi
+  persistence:
+    enabled: true
+    size: 10Gi
+    accessMode: ReadWriteOnce
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 120
+    readiness:
+      path: /health
+      initialDelaySeconds: 90
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  config:
+    dbHost: rag-app-postgresql
+    dbPort: 5432
+    dbName: rag_db
+    llmMaxContextTokens: 30000
+    userDocumentLimit: 20
+    rerankerModel: jinaai/jina-reranker-v2-base-multilingual
+    embeddingModel: optimal
+    chunkSizeP: 1500
+    chunkOverlapP: 200
+    chunkSizeC: 300
+    chunkOverlapC: 50
+    langchainTracingV2: true
+    langchainProject: rag-app
+    langchainEndpoint: https://api.smith.langchain.com
+
+  secrets:
+    dbUser: rag_user
+    dbPassword: rag_password
+    encryptionKey: encryption_key
+    jwtSecretKey: jwt_secret_key
+    serviceAccountEmail: service@service.account
+    serviceAccountPassword: service_password
+    s3AccessKeyId: minioadmin
+    s3SecretAccessKey: minioadmin
+    s3BucketName: rag-documents
+    s3EndpointUrl: http://rag-app-minio:9000
+    llmGatewayUrl: http://rag-app-llm-gateway-service:8002
+    langchainApiKey: langchain_api_key
+
+# PostgreSQL configuration for Bitnami chart
+postgresql:
+  image:
+    registry: docker.io
+    repository: kpoilly/pgvector
+    tag: latest
+    pullPolicy: Always
+  auth:
+    username: rag_user
+    password: rag_password
+    database: rag_db
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+    initdb:
+      scripts: {}
+
+  probes:
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readiness:
+      initialDelaySeconds: 45
+      periodSeconds: 10
+
+# Redis configuration for Bitnami chart
+redis:
+  auth:
+    enabled: true
+    password: redis_password
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# MinIO configuration for official MinIO chart
+minio:
+  mode: standalone
+  rootUser: minioadmin
+  rootPassword: minioadmin
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      memory: 512Mi
+  buckets:
+    - name: rag-documents
+      policy: none
+      purge: false
+
+# LiteLLM Proxy configuration
+litellm:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/berriai/litellm
+    tag: v1.79.1-stable
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      path: /health/liveness
+      initialDelaySeconds: 30
+    readiness:
+      path: /health/readiness
+      initialDelaySeconds: 10
+  service:
+    type: ClusterIP
+    port: 8003
+
+# LLM Gateway configuration
+llm-gateway:
+  replicaCount: 1
+  image:
+    repository: kpoilly/llm-gateway
+    tag: latest
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 30
+    readiness:
+      path: /health
+      initialDelaySeconds: 5
+  service:
+    type: ClusterIP
+    port: 8002
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+  image:
+    repository: kpoilly/frontend
+    tag: latest
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 80
+
+# Prometheus configuration (Community Chart)
+prometheus:
+  alertmanager:
+    enabled: false
+  pushgateway:
+    enabled: false
+  server:
+    persistentVolume:
+      enabled: true
+      size: 8Gi
+    retention: 15d
+
+# Grafana configuration (Community Chart)
+grafana:
+  persistence:
+    enabled: false
+    size: 8Gi
+  adminPassword: admin
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://rag-app-prometheus-server
+          access: proxy
+          isDefault: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      llm-dashboard:
+        json: |
+          {
+            "annotations": {
+              "list": [
+                {
+                  "builtIn": 1,
+                  "datasource": "-- Grafana --",
+                  "enable": true,
+                  "hide": true,
+                  "iconColor": "rgba(0, 211, 255, 1)",
+                  "name": "Annotations & Alerts",
+                  "type": "dashboard"
+                }
+              ]
+            },
+            "editable": true,
+            "gnetId": null,
+            "graphTooltip": 0,
+            "id": 1,
+            "links": [],
+            "panels": [],
+            "schemaVersion": 26,
+            "style": "dark",
+            "tags": [],
+            "templating": {
+              "list": []
+            },
+            "time": {
+              "from": "now-6h",
+              "to": "now"
+            },
+            "timepicker": {},
+            "timezone": "",
+            "title": "LLM Dashboard",
+            "uid": "llm-dashboard",
+            "version": 1
+          }
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  hosts:
+    - host: localhost
+      paths:
+        - path: /api(/|$)(.*)
+          pathType: ImplementationSpecific

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-app.fullname" . }}-litellm
+  labels:
+    app.kubernetes.io/component: litellm
+spec:
+  replicas: {{ index .Values "litellm" "replicaCount" }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: litellm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: litellm
+    spec:
+      containers:
+        - name: litellm
+          image: "{{ index .Values "litellm" "image" "repository" }}:{{ index .Values "litellm" "image" "tag" }}"
+          imagePullPolicy: {{ index .Values "litellm" "image" "pullPolicy" }}
+          ports:
+            - name: http
+              containerPort: 8003
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.litellm.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.litellm.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.litellm.probes.liveness.initialDelaySeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.litellm.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.litellm.probes.readiness.initialDelaySeconds }}
+          args:
+            - "--config"
+            - "/app/config.yaml"
+            - "--port"
+            - "8003"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: litellm_config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "rag-app.fullname" . }}-litellm-config

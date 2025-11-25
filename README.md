@@ -4,7 +4,9 @@
 
 # 📚 Document-Grounded Conversational Assistant (RAG)
 
-This project provides a **production-ready, multi-tenant platform** for deploying Document-Grounded Conversational Assistants. Built on a robust **RAG** (Retrieval-Augmented Generation) architecture, the system allows multiple users to securely manage their own private document collections and interact with a context-aware AI through a modern web interface.
+This project provides a **production-ready, multi-tenant platform** for deploying Document-Grounded Conversational Assistants, designed for scalability, resilience, and seamless portability across any cloud environment. 
+
+Built on a robust **RAG** (Retrieval-Augmented Generation) architecture, the system allows multiple users to securely manage their own private document collections and interact with a context-aware AI through a modern web interface.
 
 
 ---
@@ -14,36 +16,30 @@ This project provides a **production-ready, multi-tenant platform** for deployin
 The goal of this system is to be architected as a secure, robust, scalable, and observable pipeline designed for modern, cloud-native workloads.
 
 
-1.  **Cloud-Agnostic Object Storage:** Document storage is fully decoupled from the application logic.The system uses a **MinIO** server for local development, which emulates the **S3 API**. This ensures that the application is "Cloud-Ready" and can be deployed seamlessly to AWS S3, Google Cloud Storage, Azure Blob Storage, etc.
+1.  **Kubernetes-Native & Cloud-Agnostic:**
+    *   **Ready for Production:** The entire application is packaged as a **Helm chart**, allowing for one-command, reproducible deployments on any Kubernetes cluster.
+    *   **Seamless Cloud Migration:** Deploying to a managed Kubernetes service like **GKE (Google), EKS (Amazon), or AKS (Azure)** is as simple as targeting a different cluster.
 
-2.  **Provider-Agnostic LLM Gateway:** Powered by **LiteLLM Proxy**, providing a unified OpenAI-compatible interface for 100+ providers, load balancing, fallback, and Redis caching.
+2.  **Modern Frontend & Secure API:**
+    *   A sleek, responsive user interface built with **React, TypeScript, and Tailwind CSS**.
+    *   All backend services are exposed via a **FastAPI** REST API, secured with **JWT** for user authentication and multi-tenancy.
 
-3.  **Smart & Dynamic Ingestion:** Event-driven indexing that automatically processes only new, modified, or deleted files from the bucket.
+3.  **Data Isolation & Cloud-Ready Storage:**
+    *   **Multi-Tenancy:** Each user's data is strictly segregated in both object storage (S3 user-specific paths) and the vector database (PostgreSQL user-specific collections).
+    *   **Object Storage:** Uses a **MinIO** server emulating the **S3 API**, enabling portability to any cloud provider's object storage solution.
 
-4.  **High-Performance Vectorization (FastEmbed):**
-    * **No Heavy Dependencies:** Replaces PyTorch with **FastEmbed** (ONNX Runtime) for lightweight, CPU-friendly containers.
-    * **Quantized Models:** Uses optimized, quantized models for faster inference and lower RAM usage.
-    * **Parent Document Retriever (PDR):** Combines broad context (Parent chunks in PostgreSQL) with precise retrieval (Child chunks in PGVector).
+4.  **Provider-Agnostic LLM Gateway:** Powered by **LiteLLM Proxy**, providing a unified OpenAI-compatible interface for 100+ providers, load balancing, fallback, and **Redis** caching.
 
-5.  **Advanced Retrieval Pipeline:**
-    * **Query Expansion:** Augments user questions into multiple sub-queries.
-    * **Re-Ranking:** Uses a **Cross-Encoder** (via FastEmbed) to re-rank retrieved documents, filtering out noise based on relevance scores.
+5.  **High-Performance RAG Pipeline:**
+    *   **Lightweight Vectorization:** Uses **FastEmbed** (ONNX Runtime) for fast, CPU-friendly embedding and re-ranking.
+    *   **Quantized Models:** Uses optimized, quantized models for faster inference and lower RAM usage.
+    *   **Advanced Retrieval:** Implements **Query Expansion** and a **Cross-Encoder Re-Ranker** to ensure only the most relevant context is sent to the LLM
+    *   **Parent Document Retriever (PDR):** Combines **broad context** (*Parent chunks in PostgreSQL*) with **precise retrieval** (*Child chunks in PGVector*).
+    *   **Smart & Dynamic Ingestion:** Event-driven indexing that automatically processes only new, modified, or deleted files from the bucket.
 
-6.  **Continuous Evaluation Pipeline (Ragas):**
-    * **Automated Assessment:** An integrated scheduler runs evaluation batches using **Ragas**.
-    * **Custom Testset Generator:** A custom implementation generates synthetic ground-truth pairs (Question/Answer/Context) tailored to your documents, bypassing the limitations of standard generators.
-    * **Metrics:** Tracks Faithfulness, Answer Relevance, and Context Precision over time.
-
-1.  **Secure Multi-Tenancy:**
-    *   **User Authentication:** A complete authentication system (Register, Login) is built-in, using **JWT** for securing API endpoints.
-    *   **Data Isolation:** Each user's data is strictly segregated. Documents are stored in user-specific paths in the S3 bucket, and vector data is indexed in separate PostgreSQL collections.
-
-8.  **Optimized for CI/CD:** **Docker** multi-stage builds and **uv** package management ensure ultra-fast builds and reproducible environments.
-
-9. **Deep Observability:** The system is deeply instrumented for end-to-end observability, combining metric-based monitoring with detailed tracing:
-    *   **LangSmith:** For tracing, debugging, and evaluating the RAG pipeline. It provides end-to-end visibility into every step of the chain (retrieval, reranking, generation) and tools for running evaluations on key metrics like faithfulness and answer relevance.
-    *   **Prometheus & Grafana:** For real-time metrics, dashboards, and alerting.
-    *   **Roadmap:** Future dashboards will provide deep insights into the RAG pipeline (evaluations, performance), the LLM Gateway (token usage, costs, errors), and API metrics (latency, request rates).
+6.  **Continuous Evaluation & Observability:**
+    *   An automated **Ragas** evaluation pipeline periodically assesses RAG quality.
+    *   The system is fully instrumented with **Prometheus & Grafana** for real-time metrics and **LangSmith** for deep tracing.
 
 
 ---
@@ -63,6 +59,7 @@ The goal of this system is to be architected as a secure, robust, scalable, and 
 | **RAG Framework** | LangChain | Orchestration of the RAG workflow (PDR, chains, etc.). |
 | **Observability** | Prometheus, Grafana, LangSmith | (In progress) Monitoring, tracing, and evaluation of the entire stack. |
 | **Dependency Mgmt.** | `uv`, `pyproject.toml` | High-speed, modern Python package management. |
+| **Orchestration**| Kubernetes, Helm, Kind | Production-grade container orchestration and deployment. |
 | *(...and others)* | Docker, Redis, Ragas, Boto3... | |
 
 

@@ -1,0 +1,12 @@
+{{- if (index .Values "rag-core" "persistence" "enabled") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "rag-app.fullname" . }}-rag-core-cache
+spec:
+  accessModes:
+    - {{ index .Values "rag-core" "persistence" "accessMode" }}
+  resources:
+    requests:
+      storage: {{ index .Values "rag-core" "persistence" "size" }}
+{{- end }}

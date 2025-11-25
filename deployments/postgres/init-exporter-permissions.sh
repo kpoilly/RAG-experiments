@@ -5,6 +5,7 @@ if psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "S
   psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" -d "$POSTRES_DB" <<-EOSQL
       GRANT pg_monitor TO $POSTGRES_USER;
       CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+      CREATE EXTENSION IF NOT EXISTS vector;
 EOSQL
 
 else
