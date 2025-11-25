@@ -12,13 +12,6 @@ spec:
   rules:
     - http:
         paths:
-          - path: /()(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: {{ include "rag-app.fullname" . }}-frontend-service
-                port:
-                  name: http
           - path: /api(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
@@ -33,3 +26,10 @@ spec:
                 name: {{ .Release.Name }}-minio 
                 port:
                   name: http-console
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "rag-app.fullname" . }}-frontend-service
+                port:
+                  name: http

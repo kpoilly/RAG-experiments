@@ -1,14 +1,32 @@
+global:
+  security:
+    allowInsecureImages: true
+
 rag-core:
   replicaCount: 1
   image:
     repository: kpoilly/rag-core
     tag: latest
     pullPolicy: Always
-  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 4Gi
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 120
+    readiness:
+      path: /health
+      initialDelaySeconds: 90
+
   service:
     type: ClusterIP
     port: 80
-  
+
   config:
     dbHost: rag-app-postgresql
     dbPort: 5432
@@ -24,7 +42,7 @@ rag-core:
     langchainTracingV2: true
     langchainProject: rag-app
     langchainEndpoint: https://api.smith.langchain.com
-    
+
   secrets:
     dbUser: rag_user
     dbPassword: rag_password
@@ -38,9 +56,14 @@ rag-core:
     s3EndpointUrl: http://rag-app-minio:9000
     llmGatewayUrl: http://rag-app-llm-gateway-service:8002
     langchainApiKey: langchain_api_key
-    
+
 # PostgreSQL configuration for Bitnami chart
 postgresql:
+  image:
+    registry: docker.io
+    repository: kpoilly/pgvector
+    tag: latest
+    pullPolicy: Always
   auth:
     username: rag_user
     password: rag_password
@@ -50,9 +73,15 @@ postgresql:
       enabled: true
       size: 8Gi
     initdb:
-      scripts:
-        init_vector.sql: |
-          CREATE EXTENSION IF NOT EXISTS vector;
+      scripts: {}
+
+  probes:
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readiness:
+      initialDelaySeconds: 45
+      periodSeconds: 10
 
 # Redis configuration for Bitnami chart
 redis:
@@ -88,6 +117,20 @@ litellm:
     repository: ghcr.io/berriai/litellm
     tag: v1.79.1-stable
     pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      path: /health/liveness
+      initialDelaySeconds: 30
+    readiness:
+      path: /health/readiness
+      initialDelaySeconds: 10
   service:
     type: ClusterIP
     port: 8003
@@ -99,6 +142,20 @@ llm-gateway:
     repository: kpoilly/llm-gateway
     tag: latest
     pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 30
+    readiness:
+      path: /health
+      initialDelaySeconds: 5
   service:
     type: ClusterIP
     port: 8002
@@ -110,6 +167,13 @@ frontend:
     repository: kpoilly/frontend
     tag: latest
     pullPolicy: Always
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 80
@@ -129,7 +193,7 @@ prometheus:
 # Grafana configuration (Community Chart)
 grafana:
   persistence:
-    enabled: true
+    enabled: false
     size: 8Gi
   adminPassword: admin
   datasources:
@@ -145,9 +209,9 @@ grafana:
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
-        - name: 'default'
+        - name: "default"
           orgId: 1
-          folder: ''
+          folder: ""
           type: file
           disableDeletion: false
           editable: true

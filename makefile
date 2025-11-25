@@ -37,6 +37,8 @@ clean-data:
 
 
 # --- INTERACTIONS ---
+health:
+	@curl -X GET "http://localhost/api/health"
 
 register:
 	@curl -X POST "http://localhost/api/auth/register" \
@@ -51,11 +53,11 @@ login:
 ingest:
 	@echo "🔄 Ingesting new documents into RAG..."
 	@curl -X POST "http://localhost/api/documents/ingest" \
-	-H "Authorization: Bearer $$TOKEN"
+	-H "Authorization: Bearer $(TOKEN)"
 
 list-docs:
 	curl -X GET "http://localhost/api/documents" \
-	-H "Authorization: Bearer $$TOKEN"
+	-H "Authorization: Bearer $(TOKEN)"
 
 eval:
 	@echo "📝 Running a RAGAS evaluation..."
@@ -193,11 +195,26 @@ k8s-up:
 k8s-down:
 	helm delete rag-app
 
+k8s-re: k8s-down k8s-up
+
 k8s-restart:
 	kubectl delete pod rag-app-postgresql-0 && kubectl delete pod -l app.kubernetes.io/component=rag-core
 
+k8s-check:
+	kubectl get pods
+
 k8s-logs:
-	kubectl logs -l app.kubernetes.io/component=$(SERVICE)
+	kubectl logs -fl app.kubernetes.io/component=$(SERVICE)
 
 k8s-clean-data:
 	kubectl delete pvc data-rag-app-postgresql-0 && kubectl delete pod rag-app-postgresql-0 && kubectl delete pod -l app.kubernetes.io/component=rag-core
+
+k8s-nuke:
+	helm delete rag-app
+	kind delete cluster
+
+k8s-clean-install:
+	kind create cluster --config deployments/kind/kind-config.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	kubectl wait --namespace ingress-nginx --for=condition=ready pod -l app.kubernetes.io/name=ingress-nginx --timeout=360s
+	@$(MAKE) k8s-up

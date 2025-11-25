@@ -22,6 +22,18 @@ spec:
             - name: http
               containerPort: 8003
               protocol: TCP
+          resources:
+            {{- toYaml .Values.litellm.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.litellm.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.litellm.probes.liveness.initialDelaySeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.litellm.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.litellm.probes.readiness.initialDelaySeconds }}
           args:
             - "--config"
             - "/app/config.yaml"

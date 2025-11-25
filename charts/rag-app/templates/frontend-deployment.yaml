@@ -22,6 +22,8 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /

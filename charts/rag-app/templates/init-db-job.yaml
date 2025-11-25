@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rag-app.fullname" . }}-init-db
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init-db
+          image: "kpoilly/pgvector:latest"
+          imagePullPolicy: Always
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "Waiting for PostgreSQL to be ready..."
+              until pg_isready -h {{ include "rag-app.fullname" . }}-postgresql -p 5432 -U postgres; do
+                echo "PostgreSQL not ready yet..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready. Creating extension..."
+              export PGPASSWORD=$POSTGRES_PASSWORD
+              psql -h {{ include "rag-app.fullname" . }}-postgresql -p 5432 -U postgres -d rag_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rag-app.fullname" . }}-postgresql
+                  key: postgres-password
