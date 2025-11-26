@@ -1,3 +1,5 @@
+import datetime
+import uuid
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -30,3 +32,14 @@ class LLMRequest(BaseModel):
 
 class ExpandedQueries(BaseModel):
     queries: List[str] = Field(description="A list of 3 or fewer standalone search queries.")
+
+
+class DocumentResponse(BaseModel):
+    id: uuid.UUID
+    filename: str
+    status: str
+    created_at: datetime.datetime
+    error_message: Optional[str] = None
+
+    class Config:
+        from_attributes = True

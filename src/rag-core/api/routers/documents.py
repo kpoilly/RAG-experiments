@@ -4,11 +4,13 @@ from typing import List
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.orm import Session
 
-from core.models import IngestionResponse
+from core.models import DocumentResponse, IngestionResponse
 from database import models
 from rag.ingestion import process_and_index_documents
 from rag.ingestion_utils import S3Repository
+from rag.tasks import process_document_task
 
 from .. import deps
 
@@ -22,24 +24,22 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=List[str])
-async def list_documents(current_user: models.User = Depends(deps.get_current_user)):
+@router.get("", response_model=List[DocumentResponse])
+async def list_documents(current_user: models.User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)):
     try:
-        s3_repo = S3Repository()
-        user_files_map = s3_repo.get_user_files(user_id=str(current_user.id))
-        return sorted(list(user_files_map.keys()))
+        documents = db.query(models.Document).filter(models.Document.user_id == current_user.id).order_by(models.Document.created_at.desc()).all()
+        return documents
     except Exception as e:
-        logger.error(f"Failed to list documents from S3 for user {current_user.id}: {e}", exc_info=True)
+        logger.error(f"Failed to list documents for user {current_user.id}: {e}", exc_info=True)
         return []
 
 
-@router.post("")
-async def upload_document(file: UploadFile = File(...), current_user: models.User = Depends(deps.get_current_user)):
+@router.post("", response_model=DocumentResponse)
+async def upload_document(file: UploadFile = File(...), current_user: models.User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)):
     """
     Receives a file, validates it, uploads it to S3, and triggers ingestion.
     """
 
-    # Validate
     import magic
 
     file_header = await file.read(2048)
@@ -68,31 +68,47 @@ async def upload_document(file: UploadFile = File(...), current_user: models.Use
     user_id = str(current_user.id)
     s3_repo = S3Repository()
 
-    current_doc_count = len(s3_repo.get_user_files(user_id=user_id))
+    current_doc_count = db.query(models.Document).filter(models.Document.user_id == current_user.id).count()
     if current_doc_count >= current_user.document_limit:
         raise HTTPException(status_code=400, detail=f"Document limit reached. Your current plan allows for {current_user.document_limit} documents.")
 
-    # Upload
+    new_doc = models.Document(user_id=current_user.id, filename=file.filename, status="pending")
+    db.add(new_doc)
+    db.commit()
+    db.refresh(new_doc)
+
     try:
         s3_repo.upload_file(user_id=user_id, file_stream=file.file, filename=file.filename)
-        logger.info(f"Successfully uploaded '{file.filename}' to S3 for user {user_id}.")
+        logger.info(f"Successfully uploaded file to S3 for user {user_id}.")
     except Exception as e:
         logger.error(f"Failed to upload file to S3: {e}", exc_info=True)
+        new_doc.status = "failed"
+        new_doc.error_message = str(e)
+        db.commit()
         raise HTTPException(status_code=500, detail="Failed to upload file to storage.")
 
-    # Ingest
-    logger.info(f"Triggering ingestion after upload of '{file.filename}'.")
-    await asyncio.to_thread(process_and_index_documents, user_id=user_id)
-    return {"filename": file.filename, "status": "uploaded_and_ingested"}
+    logger.info(f"Triggering ingestion after upload by user {user_id}.")
+    process_document_task.delay(user_id=user_id)
+    logger.info(f"Ingestion task for user {user_id} has been queued.")
+    return new_doc
 
 
 @router.delete("/{document_name:path}")
-async def delete_document(document_name: str, current_user: models.User = Depends(deps.get_current_user)):
+async def delete_document(document_name: str, current_user: models.User = Depends(deps.get_current_user), db: Session = Depends(deps.get_db)):
     user_id = str(current_user.id)
+    filename = unquote(document_name)
     s3_repo = S3Repository()
-    s3_repo.delete_file(user_id=user_id, filename=unquote(document_name))
+
+    try:
+        s3_repo.delete_file(user_id=user_id, filename=filename)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file from storage: {e}")
+
+    db.query(models.Document).filter(models.Document.user_id == current_user.id, models.Document.filename == filename).delete()
+    db.commit()
+
     await asyncio.to_thread(process_and_index_documents, user_id=user_id)
-    return {"filename": unquote(document_name), "status": "deleted_and_reindexed"}
+    return {"filename": filename, "status": "deleted_and_reindexed"}
 
 
 @router.post("/ingest", response_model=IngestionResponse)

@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     S3_SECRET_ACCESS_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "rag-documents"
 
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+
     @property
     def DB_URL(self) -> str:
         return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

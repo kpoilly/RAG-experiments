@@ -41,7 +41,11 @@ dependencies = [
 
     # Metrics
     "prometheus-fastapi-instrumentator==7.1.0",
-    "prometheus-client==0.23.1"
+    "prometheus-client==0.23.1",
+
+    # Workers
+    "celery==5.5.3",
+    "redis==7.1.0"
 ]
 
 [dependency-groups]
