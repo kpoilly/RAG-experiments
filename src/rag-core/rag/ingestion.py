@@ -12,6 +12,8 @@ from langchain_core.documents import Document
 from langchain_postgres.vectorstores import PGVector
 
 from core.config import settings as env
+from database import models
+from database.database import SessionLocal
 from utils.utils import value_deserializer, value_serializer
 
 from .ingestion_utils import S3Repository, VectorDBRepository, get_embeddings
@@ -74,29 +76,53 @@ def process_and_index_documents(user_id: str) -> int:
         logger.info(f"Removing {len(files_to_remove_from_index)} obsolete/modified documents from index...")
         db.delete_documents_by_source(list(files_to_remove_from_index))
 
-    if files_to_process:
-        logger.info(f"Processing {len(files_to_process)} new/modified documents...")
-        new_docs = _load_and_process_files(user_id, files_to_process, s3)
-
-        if new_docs:
-            logger.info(f"Indexing {len(new_docs)} pages via PDR for user {user_id}...")
-            safe_user_id = user_id.replace("-", "")
-            collection_name = f"user_{safe_user_id}_collection"
-            namespace = f"user_{safe_user_id}_parents"
-
-            vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=get_embeddings())
-            vector_store.create_tables_if_not_exists()
-            sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
-            sql_store.create_schema()
-            store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
-
-            retriever = ParentDocumentRetriever(
-                vectorstore=vector_store,
-                docstore=store,
-                child_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C),
-                parent_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P),
+    db_session = SessionLocal()
+    try:
+        if files_to_process:
+            logger.info(f"Processing {len(files_to_process)} new/modified documents...")
+            db_session.query(models.Document).filter(models.Document.user_id == user_id, models.Document.filename.in_(files_to_process.keys())).update(
+                {"status": "processing"}, synchronize_session=False
             )
-            retriever.add_documents(new_docs, ids=None, add_to_docstore=True)
+            db_session.commit()
+
+            try:
+                new_docs = _load_and_process_files(user_id, files_to_process, s3)
+
+                if new_docs:
+                    logger.info(f"Indexing {len(new_docs)} pages via PDR for user {user_id}...")
+                    safe_user_id = user_id.replace("-", "")
+                    collection_name = f"user_{safe_user_id}_collection"
+                    namespace = f"user_{safe_user_id}_parents"
+
+                    vector_store = PGVector(collection_name=collection_name, connection=env.DB_URL, embeddings=get_embeddings())
+                    vector_store.create_tables_if_not_exists()
+                    sql_store = SQLStore(db_url=env.DB_URL, namespace=namespace)
+                    sql_store.create_schema()
+                    store = EncoderBackedStore(sql_store, key_encoder=lambda key: key, value_serializer=value_serializer, value_deserializer=value_deserializer)
+
+                    retriever = ParentDocumentRetriever(
+                        vectorstore=vector_store,
+                        docstore=store,
+                        child_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_C, chunk_overlap=env.CHUNK_OVERLAP_C),
+                        parent_splitter=RecursiveCharacterTextSplitter(chunk_size=env.CHUNK_SIZE_P, chunk_overlap=env.CHUNK_OVERLAP_P),
+                    )
+                    retriever.add_documents(new_docs, ids=None, add_to_docstore=True)
+
+                db_session.query(models.Document).filter(models.Document.user_id == user_id, models.Document.filename.in_(files_to_process.keys())).update(
+                    {"status": "completed"}, synchronize_session=False
+                )
+                db_session.commit()
+
+            except Exception as e:
+                logger.error(f"Failed to process documents: {e}")
+                db_session.query(models.Document).filter(models.Document.user_id == user_id, models.Document.filename.in_(files_to_process.keys())).update(
+                    {"status": "failed", "error_message": str(e)}, synchronize_session=False
+                )
+                db_session.commit()
+                raise e
+
+    finally:
+        db_session.close()
 
     total = db.count_chunks()
     logger.info(f"Sync Complete for user {user_id}. Total Chunks in DB: {total}")

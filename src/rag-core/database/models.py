@@ -23,6 +23,19 @@ class User(Base):
     llm_side_model = Column(String, nullable=True)
 
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
+    documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    filename = Column(String, nullable=False)
+    status = Column(String, default="pending")  # pending, processing, completed, failed
+    error_message = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="documents")
 
 
 class Conversation(Base):

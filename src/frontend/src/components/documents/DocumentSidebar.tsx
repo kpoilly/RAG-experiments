@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { FileText, Upload, Trash2, Loader2, File } from 'lucide-react';
+import { FileText, Upload, Trash2, Loader2, File, AlertCircle } from 'lucide-react';
 import { useDocuments } from '../../hooks/useDocuments';
 
 
@@ -83,18 +83,47 @@ export function DocumentSidebar() {
 
 					{documents.map((doc) => (
 						<div
-							key={doc}
-							className="group flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-surface-900 hover:shadow-md border border-transparent hover:border-surface-200 dark:hover:border-surface-700 transition-all duration-300"
+							key={doc.id}
+							className={`group flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-surface-900 hover:shadow-md border border-transparent hover:border-surface-200 dark:hover:border-surface-700 transition-all duration-300 ${doc.status === 'failed' ? 'border-red-200 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10' : ''
+								}`}
 						>
 							<div className="flex items-center gap-4 min-w-0">
-								<div className="w-10 h-10 rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center justify-center shrink-0 text-surface-500 dark:text-surface-400 group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors">
-									<File className="w-5 h-5" />
+								<div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${doc.status === 'pending' || doc.status === 'processing'
+									? 'bg-primary-100 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400'
+									: doc.status === 'failed'
+										? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400'
+										: 'bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 group-hover:text-primary-500 dark:group-hover:text-primary-400'
+									}`}>
+									{doc.status === 'pending' || doc.status === 'processing' ? (
+										<Loader2 className="w-5 h-5 animate-spin" />
+									) : doc.status === 'failed' ? (
+										<AlertCircle className="w-5 h-5" />
+									) : (
+										<File className="w-5 h-5" />
+									)}
 								</div>
-								<span className="text-sm text-surface-700 dark:text-surface-300 truncate font-medium">{doc}</span>
+								<div className="flex flex-col min-w-0">
+									<span className="text-sm text-surface-700 dark:text-surface-300 truncate font-medium">{doc.filename}</span>
+									{doc.status === 'processing' && (
+										<span className="text-xs text-primary-500 font-medium animate-pulse">Processing...</span>
+									)}
+									{doc.status === 'pending' && (
+										<span className="text-xs text-surface-400">Queued...</span>
+									)}
+									{doc.status === 'failed' && (
+										<span className="text-xs text-red-500 truncate" title={doc.error_message}>
+											Failed: {doc.error_message}
+										</span>
+									)}
+								</div>
 							</div>
 							<button
-								onClick={() => deleteDocument(doc)}
-								className="opacity-0 group-hover:opacity-100 p-2 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all duration-200"
+								onClick={() => deleteDocument(doc.filename)}
+								disabled={doc.status === 'processing' || doc.status === 'pending'}
+								className={`p-2 rounded-xl transition-all duration-200 ${doc.status === 'processing' || doc.status === 'pending'
+									? 'opacity-0 cursor-not-allowed'
+									: 'opacity-0 group-hover:opacity-100 text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10'
+									}`}
 								title="Delete document"
 							>
 								<Trash2 className="w-4 h-4" />

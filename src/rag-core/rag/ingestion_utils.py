@@ -97,7 +97,13 @@ class S3Repository:
 
     def delete_file(self, user_id: str, filename: str):
         full_key = f"{user_id}/{filename}"
-        self.client.delete_object(Bucket=self.bucket, Key=full_key)
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=full_key)
+        except self.client.exceptions.NoSuchBucket:
+            logger.warning(f"Bucket '{self.bucket}' not found during delete. Ignoring.")
+        except Exception as e:
+            logger.error(f"Failed to delete file {full_key} from S3: {e}")
+            raise e
 
 
 class VectorDBRepository:

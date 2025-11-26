@@ -2,17 +2,23 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from './useAuth';
 
+export interface Document {
+	id: string;
+	filename: string;
+	status: 'pending' | 'processing' | 'completed' | 'failed';
+	created_at: string;
+	error_message?: string;
+}
+
 export function useDocuments() {
-	const [documents, setDocuments] = useState<string[]>([]);
+	const [documents, setDocuments] = useState<Document[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const { token, logout } = useAuth();
 
 	const fetchDocuments = useCallback(async () => {
 		if (!token) return;
 		try {
-			// Placeholder: In real app, this would be axios.get('/api/documents')
-			// For now, return empty or mock
-			const response = await axios.get('/api/documents', {
+			const response = await axios.get<Document[]>('/api/documents', {
 				headers: { Authorization: `Bearer ${token}` }
 			});
 			setDocuments(response.data);
@@ -22,9 +28,8 @@ export function useDocuments() {
 				return;
 			}
 			console.error('Failed to fetch documents', error);
-			// setDocuments(['manual.pdf', 'guidelines.docx']); // Mock
 		}
-	}, [token]);
+	}, [token, logout]);
 
 	const uploadDocument = async (file: File) => {
 		if (!token) return;
@@ -72,7 +77,34 @@ export function useDocuments() {
 
 	useEffect(() => {
 		fetchDocuments();
-	}, [fetchDocuments]);
 
+		// Poll for updates if any document is pending or processing
+		const interval = setInterval(() => {
+			setDocuments(currentDocs => {
+				const hasPending = currentDocs.some(doc => doc.status === 'pending' || doc.status === 'processing');
+				if (hasPending) {
+					return currentDocs;
+				}
+				return currentDocs;
+			});
+		}, 3000);
+
+		return () => clearInterval(interval);
+	}, []);
+
+	useEffect(() => {
+		const hasPending = documents.some(doc => doc.status === 'pending' || doc.status === 'processing');
+
+		let intervalId: any;
+		if (hasPending) {
+			intervalId = setInterval(() => {
+				fetchDocuments();
+			}, 3000);
+		}
+
+		return () => {
+			if (intervalId) clearInterval(intervalId);
+		};
+	}, [documents, fetchDocuments]);
 	return { documents, uploadDocument, deleteDocument, isLoading };
 }
