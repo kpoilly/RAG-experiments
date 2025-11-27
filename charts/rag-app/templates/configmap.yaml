@@ -6,6 +6,8 @@ data:
   DB_HOST: {{ index .Values "rag-core" "config" "dbHost" | quote }}
   DB_PORT: {{ index .Values "rag-core" "config" "dbPort" | quote }}
   DB_NAME: {{ index .Values "rag-core" "config" "dbName" | quote }}
+  REDIS_HOST: {{ index .Values "rag-core" "config" "redisHost" | quote }}
+  REDIS_PORT: {{ index .Values "rag-core" "config" "redisPort" | quote }}
   LLM_MAX_CONTEXT_TOKENS: {{ index .Values "rag-core" "config" "llmMaxContextTokens" | quote }}
   LANGCHAIN_ENDPOINT: {{ index .Values "rag-core" "config" "langchainEndpoint" | quote }}
   LANGCHAIN_PROJECT: {{ index .Values "rag-core" "config" "langchainProject" | quote }}

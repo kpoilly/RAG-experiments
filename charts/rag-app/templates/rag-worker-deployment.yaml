@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-app.fullname" . }}-rag-worker
+  labels:
+    app.kubernetes.io/component: rag-worker
+spec:
+  replicas: {{ .Values.ragWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: rag-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: rag-worker
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.28
+          command: ['sh', '-c', "until nc -z {{ .Release.Name }}-postgresql 5432; do echo waiting for postgres; sleep 2; done"]
+      containers:
+        - name: rag-worker
+          image: "{{ index .Values "ragWorker" "image" "repository" }}:{{ index .Values "ragWorker" "image" "tag" }}"
+          imagePullPolicy: {{ index .Values "ragWorker" "image" "pullPolicy" }}
+          command: ["celery", "-A", "utils.celery_app.celery", "worker", "--loglevel=info"]
+          resources:
+            {{- toYaml (index .Values "ragWorker" "resources") | nindent 12 }}
+          env:
+            - name: HF_HOME
+              value: "/app/model_cache"
+          envFrom:
+            - configMapRef:
+                name: {{ include "rag-app.fullname" . }}-rag-core-config
+            - secretRef:
+                name: {{ include "rag-app.fullname" . }}-rag-core-secrets
+          volumeMounts:
+            {{- if (index .Values "rag-core" "persistence" "enabled") }}
+            - name: model-cache
+              mountPath: "/app/model_cache"
+            {{- end }}
+      volumes:
+        {{- if (index .Values "rag-core" "persistence" "enabled") }}
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ include "rag-app.fullname" . }}-rag-core-cache
+        {{- end }}
