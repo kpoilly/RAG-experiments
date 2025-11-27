@@ -35,6 +35,8 @@ rag-core:
     dbHost: rag-app-postgresql
     dbPort: 5432
     dbName: rag_db
+    redisHost: rag-app-redis-master
+    redisPort: 6379
     llmMaxContextTokens: 30000
     userDocumentLimit: 20
     rerankerModel: jinaai/jina-reranker-v2-base-multilingual
@@ -60,6 +62,20 @@ rag-core:
     s3EndpointUrl: http://rag-app-minio:9000
     llmGatewayUrl: http://rag-app-llm-gateway-service:8002
     langchainApiKey: langchain_api_key
+
+ragWorker:
+  replicaCount: 1
+  image:
+    repository: kpoilly/rag-core
+    tag: latest
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "4"
+      memory: 6Gi
 
 # PostgreSQL configuration for Bitnami chart
 postgresql:
@@ -90,7 +106,7 @@ postgresql:
 # Redis configuration for Bitnami chart
 redis:
   auth:
-    enabled: true
+    enabled: false
     password: redis_password
   master:
     persistence:
