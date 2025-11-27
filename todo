@@ -27,8 +27,6 @@
 
 *Objectif : Maîtriser le déploiement, la gestion d'environnements et l'automatisation de bout en bout.*
 
--   File d'attente des fichiers uploadés pour ingestion avec Redis (simulation EC2)
-
 -   **Gérer les Environnements (`staging` vs. `production`) :**
     -   Mettre en place **Kustomize** pour gérer les variations de configuration.
 
