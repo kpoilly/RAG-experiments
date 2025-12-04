@@ -29,8 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 # --- Init & Component Getters ---
-with open("/app/prompts/query_expansion.json", "r") as f:
-    QUERY_EXP_PROMPTS = json.load(f)
+QUERY_EXP_PROMPTS = retriever_utils.load_prompts("prompts/query_expansion.yaml")
 
 
 _RERANKER: Optional[TextCrossEncoder] = None
@@ -161,6 +160,7 @@ async def orchestrate_rag_flow(
     full_assistant_response = ""
     async for chunk in retriever_utils.stream_llm_response(messages, token_count, temp, model=user_llm_model, api_key=user_api_key):
         try:
+            # logger.info(f"Chunk: {chunk}")
             if chunk.startswith("data:"):
                 data_str = chunk[5:].strip()
                 if data_str and data_str != "[DONE]":

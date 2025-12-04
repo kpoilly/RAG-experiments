@@ -114,6 +114,17 @@ export function useSettings() {
 	const updateSettings = async (newSettings: Partial<Settings>, shouldPersist = true) => {
 		setSettings((prev) => {
 			const updated = { ...prev, ...newSettings };
+
+			// If useMainAsSide is active, sync main model/key to side model/key
+			if (updated.useMainAsSide) {
+				if (newSettings.llmModel1 !== undefined) {
+					updated.llmModel2 = newSettings.llmModel1;
+				}
+				if (newSettings.apiKey !== undefined) {
+					updated.sideApiKey = newSettings.apiKey;
+				}
+			}
+
 			return updated;
 		});
 

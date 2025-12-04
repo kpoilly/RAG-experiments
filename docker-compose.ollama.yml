@@ -1,0 +1,36 @@
+services:
+  ollama:
+    build: 
+      context: src/local-llm
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - rag_network
+    ports:
+      - "11434:11434"
+  
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  litellm-proxy:
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+volumes:
+  ollama_data:
+
+networks:
+  rag_network:
+    driver: bridge

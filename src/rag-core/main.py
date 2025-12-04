@@ -7,6 +7,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from api.routers import auth, chat, documents, history, service
 from database.database import create_db_and_tables
 from metrics import update_metrics
+from rag.ingestion_utils import S3Repository
 from rag.retriever import init_components
 from utils.utils import create_service_user
 
@@ -32,6 +33,11 @@ async def startup_event():
         create_db_and_tables()
         logger.info("Database tables are ready.")
         create_service_user()
+
+        logger.info("Ensuring bucket exists...")
+        s3_repository = S3Repository()
+        s3_repository.ensure_bucket_exists()
+        logger.info("Bucket exists or has been created.")
 
         await asyncio.to_thread(init_components)
         app.state.rad_ready = True

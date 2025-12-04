@@ -4,6 +4,7 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
+import yaml
 from fastembed.rerank.cross_encoder import TextCrossEncoder
 from langchain_classic.retrievers import ParentDocumentRetriever
 from langchain_core.runnables import RunnableSequence
@@ -14,11 +15,19 @@ from utils.utils import count_tokens, format_history_for_prompt, truncate_histor
 
 logger = logging.getLogger(__name__)
 
+
 # --- Init Prompts ---
-with open("/app/prompts/system.json", "r") as f:
-    SYSTEM_PROMPTS = json.load(f)
-if isinstance(SYSTEM_PROMPTS["instructions"], list):
-    SYSTEM_PROMPTS["instructions"] = "\n".join(SYSTEM_PROMPTS["instructions"])
+def load_prompts(file_path: str) -> dict:
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            prompts = yaml.safe_load(f)
+        return prompts
+    except Exception as e:
+        logger.error(f"Failed to load prompts from {file_path}: {e}")
+        return {}
+
+
+SYSTEM_PROMPTS = load_prompts("prompts/system.yaml")
 
 
 async def expand_query(query: str, history: List[Dict[str, str]], query_expansion_chain: Optional[RunnableSequence]) -> List[str]:

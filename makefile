@@ -16,15 +16,15 @@ all: bootstrap build up
 
 build: uv-lock
 	@echo "🔄 Building all services..."
-	docker compose build
+	docker compose -f docker-compose.yml -f docker-compose.ollama.yml build
 
 up:
 	@echo "🚀 Starting all services..."
-	docker compose up -d
+	docker compose -f docker-compose.yml -f docker-compose.ollama.yml up -d
 	@echo "✨ All services have been started. Access UI with 'make ui' or at http://localhost/"
 
 down:
-	docker compose down
+	docker compose -f docker-compose.yml -f docker-compose.ollama.yml down
 	@echo "🛑 All services have been stopped."
 
 re: down up
@@ -32,7 +32,7 @@ re: down up
 rebuild: down all
 
 clean-data:
-	docker compose down -v
+	docker compose -f docker-compose.yml -f docker-compose.ollama.yml down -v
 	@echo "🛑 All services have been stopped and volumes removed."
 
 
@@ -85,7 +85,13 @@ pgadmin:
 
 #--- DEV ---
 dev: uv-lock
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up --build -d
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+
+local-llm: uv-lock
+	docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build -d
+
+dev-local-llm: uv-lock
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.ollama.yml up --build -d
 
 bootstrap:
 	@chmod +x scripts/bootstrap.sh

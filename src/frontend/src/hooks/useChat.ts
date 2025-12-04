@@ -103,6 +103,111 @@ export function useChat() {
 			let isFirstChunk = true;
 			let buffer = '';
 
+			const processLine = (line: string) => {
+				if (line.startsWith('data: ')) {
+					const dataStr = line.slice(6).trim();
+					if (dataStr === '[DONE]') return;
+
+					try {
+						const data = JSON.parse(dataStr);
+
+						// Handle error messages from backend
+						if (data.type === 'error') {
+							const errorMessage = data.content || 'An error occurred';
+							setMessages(prev => {
+								const newMessages = [...prev];
+								const lastMsg = newMessages[newMessages.length - 1];
+								if (lastMsg.role === 'assistant') {
+									lastMsg.content = `Error: ${errorMessage}`;
+								}
+								return newMessages;
+							});
+							// Stop processing further
+							return;
+						}
+
+						if (data.type === 'sources') {
+							sources = data.data;
+							if (!isFirstChunk) {
+								setMessages(prev => {
+									const newMessages = [...prev];
+									const lastMsg = newMessages[newMessages.length - 1];
+									if (lastMsg.role === 'assistant') {
+										lastMsg.sources = sources;
+									}
+									return newMessages;
+								});
+							}
+						} else if (data.choices?.[0]?.delta?.content) {
+							const content = data.choices[0].delta.content;
+							fullContent += content;
+
+							if (isFirstChunk) {
+								const assistantMessage: Message = {
+									role: 'assistant',
+									content: fullContent,
+									sources: sources
+								};
+								setMessages(prev => [...prev, assistantMessage]);
+								isFirstChunk = false;
+							} else {
+								setMessages(prev => {
+									const newMessages = [...prev];
+									const lastMsg = newMessages[newMessages.length - 1];
+									if (lastMsg.role === 'assistant') {
+										lastMsg.content = fullContent;
+									}
+									return newMessages;
+								});
+							}
+						}
+					} catch (e) {
+						console.error('Error parsing SSE data:', e);
+					}
+				} else {
+					// Try to parse as raw JSON error (e.g. rate limits or other backend errors)
+					try {
+						const data = JSON.parse(line);
+						let errorMessage: string | null = null;
+
+						if (data.error) {
+							errorMessage = data.error.message || JSON.stringify(data.error);
+						} else if (data.type === 'error') {
+							errorMessage = data.content || 'An error occurred';
+						}
+
+						if (errorMessage) {
+							// Format error message to be more user-friendly
+							if (errorMessage.includes('Rate limit reached')) {
+								const waitTimeMatch = errorMessage.match(/Please try again in (\d+\.?\d*s)/);
+								const waitTime = waitTimeMatch ? waitTimeMatch[1] : 'a few seconds';
+								errorMessage = `Rate limit reached. Please try again in ${waitTime}.`;
+							}
+
+							setMessages(prev => {
+								// If we haven't started an assistant message yet, add one
+								if (isFirstChunk) {
+									return [...prev, {
+										role: 'assistant',
+										content: `Error: ${errorMessage}`
+									}];
+								}
+								// Otherwise update the existing one
+								const newMessages = [...prev];
+								const lastMsg = newMessages[newMessages.length - 1];
+								if (lastMsg.role === 'assistant') {
+									lastMsg.content = `Error: ${errorMessage}`;
+								}
+								return newMessages;
+							});
+							return;
+						}
+					} catch (e) {
+						// Not a JSON object, ignore
+					}
+				}
+			};
+
 			if (reader) {
 				while (true) {
 					const { done, value } = await reader.read();
@@ -112,18 +217,7 @@ export function useChat() {
 						if (buffer.trim()) {
 							const lines = buffer.split('\n');
 							for (const line of lines) {
-								if (line.startsWith('data: ')) {
-									const dataStr = line.slice(6).trim();
-									if (dataStr === '[DONE]') continue;
-									try {
-										const data = JSON.parse(dataStr);
-										if (data.choices?.[0]?.delta?.content) {
-											fullContent += data.choices[0].delta.content;
-										}
-									} catch (e) {
-										console.error('Error parsing final SSE data:', e);
-									}
-								}
+								processLine(line);
 							}
 						}
 						break;
@@ -142,67 +236,7 @@ export function useChat() {
 					for (const part of parts) {
 						const lines = part.split('\n');
 						for (const line of lines) {
-							if (line.startsWith('data: ')) {
-								const dataStr = line.slice(6).trim();
-								if (dataStr === '[DONE]') continue;
-
-								try {
-									const data = JSON.parse(dataStr);
-
-									// Handle error messages from backend
-									if (data.type === 'error') {
-										const errorMessage = data.content || 'An error occurred';
-										setMessages(prev => {
-											const newMessages = [...prev];
-											const lastMsg = newMessages[newMessages.length - 1];
-											if (lastMsg.role === 'assistant') {
-												lastMsg.content = `Error: ${errorMessage}`;
-											}
-											return newMessages;
-										});
-										// Stop processing further
-										return;
-									}
-
-									if (data.type === 'sources') {
-										sources = data.data;
-										if (!isFirstChunk) {
-											setMessages(prev => {
-												const newMessages = [...prev];
-												const lastMsg = newMessages[newMessages.length - 1];
-												if (lastMsg.role === 'assistant') {
-													lastMsg.sources = sources;
-												}
-												return newMessages;
-											});
-										}
-									} else if (data.choices?.[0]?.delta?.content) {
-										const content = data.choices[0].delta.content;
-										fullContent += content;
-
-										if (isFirstChunk) {
-											const assistantMessage: Message = {
-												role: 'assistant',
-												content: fullContent,
-												sources: sources
-											};
-											setMessages(prev => [...prev, assistantMessage]);
-											isFirstChunk = false;
-										} else {
-											setMessages(prev => {
-												const newMessages = [...prev];
-												const lastMsg = newMessages[newMessages.length - 1];
-												if (lastMsg.role === 'assistant') {
-													lastMsg.content = fullContent;
-												}
-												return newMessages;
-											});
-										}
-									}
-								} catch (e) {
-									console.error('Error parsing SSE data:', e);
-								}
-							}
+							processLine(line);
 						}
 					}
 				}

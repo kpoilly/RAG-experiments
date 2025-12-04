@@ -87,7 +87,12 @@ export function SettingsPage() {
 								label="Main LLM Model"
 								value={settings.llmModel1}
 								onChange={(value) => {
-									updateSettings({ llmModel1: value, apiKey: '' });
+									const selectedModel = availableModels.find(m => m.model_id === value);
+									const isLocal = value.toLowerCase().includes('local') || selectedModel?.model_name.toLowerCase().includes('local');
+									updateSettings({
+										llmModel1: value,
+										apiKey: isLocal ? 'APIKey' : ''
+									});
 								}}
 								options={availableModels.map(m => ({ value: m.model_id, label: m.model_name }))}
 								placeholder="Select a model"
@@ -99,6 +104,10 @@ export function SettingsPage() {
 									onChange={(value) => updateSettings({ apiKey: value }, false)}
 									onBlur={(value) => updateSettings({ apiKey: value }, true)}
 									placeholder={main_key_placeholder}
+									disabled={(() => {
+										const selectedModel = availableModels.find(m => m.model_id === settings.llmModel1);
+										return settings.llmModel1.toLowerCase().includes('local') || selectedModel?.model_name.toLowerCase().includes('local');
+									})()}
 								/>
 							</div>
 						</div>
@@ -109,7 +118,12 @@ export function SettingsPage() {
 								label="Secondary LLM Model"
 								value={settings.llmModel2}
 								onChange={(value) => {
-									updateSettings({ llmModel2: value, sideApiKey: '' });
+									const selectedModel = availableModels.find(m => m.model_id === value);
+									const isLocal = value.toLowerCase().includes('local') || selectedModel?.model_name.toLowerCase().includes('local');
+									updateSettings({
+										llmModel2: value,
+										sideApiKey: isLocal ? 'APIKey' : ''
+									});
 								}}
 								options={availableModels.map(m => ({ value: m.model_id, label: m.model_name }))}
 								disabled={settings.useMainAsSide}
@@ -122,7 +136,10 @@ export function SettingsPage() {
 									onChange={(value) => updateSettings({ sideApiKey: value }, false)}
 									onBlur={(value) => updateSettings({ sideApiKey: value }, true)}
 									placeholder={side_key_placeholder}
-									disabled={settings.useMainAsSide}
+									disabled={settings.useMainAsSide || (() => {
+										const selectedModel = availableModels.find(m => m.model_id === settings.llmModel2);
+										return settings.llmModel2.toLowerCase().includes('local') || selectedModel?.model_name.toLowerCase().includes('local');
+									})()}
 								/>
 							</div>
 						</div>
